@@ -714,8 +714,8 @@ def publish_status(status, topic):
     client = get_mqtt_client()
 
     try:
-        mqtt_broker = os.environ.get('HUAWEI_MODBUS_MQTT_BROKER')
-        mqtt_port = int(os.environ.get('HUAWEI_MODBUS_MQTT_PORT', '1883'))
+        mqtt_broker = os.environ.get("HUAWEI_MODBUS_MQTT_BROKER")
+        mqtt_port = int(os.environ.get("HUAWEI_MODBUS_MQTT_PORT", "1883"))
 
         client.connect(mqtt_broker, mqtt_port, 60)
         client.publish(f"{topic}/status", status, retain=True)

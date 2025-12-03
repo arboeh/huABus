@@ -27,7 +27,7 @@ This add-on connects to your Huawei Solar inverter via Modbus TCP and publishes 
 ## Installation
 
 1. Add this repository to your Home Assistant instance:
-   
+
    [![Add Repository][repository-badge]][repository-url]
 
 2. Click on "Huawei Solar Modbus to MQTT" in the add-on store
@@ -39,11 +39,13 @@ This add-on connects to your Huawei Solar inverter via Modbus TCP and publishes 
 
 ## Configuration
 
-modbus_host: "192.168.1.100"  
-modbus_port: 502  
-modbus_device_id: 1  
-mqtt_topic: "huawei-solar"  
-debug: false  
+    modbus_host: "192.168.1.100"
+    modbus_port: 502
+    modbus_device_id: 1
+    mqtt_topic: "huawei-solar"
+    debug: false
+    status_timeout: 180
+    poll_interval: 60
 
 ### Option: `modbus_host`
 
@@ -68,6 +70,7 @@ Enable debug logging (default: false).
 ## MQTT Configuration
 
 The add-on automatically uses the MQTT broker configured in Home Assistant. No additional MQTT configuration needed!
+
 ## License
 
 MIT License
