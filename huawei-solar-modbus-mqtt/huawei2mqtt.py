@@ -85,7 +85,7 @@ def heartbeat(topic: str):
         )
 
 
-if __name__ == "__main__":
+async def main():
     init()
 
     topic = os.environ.get("HUAWEI_MODBUS_MQTT_TOPIC")
@@ -109,35 +109,41 @@ if __name__ == "__main__":
 
     wait = int(os.environ.get("HUAWEI_POLL_INTERVAL", "60"))
 
-    # Bridge einmalig erstellen
+    # Bridge einmalig im selben Event Loop erstellen
     try:
-        bridge = asyncio.run(HuaweiSolarBridge.create(
+        bridge = await HuaweiSolarBridge.create(
             modbus_host,
             modbus_port,
             slave_id=slave_id,
-        ))
+        )
     except Exception as e:
         logging.error("Failed to create HuaweiSolarBridge: %s", e)
         publish_status("offline", topic)
-        sys.exit(1)
+        return
 
     try:
         while True:
             try:
-                asyncio.run(main_once(bridge))
+                await main_once(bridge)
             except Exception as e:
                 logging.error("Read/publish failed (%s): %s",
                               type(e).__name__, e)
                 publish_status("offline", topic)
-                time.sleep(10)
+                await asyncio.sleep(10)  # kurzer Backoff
             finally:
                 heartbeat(topic)
-                time.sleep(wait)
-    except KeyboardInterrupt:
+                await asyncio.sleep(wait)
+    except asyncio.CancelledError:
         logging.info("Shutting down gracefully...")
         publish_status("offline", topic)
-        sys.exit(0)
     except Exception as e:
         logging.error(f"Fatal error: {e}")
         publish_status("offline", topic)
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logging.info("Interrupted by user, exiting...")
