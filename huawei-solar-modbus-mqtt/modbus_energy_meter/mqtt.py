@@ -12,34 +12,34 @@ def logger():
 def get_mqtt_client():
     """Create and configure MQTT client"""
     client = mqtt.Client()
-    
+
     mqtt_user = os.environ.get('HUAWEI_MODBUS_MQTT_USER')
     mqtt_password = os.environ.get('HUAWEI_MODBUS_MQTT_PASSWORD')
-    
+
     if mqtt_user and mqtt_password:
         client.username_pw_set(mqtt_user, mqtt_password)
-    
+
     return client
 
 
 def publish_discovery_configs(base_topic):
     """Publish Home Assistant MQTT Discovery configs"""
-    
+
     client = get_mqtt_client()
-    
+
     try:
         mqtt_broker = os.environ.get('HUAWEI_MODBUS_MQTT_BROKER')
         mqtt_port = int(os.environ.get('HUAWEI_MODBUS_MQTT_PORT', '1883'))
-        
+
         client.connect(mqtt_broker, mqtt_port, 60)
-        
+
         device_config = {
             "identifiers": ["huawei_solar_modbus"],
             "name": "Huawei Solar Inverter",
             "model": "SUN2000",
             "manufacturer": "Huawei"
         }
-        
+
         sensors = [
             # Power
             {
@@ -89,7 +89,7 @@ def publish_discovery_configs(base_topic):
                 "device_class": "power",
                 "state_class": "measurement"
             },
-            
+
             # Energy
             {
                 "name": "Solar Daily Yield",
@@ -149,7 +149,7 @@ def publish_discovery_configs(base_topic):
                 "device_class": "energy",
                 "state_class": "total_increasing"
             },
-            
+
             # Battery
             {
                 "name": "Battery SOC",
@@ -159,7 +159,7 @@ def publish_discovery_configs(base_topic):
                 "state_class": "measurement",
                 "icon": "mdi:battery"
             },
-            
+
             # Voltage
             {
                 "name": "Grid Voltage Phase A",
@@ -196,7 +196,7 @@ def publish_discovery_configs(base_topic):
                 "device_class": "voltage",
                 "state_class": "measurement"
             },
-            
+
             # Current
             {
                 "name": "PV1 Current",
@@ -233,7 +233,7 @@ def publish_discovery_configs(base_topic):
                 "device_class": "current",
                 "state_class": "measurement"
             },
-            
+
             # Other
             {
                 "name": "Inverter Temperature",
@@ -277,10 +277,10 @@ def publish_discovery_configs(base_topic):
                 "state_class": "measurement"
             },
         ]
-        
+
         for sensor in sensors:
             config_topic = f"homeassistant/sensor/huawei_solar/{sensor['key']}/config"
-            
+
             config = {
                 "name": sensor["name"],
                 "unique_id": f"huawei_solar_{sensor['key']}",
@@ -291,7 +291,7 @@ def publish_discovery_configs(base_topic):
                 "payload_not_available": "offline",
                 "device": device_config
             }
-            
+
             # Add optional fields
             if "unit" in sensor:
                 config["unit_of_measurement"] = sensor["unit"]
@@ -301,10 +301,10 @@ def publish_discovery_configs(base_topic):
                 config["state_class"] = sensor["state_class"]
             if "icon" in sensor:
                 config["icon"] = sensor["icon"]
-            
+
             client.publish(config_topic, json.dumps(config), retain=True)
             logger().debug(f"Published discovery config for {sensor['name']}")
-        
+
         # Binary sensor for connectivity
         status_config = {
             "name": "Huawei Solar Status",
@@ -320,10 +320,10 @@ def publish_discovery_configs(base_topic):
             json.dumps(status_config),
             retain=True
         )
-        
+
         client.disconnect()
         logger().info("Successfully published all MQTT Discovery configs")
-        
+
     except Exception as e:
         logger().error(f"Error publishing discovery configs: {e}")
         raise
@@ -332,23 +332,23 @@ def publish_discovery_configs(base_topic):
 def publish_data(data, topic):
     """Publish sensor data to MQTT"""
     client = get_mqtt_client()
-    
+
     try:
         mqtt_broker = os.environ.get('HUAWEI_MODBUS_MQTT_BROKER')
         mqtt_port = int(os.environ.get('HUAWEI_MODBUS_MQTT_PORT', '1883'))
-        
+
         client.connect(mqtt_broker, mqtt_port, 60)
-        
+
         # Add metadata
         data['last_update'] = int(time.time())
         data['status'] = 'online'
-        
+
         # Publish data
         client.publish(topic, json.dumps(data))
-        
+
         client.disconnect()
         logger().debug(f"Published data to MQTT topic {topic}")
-        
+
     except Exception as e:
         logger().error(f"Error publishing data to MQTT: {e}")
         raise
@@ -357,16 +357,16 @@ def publish_data(data, topic):
 def publish_status(status, topic):
     """Publish status message (online/offline)"""
     client = get_mqtt_client()
-    
+
     try:
         mqtt_broker = os.environ.get('HUAWEI_MODBUS_MQTT_BROKER')
         mqtt_port = int(os.environ.get('HUAWEI_MODBUS_MQTT_PORT', '1883'))
-        
+
         client.connect(mqtt_broker, mqtt_port, 60)
         client.publish(f"{topic}/status", status, retain=True)
         client.disconnect()
-        
+
         logger().debug(f"Published status '{status}' to MQTT")
-        
+
     except Exception as e:
         logger().error(f"Error publishing status to MQTT: {e}")

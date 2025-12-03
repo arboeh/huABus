@@ -39,12 +39,11 @@ This add-on connects to your Huawei Solar inverter via Modbus TCP and publishes 
 
 ## Configuration
 
-modbus_host: "192.168.1.100"
-modbus_port: 502
-modbus_device_id: 1
-mqtt_topic: "huawei-solar"
-debug: false
-
+modbus_host: "192.168.1.100"  
+modbus_port: 502  
+modbus_device_id: 1  
+mqtt_topic: "huawei-solar"  
+debug: false  
 
 ### Option: `modbus_host`
 

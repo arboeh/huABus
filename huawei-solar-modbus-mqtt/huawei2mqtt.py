@@ -38,16 +38,17 @@ async def main():
             slave_id=modbus_slave_id,
         )
 
-        logging.info(f"Successfully connected to inverter at {os.environ.get('HUAWEI_MODBUS_HOST')}")
-        
+        logging.info(
+            f"Successfully connected to inverter at {os.environ.get('HUAWEI_MODBUS_HOST')}")
+
         data = await bridge.update()
         mqtt_data = transform_result(data)
 
         mqtt_publish_data(mqtt_data, topic)
         publish_status('online', topic)
-        
+
         logging.info("Successfully published data to MQTT")
-        
+
     except Exception as e:
         logging.error(f"Error querying inverter or publishing to MQTT: {e}")
         publish_status('offline', topic)
@@ -56,40 +57,40 @@ async def main():
 
 if __name__ == "__main__":
     init()
-    
+
     topic = os.environ.get('HUAWEI_MODBUS_MQTT_TOPIC')
-    
+
     logging.info("Huawei Solar Modbus to MQTT started")
-    
+
     # Publish MQTT Discovery configs once at startup
     try:
         publish_discovery_configs(topic)
         logging.info("MQTT Discovery configs published")
     except Exception as e:
         logging.error(f"Failed to publish MQTT Discovery configs: {e}")
-    
+
     # Publish initial online status
     publish_status('online', topic)
-    
+
     last_run = 0
     wait = 60
-    
+
     try:
         while True:
             if last_run > 0 and (time.time() - last_run < wait):
                 sleep_time = max(2, int(wait - (time.time() - last_run)))
                 logging.debug(f"Sleeping for {sleep_time} seconds")
                 time.sleep(sleep_time)
-            
+
             last_run = time.time()
-            
+
             try:
                 asyncio.run(main())
             except Exception as e:
                 logging.error(f"Error in main loop: {e}")
                 # Continue running even after errors
                 time.sleep(10)
-            
+
     except KeyboardInterrupt:
         logging.info("Shutting down gracefully...")
         publish_status('offline', topic)
