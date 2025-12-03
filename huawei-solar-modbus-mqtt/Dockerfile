@@ -13,6 +13,12 @@ WORKDIR /app
 COPY requirements.txt /app/
 RUN pip3 install --break-system-packages --no-cache-dir -r requirements.txt
 
+# --- Patch huawei_solar: tolerate unknown enum values ---
+# Falls dein Image eine andere Python-Version nutzt, ggf. 3.11/3.10 anpassen
+RUN sed -i \
+    "s/result = self.unit[result]/result = self.unit.get(result, result)/" \
+    /usr/lib/python3.12/site-packages/huawei_solar/registers.py
+
 # Copy application files
 COPY modbus_energy_meter /app/modbus_energy_meter
 COPY huawei2mqtt.py /app/
