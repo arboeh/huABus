@@ -46,7 +46,6 @@ Home Assistant Add-on: Huawei SUN2000 Inverter via Modbus TCP → MQTT with Auto
 - `huawei-solar/status` (online/offline)
 
 ## Support
-- [GitHub Issues](https://github.com/arboeh/homeassistant-huawei-solar-addon/issues)
 - [HA Community](https://community.home-assistant.io)
 
 **Based on [huawei-solar-modbus-to-mqtt](https://github.com/mjaschen/huawei-solar-modbus-to-mqtt)**

@@ -45,7 +45,6 @@ Home Assistant Add-on: Huawei SUN2000 Wechselrichter per Modbus TCP → MQTT mit
 - `huawei-solar/status` (online/offline)
 
 ## Support
-- [GitHub Issues](https://github.com/arboeh/homeassistant-huawei-solar-addon/issues)
 - [HA Community](https://community.home-assistant.io)
 
 **Basierend auf [huawei-solar-modbus-to-mqtt](https://github.com/mjaschen/huawei-solar-modbus-to-mqtt)**
