@@ -10,6 +10,15 @@
 ### Changed
 - [ ] Änderungen hier dokumentieren
 
+## [1.0.0] - 2025-12-04
+### Added
+- Erste stabile Version des Add-ons
+- Versionierung und Release-Workflow mit GitHub Actions
+- Badge für aktuelle Release-Version in der README
+
+### Changed
+- Wechsel von 0.9.0-beta auf 1.0.0 ohne Breaking Changes
+
 ## [0.9.0-beta] - 2025-12-03
 ### Added
 - Initial beta release
@@ -27,4 +36,6 @@
 - Icon benötigt noch Verfeinerung
 - Erweiterte Tests laufen noch
 
-[Unreleased]: https://github.com/arboeh/homeassistant-huawei-solar-addon/compare/v0.9.0-beta...main
+[Unreleased]: https://github.com/arboeh/homeassistant-huawei-solar-addon/compare/v1.0.0...main
+[1.0.0]: https://github.com/arboeh/homeassistant-huawei-solar-addon/releases/tag/v1.0.0
+[0.9.0-beta]: https://github.com/arboeh/homeassistant-huawei-solar-addon/releases/tag/v0.9.0-beta
