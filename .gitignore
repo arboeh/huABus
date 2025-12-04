@@ -1,2 +1,3 @@
-# VS Code settings
-.vscode/
+.gitignore
+.vscode/code-explorer.json
+.vscode/settings.json

@@ -1,0 +1,28 @@
+name: Release Please
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/release-please-action@v4
+        id: release
+        with:
+          release-type: simple
+          package-name: 'homeassistant-huawei-solar-addon'
+          changelog-types: '[{"type":"feat","section":"Features","hidden":false},{"type":"fix","section":"Bug Fixes","hidden":false},{"type":"docs","section":"Documentation","hidden":false}]'
+      - uses: actions/checkout@v4
+        if: ${{ steps.release.outputs.release_created }}
+      - name: Update config.yaml version
+        if: ${{ steps.release.outputs.release_created }}
+        run: |
+          sed -i 's/version: .*/version: ${{ steps.release.outputs.tag_name }}/' huawei-solar-modbus-mqtt/config.yaml
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add huawei-solar-modbus-mqtt/config.yaml
+          git commit -m "chore: update version to ${{ steps.release.outputs.tag_name }}"
+          git push
