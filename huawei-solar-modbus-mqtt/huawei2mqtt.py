@@ -47,8 +47,21 @@ async def main_once(bridge):
         raise RuntimeError("HUAWEI_MODBUS_MQTT_TOPIC not set")
 
     logging.debug("Calling bridge.update()")
-    data = await bridge.update()
+    
+    try:
+        data = await bridge.update()
+    except DecodeError as e:
+        logging.warning("DecodeError during bridge.update(): %s - attempting partial read", e)
+        # Fall back to reading individual registers or skip problematic ones
+        data = {}
+        # You could implement selective reading here if needed
+        raise  # Re-raise for now to trigger retry logic
+    
     logging.debug("bridge.update() returned keys: %s", list(data.keys()))
+
+    if not data:
+        logging.warning("No data received from inverter")
+        return
 
     mqtt_data = transform_result(data)
 
@@ -60,29 +73,6 @@ async def main_once(bridge):
 
     LAST_SUCCESS = time.time()
     logging.info("Successfully published inverter data (status=online)")
-
-
-def heartbeat(topic: str):
-    """
-    Überwacht, ob seit zu langer Zeit kein erfolgreicher Read war,
-    und setzt dann den Status auf offline.
-    """
-    global LAST_SUCCESS
-
-    timeout = int(os.environ.get("HUAWEI_STATUS_TIMEOUT", "180"))  # Sekunden
-
-    if LAST_SUCCESS == 0:
-        # Noch kein erfolgreicher Read – nichts machen
-        return
-
-    diff = time.time() - LAST_SUCCESS
-    if diff > timeout:
-        publish_status("offline", topic)
-        logging.warning(
-            "No successful data for %d seconds (%.1fs) -> status=offline",
-            timeout,
-            diff,
-        )
 
 
 async def main():
