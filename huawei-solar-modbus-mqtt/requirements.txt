@@ -1,8 +1,8 @@
 backoff==2.2.1
-huawei-solar==2.2.9
+huawei-solar>=2.3.0
 paho-mqtt==1.6.1
-pymodbus==3.5.4
+pymodbus>=3.8.6
 pyserial==3.5
 pyserial-asyncio==0.6
 python-dotenv==1.0.0
-pytz==2023.3.post1
+pytz==2024.2
