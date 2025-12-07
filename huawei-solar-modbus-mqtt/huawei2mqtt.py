@@ -5,7 +5,7 @@ import sys
 import time
 import traceback
 
-from huawei_solar import HuaweiSolarBridge
+from huawei_solar import AsyncHuaweiSolar
 from huawei_solar.exceptions import DecodeError, ReadException
 from dotenv import load_dotenv
 from modbus_energy_meter.mqtt import (
@@ -47,21 +47,33 @@ def heartbeat(topic):
         logging.warning("No successful data for %d seconds -> status=offline", timeout)
 
 
-async def main_once(bridge):
+async def main_once(client):
     global LAST_SUCCESS
     topic = os.environ.get("HUAWEI_MODBUS_MQTT_TOPIC")
     if not topic:
         raise RuntimeError("HUAWEI_MODBUS_MQTT_TOPIC not set")
 
-    logging.debug("Calling bridge.update()")
+    logging.debug("Reading inverter data")
 
+    # Hier müssen wir die Register einzeln oder in Gruppen lesen
+    # Da bridge.update() nicht mehr verfügbar ist
     try:
-        data = await bridge.update()
+        from huawei_solar.registers import REGISTERS
+        
+        data = {}
+        for register in REGISTERS:
+            try:
+                value = await client.get(register.register)
+                data[register.name] = value
+            except Exception as e:
+                logging.debug("Failed to read register %s: %s", register.name, e)
+                continue
+                
     except DecodeError as e:
-        logging.warning("DecodeError during bridge.update(): %s", e)
+        logging.warning("DecodeError during data read: %s", e)
         raise
 
-    logging.debug("bridge.update() returned keys: %s", list(data.keys()))
+    logging.debug("Read %d register values", len(data))
 
     if not data:
         logging.warning("No data received from inverter")
@@ -96,13 +108,12 @@ async def main():
         logging.error("Failed to publish MQTT Discovery configs: %s", e)
 
     wait = int(os.environ.get("HUAWEI_POLL_INTERVAL", "60"))
-    update_lock = asyncio.Lock()
 
     try:
-        bridge = await HuaweiSolarBridge.create(modbus_host, modbus_port, slave_id, update_lock)
-        logging.info("HuaweiSolarBridge created successfully")
+        client = await AsyncHuaweiSolar.create(modbus_host, modbus_port, slave_id)  # <-- Geändert
+        logging.info("AsyncHuaweiSolar client created successfully")
     except Exception as e:
-        logging.error("Failed to create HuaweiSolarBridge: %s", e)
+        logging.error("Failed to create AsyncHuaweiSolar: %s", e)
         logging.debug("Error details: %s", str(e))
         publish_status("offline", topic)
         return
@@ -110,7 +121,7 @@ async def main():
     try:
         while True:
             try:
-                await main_once(bridge)
+                await main_once(client)
             except DecodeError as e:
                 logging.error("DecodeError: %s", e)
                 publish_status("offline", topic)
