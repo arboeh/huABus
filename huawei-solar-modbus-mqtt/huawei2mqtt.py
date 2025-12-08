@@ -107,6 +107,60 @@ def heartbeat(topic: str):
         )
 
 
+async def read_registers_batched(client: AsyncHuaweiSolar, batch_size: int = 20):
+    """
+    Lese alle Register parallel in Batches für bessere Performance und Stabilität.
+
+    Args:
+        client: AsyncHuaweiSolar client
+        batch_size: Register pro Batch (20 empfohlen)
+
+    Returns:
+        dict: {register_name: value} für erfolgreiche Reads
+    """
+    from huawei_solar.registers import REGISTERS
+
+    register_list = list(REGISTERS.keys())
+    all_data = {}
+    total_batches = (len(register_list) + batch_size - 1) // batch_size
+
+    logger.debug(
+        "Starting batched read: %d registers in %d batches of %d",
+        len(register_list), total_batches, batch_size
+    )
+
+    for i in range(0, len(register_list), batch_size):
+        batch = register_list[i:i + batch_size]
+        batch_num = (i // batch_size) + 1
+
+        batch_start = time.time()
+
+        # Parallel requests für diesen Batch
+        tasks = [client.get(name) for name in batch]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Ergebnisse verarbeiten
+        successful = 0
+        for name, result in zip(batch, results):
+            if isinstance(result, Exception):
+                logger.debug("Failed %s: %s", name, type(result).__name__)
+            else:
+                all_data[name] = result
+                successful += 1
+
+        batch_duration = time.time() - batch_start
+        logger.debug(
+            "Batch %d/%d: %d/%d successful in %.2fs",
+            batch_num, total_batches, successful, len(batch), batch_duration
+        )
+
+        # Kurze Pause zwischen Batches
+        if batch_num < total_batches:
+            await asyncio.sleep(0.1)
+
+    return all_data
+
+
 async def main_once(client: AsyncHuaweiSolar):
     """
     Ein einzelner Read-Publish-Zyklus.
@@ -124,31 +178,18 @@ async def main_once(client: AsyncHuaweiSolar):
     logger.debug("Starting data acquisition cycle")
 
     try:
-        from huawei_solar.registers import REGISTERS
-
-        # Modbus-Read mit Zeitmessung
+        # Parallele batched Modbus-Reads
         modbus_start = time.time()
-
-        data = {}
-        successful_reads = 0
-        failed_reads = 0
-
-        for register_name in REGISTERS:
-            try:
-                value = await client.get(register_name)
-                data[register_name] = value
-                successful_reads += 1
-                logger.debug(f"Read {register_name}: {value}")
-            except Exception as e:
-                failed_reads += 1
-                logger.debug(f"Failed to read register {register_name}: {e}")
-                continue
-
+        data = await read_registers_batched(client, batch_size=20)
         modbus_duration = time.time() - modbus_start
 
-        logger.debug(
-            f"Modbus read completed in {modbus_duration:.3f}s "
-            f"({successful_reads} successful, {failed_reads} failed)"
+        from huawei_solar.registers import REGISTERS
+        successful_reads = len(data)
+        failed_reads = len(REGISTERS) - successful_reads
+
+        logger.info(
+            "Parallel Modbus read completed in %.1fs (%d successful, %d failed)",
+            modbus_duration, successful_reads, failed_reads
         )
 
     except DecodeError as e:
@@ -185,26 +226,26 @@ async def main_once(client: AsyncHuaweiSolar):
     # Gesamt-Zyklus-Zeit
     cycle_duration = time.time() - cycle_start
 
-    # Strukturierte Info-Meldung mit wichtigen Werten
+    # Strukturierte Info-Meldung
     logger.info(
-        f"Data published - Solar: {mqtt_data.get('power_active', 0)}W | "
-        f"Grid: {mqtt_data.get('meter_power_active', 0)}W | "
-        f"Battery: {mqtt_data.get('battery_power', 0)}W ({mqtt_data.get('battery_soc', 0)}%)"
+        "Data published - Solar: %dW | Grid: %dW | Battery: %dW (%.1f%%)",
+        mqtt_data.get('power_active', 0),
+        mqtt_data.get('meter_power_active', 0),
+        mqtt_data.get('battery_power', 0),
+        mqtt_data.get('battery_soc', 0)
     )
 
-    # Detaillierte Zyklus-Informationen nur bei DEBUG
     logger.debug(
-        f"Cycle complete in {cycle_duration:.3f}s "
-        f"(Modbus: {modbus_duration:.3f}s, Transform: {transform_duration:.3f}s, "
-        f"MQTT: {mqtt_duration:.3f}s)"
+        "Cycle complete in %.3fs (Modbus: %.3fs, Transform: %.3fs, MQTT: %.3fs)",
+        cycle_duration, modbus_duration, transform_duration, mqtt_duration
     )
 
-    # Performance-Warnung bei langsamen Zyklen
+    # Performance-Warnung
     poll_interval = int(os.environ.get("HUAWEI_POLL_INTERVAL", "60"))
     if cycle_duration > poll_interval * 0.8:
         logger.warning(
-            f"Cycle took {cycle_duration:.1f}s - close to poll_interval ({poll_interval}s). "
-            "Consider increasing poll_interval."
+            "Cycle took %.1fs - close to poll_interval (%ds). Consider increasing.",
+            cycle_duration, poll_interval
         )
 
 
