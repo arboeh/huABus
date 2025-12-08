@@ -1,4 +1,3 @@
-# run.sh
 #!/usr/bin/with-contenv bashio
 
 bashio::log.info "🚀 Starte Huawei Solar Modbus to MQTT Addon..."
@@ -44,7 +43,7 @@ fi
 # Debug Mode + Log-Level Kompatibilität
 if bashio::config.true 'debug'; then
     export HUAWEI_MODBUS_DEBUG="yes"
-    export HUAWEI_LOG_LEVEL="DEBUG"
+    export HUAWEI_LOG_LEVEL="DEBUG"  # ← v1.0.6: Überschreibt log_level
     bashio::log.level "debug"
     bashio::log.debug "Debug mode enabled (legacy flag)"
 else
@@ -56,5 +55,5 @@ bashio::log.info "Modbus Slave ID: ${HUAWEI_MODBUS_DEVICE_ID}"
 bashio::log.info "MQTT Topic: ${HUAWEI_MODBUS_MQTT_TOPIC}"
 bashio::log.info "Poll interval: ${HUAWEI_POLL_INTERVAL}s"
 
-# Start application
-exec python3 -u /app/huawei2mqtt.py 2>&1
+# 🚀 Start application - GENAU WIE ES FRÜHER FUNKTIONIERT HAT!
+python3 -u /app/huawei2mqtt.py
