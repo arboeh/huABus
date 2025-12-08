@@ -11,9 +11,7 @@ logger = logging.getLogger("huawei.mqtt")
 
 def get_mqtt_client():
     """Create and configure MQTT client with LWT."""
-
     logger.debug("Creating MQTT client")
-
     client = mqtt.Client()
 
     mqtt_user = os.environ.get("HUAWEI_MODBUS_MQTT_USER")
@@ -24,16 +22,17 @@ def get_mqtt_client():
         logger.debug(f"MQTT authentication configured for user: {mqtt_user}")
     else:
         logger.debug("MQTT authentication not configured (no credentials)")
-        logger.debug(
-            f"MQTT Last Will Testament set for topic: {base_topic}/status")
 
+    # ✅ KORREKT: base_topic IMMER vor Verwendung abrufen!
     base_topic = os.environ.get("HUAWEI_MODBUS_MQTT_TOPIC")
     if base_topic:
         # LWT: Falls der Client unerwartet disconnected, setzt der Broker den Status auf offline
         client.will_set(f"{base_topic}/status", payload="offline", retain=True)
+        logger.debug(f"MQTT Last Will Testament set for topic: {base_topic}/status")
+    else:
+        logger.warning("HUAWEI_MODBUS_MQTT_TOPIC not set - LWT disabled")
 
     return client
-
 
 def publish_discovery_configs(base_topic):
     """Publish Home Assistant MQTT Discovery configs for all sensors"""
