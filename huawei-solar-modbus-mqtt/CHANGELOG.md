@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.1.2] - 2025-12-08
+### 🧹 **CODE QUALITY & BUG FIXES**
+
+### Changed
+- **Code-Refactoring:** Alle Python-Dateien aufgeräumt (-32% Zeilen)
+  - `huawei2mqtt.py`: Entfernung ungenutzter Imports (`traceback`)
+  - `mqtt.py`: Konsistente Formatierung, präzisere Type Hints
+  - `transform.py`: Kompakteres Register-Mapping, bessere Lesbarkeit
+- **Dockerfile:** Dynamische Python-Version für Library-Patching
+  - Funktioniert jetzt mit Python 3.10/3.11/3.12/3.13+
+  - Health Check hinzugefügt (prüft Python-Prozess)
+  - Metadata Labels für Home Assistant
+- **run.sh:** Verbesserte MQTT-Fallback-Logik
+  - Prüft ob Config-Werte nicht-leer sind vor Verwendung
+  - Übersichtlichere Startup-Logs mit Trennlinien
+- **config.yaml:** MQTT-Defaults hinzugefügt (`core-mosquitto:1883`)
+  - Schema-Validierung mit sinnvollen Ranges
+  - `startup: services` und `boot: auto` Optionen
+
+### Fixed
+- **Doppelte Mapping-Keys in `transform.py` entfernt**
+  - `grid_A_voltage` hatte 2 verschiedene Ziele (Konflikt)
+  - Python-Dicts können nur 1 Wert pro Key haben
+- **Empty-String-Handling in MQTT-Konfiguration**
+  - Leere Strings (`''`) werden jetzt als "nicht gesetzt" erkannt
+  - Korrekter Fallback zu HA MQTT Service
+
+### Technical Debt
+- PEP8-Formatierung durchgehend angewendet
+- Konsistente 4-Space-Einrückung
+- Reduzierte Code-Duplikation
+
+---
+
 ## [1.1.1] - 2025-12-08
 ### 🚀 **ULTIMATIVE PERFORMANCE-OPTIMIERUNG**
 
@@ -18,44 +52,31 @@
 ---
 
 ## [1.1.0] - 2025-12-08
-
 ### ✨ MAJOR PERFORMANCE UPGRADE (240s → 30s)
 **8x schneller durch parallele Modbus-Requests!**
 
 ### Added
 - **`read_registers_batched()` Funktion:** Parallele Register-Reads in Batches
-  - **Performance-Boost:** 240s → 30-45s pro Cycle (8x schneller!)
-  - **Batch-Verarbeitung:** 20 Register parallel pro Batch (konfigurierbar)
-  - **Stabile parallele Ausführung:** `asyncio.gather()` mit `return_exceptions=True`
-- **Batch-Monitoring:** Detaillierte Logs pro Batch
-
-      Batch 1/8: 20/20 successful in 1.23s
-      Batch 2/8: 19/20 successful in 1.45s
-
+  - Performance-Boost: 240s → 30-45s pro Cycle (8x schneller!)
+  - Batch-Verarbeitung: 20 Register parallel pro Batch (konfigurierbar)
+  - Stabile parallele Ausführung: `asyncio.gather()` mit `return_exceptions=True`
+- **Batch-Monitoring:** Detaillierte Logs pro Batch (`Batch 1/8: 20/20 successful in 1.23s`)
 - **Inter-Batch-Pausen:** 100ms zwischen Batches verhindert Inverter-Überlastung
 
 ### Changed
-- **`main_once()` komplett überarbeitet:**
+- **`main_once()` komplett überarbeitet**
 - Sequenzielle `for register in REGISTERS` → **`read_registers_batched()`**
-- **Cycle-Time:** 240s → 30-45s
+- Cycle-Time: 240s → 30-45s
 - Verbesserte Performance-Logs mit Batch-Statistiken
-- **`poll_interval: 60s`** jetzt realistisch (vorher unmöglich bei 240s Cycles)
+- `poll_interval: 60s` jetzt realistisch (vorher unmöglich bei 240s Cycles)
 
-### Resultat
-
-    Vorher: Alle 4-5 Minuten Daten
-    Nachher: Alle 1-1.5 Minuten Daten
-    Effektive Rate: 4x häufiger!
+---
 
 ## [1.0.7] - 2025-12-08
-
 ### Fixed
 - **Kritischer Fix:** `UnboundLocalError` in `mqtt.py::get_mqtt_client()`
-  - `base_topic` vor Definition verwendet → korrekte Reihenfolge
 - **bashio-Kompatibilität:** `#!/usr/bin/with-contenv bashio` Shebang
-  - Behebt `bashio::log.info/config: not found` Errors
 - **Python Logging:** Vollständige Handler-Initialisierung
-  - `huawei.main/mqtt/transform` Logs jetzt sichtbar
 - **ENV-Variablen:** Robuste Validierung/Fallbacks
 
 ### Changed
@@ -66,8 +87,9 @@
 - Automatische StreamHandler für modulare Logger
 - ENV-Variablen-Debug in `init()`
 
-## [1.0.6] - 2025-12-08
+---
 
+## [1.0.6] - 2025-12-08
 ### Added
 - Detailiertes ENV-Variablen-Debug-Logging
 - Performance-Metriken (Modbus/Transform/MQTT Timings)
@@ -81,8 +103,9 @@
 - `HUAWEI_LOG_LEVEL` korrekt gesetzt
 - `AsyncHuaweiSolar` API vollständig
 
-## [1.0.5] - 2025-12-08
+---
 
+## [1.0.5] - 2025-12-08
 ### Added
 - Pymodbus Log-Level-Kontrolle
 - MQTT `retain=True` für Integrationen
@@ -99,8 +122,9 @@
 - `strconv.ParseFloat: "<nil>"` Fehler
 - Übermäßige pymodbus ERROR-Logs
 
-## [1.0.4] - 2025-12-08
+---
 
+## [1.0.4] - 2025-12-08
 ### Added
 - Konfigurierbarer `log_level` (DEBUG/INFO/WARNING/ERROR)
 - Modulare Logger (`huawei.main/mqtt/transform`)
@@ -116,8 +140,9 @@
 ### Removed
 - Unnötige `transform.py` Hilfsfunktionen
 
-## [1.0.3] - 2025-12-07
+---
 
+## [1.0.3] - 2025-12-07
 ### Fixed
 - `HuaweiSolarBridge` → `AsyncHuaweiSolar` Migration
 - Bridge-Instantiierungsfehler
@@ -127,8 +152,9 @@
 - Registerbasiertes `AsyncHuaweiSolar.get()`
 - Erweiterte fehlgeschlagene Register Logs
 
-## [1.0.2] - 2025-12-06
+---
 
+## [1.0.2] - 2025-12-06
 ### Fixed
 - `HuaweiSolarBridge.create()` Parameter
 - DecodeError Unit-Code 780
@@ -140,8 +166,9 @@
 - `pymodbus` >=3.8.6
 - Separate Exception-Behandlung
 
-## [1.0.1] - 2025-12-05
+---
 
+## [1.0.1] - 2025-12-05
 ### Fixed
 - DecodeError für unbekannte Register
 - Modbus-Kommunikation verbessert
@@ -150,8 +177,9 @@
 - huawei-solar Library Update
 - Erweiterte Logging-Ausgaben
 
-## [1.0.0] - 2025-12-04
+---
 
+## [1.0.0] - 2025-12-04
 ### Added
 - Erste stabile Version
 - GitHub Actions Release-Workflow
@@ -160,8 +188,9 @@
 ### Changed
 - 0.9.0-beta → 1.0.0 (keine Breaking Changes)
 
-## [0.9.0-beta] - 2025-12-03
+---
 
+## [0.9.0-beta] - 2025-12-03
 ### Added
 - Initial beta release
 - Modbus TCP Huawei Solar Inverter
