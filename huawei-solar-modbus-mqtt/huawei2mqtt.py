@@ -20,15 +20,48 @@ logger = logging.getLogger("huawei.main")
 
 # KONFIGURATION
 ESSENTIAL_REGISTERS = [
-    "active_power", "input_power", "active_grid_power_peak",
-    "storage_charge_discharge_power", "storage_state_of_capacity",
-    "daily_yield_energy", "accumulated_yield_energy",
-    "grid_exported_energy", "grid_accumulated_energy",
-    "storage_day_charge", "storage_day_discharge",
-    "pv_01_power", "pv_01_voltage", "pv_01_current",
-    "internal_temperature", "efficiency",
-    "grid_A_voltage", "grid_B_voltage", "grid_C_voltage",
-    "grid_frequency", "day_active_power_peak",
+    # Power - Hauptdaten
+    "active_power",
+    "input_power",
+    "active_grid_power_peak",
+    "storage_charge_discharge_power",
+    "storage_state_of_capacity",
+    
+    # Energy - Ertrag & Grid
+    "daily_yield_energy",
+    "accumulated_yield_energy",
+    "grid_exported_energy",
+    "grid_accumulated_energy",
+    "storage_day_charge",
+    "storage_day_discharge",
+    
+    # PV String 1
+    "pv_01_power",
+    "pv_01_voltage",
+    "pv_01_current",
+    
+    # Inverter
+    "internal_temperature",
+    "efficiency",
+    "day_active_power_peak",
+    
+    # Grid - 3-Phase Voltage
+    "grid_A_voltage",
+    "grid_B_voltage",
+    "grid_C_voltage",
+    
+    # Grid - 3-Phase Current
+    "grid_A_current",
+    "grid_B_current",
+    "grid_C_current",
+    
+    # Grid - 3-Phase Power
+    "phase_A_active_power",
+    "phase_B_active_power",
+    "phase_C_active_power",
+    
+    # Grid - Frequency
+    "grid_frequency",
 ]
 
 LAST_SUCCESS = 0
