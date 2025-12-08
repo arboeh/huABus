@@ -23,7 +23,7 @@ def get_mqtt_client():
     else:
         logger.debug("MQTT authentication not configured (no credentials)")
 
-    # ✅ KORREKT: base_topic IMMER vor Verwendung abrufen!
+    # KORREKT: base_topic IMMER vor Verwendung abrufen!
     base_topic = os.environ.get("HUAWEI_MODBUS_MQTT_TOPIC")
     if base_topic:
         # LWT: Falls der Client unerwartet disconnected, setzt der Broker den Status auf offline
