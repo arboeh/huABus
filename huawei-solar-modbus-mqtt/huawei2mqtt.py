@@ -79,8 +79,6 @@ LAST_SUCCESS = 0
 
 def init_logging() -> None:
     """Initialisiert Logging mit ENV-Konfiguration."""
-    load_dotenv()
-
     log_level = _parse_log_level()
     _setup_root_logger(log_level)
     _configure_pymodbus(log_level)
