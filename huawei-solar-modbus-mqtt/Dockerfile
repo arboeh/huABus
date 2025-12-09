@@ -1,3 +1,4 @@
+# Dockerfile
 ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
 FROM ${BUILD_FROM}
 
@@ -15,7 +16,6 @@ COPY requirements.txt ./
 RUN pip3 install --break-system-packages --no-cache-dir -r requirements.txt
 
 # Patch huawei_solar library (tolerate unknown enum values)
-# Dynamically find Python version instead of hardcoded 3.12
 RUN PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')") && \
     REGISTERS_PATH="/usr/lib/python${PYTHON_VERSION}/site-packages/huawei_solar/registers.py" && \
     if [ -f "$REGISTERS_PATH" ]; then \
@@ -25,9 +25,8 @@ RUN PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{s
         echo "⚠ Warning: registers.py not found at $REGISTERS_PATH"; \
     fi
 
-# Copy application files
+# Copy application files (neue Struktur)
 COPY modbus_energy_meter ./modbus_energy_meter/
-COPY huawei2mqtt.py ./
 COPY run.sh /
 
 # Make run script executable
@@ -37,12 +36,12 @@ RUN chmod a+x /run.sh
 LABEL \
     io.hass.name="Huawei Solar Modbus to MQTT" \
     io.hass.description="Huawei Solar Inverter via Modbus to MQTT with auto-discovery" \
-    io.hass.version="1.1.1" \
+    io.hass.version="1.3.0" \
     io.hass.type="addon" \
     io.hass.arch="aarch64|amd64|armhf|armv7|i386"
 
-# Health check (optional - prüft ob Python-Prozess läuft)
+# Health check (prüft ob Python-Modul läuft)
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-    CMD pgrep -f "python3.*huawei2mqtt.py" > /dev/null || exit 1
+    CMD pgrep -f "python3.*modbus_energy_meter.main" > /dev/null || exit 1
 
 CMD ["/run.sh"]
