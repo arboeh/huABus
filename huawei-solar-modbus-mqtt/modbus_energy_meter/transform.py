@@ -1,299 +1,167 @@
 # transform.py
-import asyncio
 import logging
-import os
-import sys
 import time
-from typing import Dict, Any
-from huawei_solar import AsyncHuaweiSolar
-from huawei_solar.exceptions import DecodeError, ReadException
-from modbus_energy_meter.mqtt import (
-    publish_data as mqtt_publish_data,
-    publish_status,
-    publish_discovery_configs,
-)
-from modbus_energy_meter.transform import transform_result
+from typing import Dict, Any, Optional
 
-# Logger
-logger = logging.getLogger("huawei.main")
-
-ESSENTIAL_REGISTERS = [
-    # Power & Energy (8)
-    "active_power",
-    "input_power",
-    "storage_charge_discharge_power",
-    "storage_state_of_capacity",
-    "daily_yield_energy",
-    "accumulated_yield_energy",
-    "grid_exported_energy",
-    "grid_accumulated_energy",
-
-    # PV Strings 1-4 (8)
-    "pv_01_voltage", "pv_01_current",
-    "pv_02_voltage", "pv_02_current",
-    "pv_03_voltage", "pv_03_current",
-    "pv_04_voltage", "pv_04_current",
-
-    # Battery (4)
-    "storage_total_charge",
-    "storage_total_discharge",
-    "storage_bus_voltage",
-    "storage_bus_current",
-
-    # Grid 3-Phase (7)
-    "grid_A_voltage",
-    "grid_B_voltage",
-    "grid_C_voltage",
-    "line_voltage_A_B",
-    "line_voltage_B_C",
-    "line_voltage_C_A",
-    "grid_frequency",
-
-    # Inverter Performance (6)
-    "internal_temperature",
-    "day_active_power_peak",
-    "power_factor",
-    "efficiency",
-    "reactive_power",
-    "insulation_resistance",
-
-    # Status & State (3)
-    "device_status",
-    "state_1",
-    "state_2",
-
-    # Device Information (4)
-    "model_name",
-    "serial_number",
-    "rated_power",
-    "startup_time",
-
-    # Extended (2)
-    "storage_running_status",
-    "alarm_1",
-]
-
-LAST_SUCCESS = 0
+logger = logging.getLogger("huawei.transform")
 
 
-def init_logging() -> None:
-    """Initialisiert Logging mit ENV-Konfiguration."""
-    log_level = _parse_log_level()
-    _setup_root_logger(log_level)
-    _configure_pymodbus(log_level)
-    _configure_huawei_solar(log_level)
+def get_value(register_value: Any) -> Optional[Any]:
+    """Extract value from register object safely and filter invalid Modbus values."""
+    if register_value is None:
+        return None
 
-    logger.info(f"Logging initialized: {logging.getLevelName(log_level)}")
+    try:
+        # Extract value
+        if hasattr(register_value, 'value'):
+            value = register_value.value
+
+            if hasattr(value, 'name'):  # Enum
+                return value.name
+            if hasattr(value, 'isoformat'):  # Datetime
+                return value.isoformat()
+        else:
+            value = register_value
+
+        # Filter invalid Modbus values (silent)
+        if isinstance(value, (int, float)):
+            # Common Modbus "not available" markers
+            if value in (65535, 32767, -32768):
+                return None
+
+        return value
+
+    except Exception as e:
+        logger.warning(
+            f"Value extract failed: {type(register_value).__name__}: {e}")
+        return None
 
 
-def _parse_log_level() -> int:
-    """Parse HUAWEI_LOG_LEVEL oder Fallback."""
-    level_str = os.environ.get("HUAWEI_LOG_LEVEL", "INFO").upper()
-    level_map = {
-        "DEBUG": logging.DEBUG, "INFO": logging.INFO,
-        "WARNING": logging.WARNING, "ERROR": logging.ERROR
+def transform_result(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Transform Huawei register data to MQTT format."""
+    logger.debug(f"Transforming {len(data)} registers")
+    start = time.time()
+
+    # Complete register → MQTT key mapping
+    mapping = {
+        # Power
+        'active_power': 'power_active',
+        'input_power': 'power_input',
+        'day_active_power_peak': 'power_active_peak_day',
+        'reactive_power': 'power_reactive',
+
+        # Energy
+        'daily_yield_energy': 'energy_yield_day',
+        'accumulated_yield_energy': 'energy_yield_accumulated',
+        'grid_exported_energy': 'energy_grid_exported',
+        'grid_accumulated_energy': 'energy_grid_accumulated',
+        'grid_accumulated_reactive_power': 'energy_grid_accumulated_reactive',
+
+        # PV Strings
+        'pv_01_power': 'power_PV1',
+        'pv_01_voltage': 'voltage_PV1',
+        'pv_01_current': 'current_PV1',
+        'pv_02_power': 'power_PV2',
+        'pv_02_voltage': 'voltage_PV2',
+        'pv_02_current': 'current_PV2',
+        'pv_03_power': 'power_PV3',
+        'pv_03_voltage': 'voltage_PV3',
+        'pv_03_current': 'current_PV3',
+        'pv_04_power': 'power_PV4',
+        'pv_04_voltage': 'voltage_PV4',
+        'pv_04_current': 'current_PV4',
+
+        # Grid (3-phase)
+        'grid_A_voltage': 'voltage_grid_A',
+        'grid_A_current': 'current_grid_A',
+        'phase_A_active_power': 'power_grid_A',
+        'grid_B_voltage': 'voltage_grid_B',
+        'grid_B_current': 'current_grid_B',
+        'phase_B_active_power': 'power_grid_B',
+        'grid_C_voltage': 'voltage_grid_C',
+        'grid_C_current': 'current_grid_C',
+        'phase_C_active_power': 'power_grid_C',
+        'grid_frequency': 'frequency_grid',
+        'line_voltage_A_B': 'voltage_line_AB',
+        'line_voltage_B_C': 'voltage_line_BC',
+        'line_voltage_C_A': 'voltage_line_CA',
+
+        # Power Meter
+        'active_grid_power_peak': 'meter_power_active',
+
+        # Battery
+        'storage_state_of_capacity': 'battery_soc',
+        'storage_charge_discharge_power': 'battery_power',
+        'storage_bus_voltage': 'battery_bus_voltage',
+        'storage_bus_current': 'battery_bus_current',
+        'storage_day_charge': 'battery_charge_day',
+        'storage_day_discharge': 'battery_discharge_day',
+        'storage_total_charge': 'battery_charge_total',
+        'storage_total_discharge': 'battery_discharge_total',
+
+        # Status
+        'device_status': 'inverter_status',
+        'state_1': 'inverter_state_1',
+        'state_2': 'inverter_state_2',
+        'state_3': 'inverter_state_3',
+        'startup_time': 'inverter_startup_time',
+        'storage_status': 'battery_status',
+        'meter_status': 'meter_status',
+
+        # Inverter metrics
+        'internal_temperature': 'inverter_temperature',
+        'efficiency': 'inverter_efficiency',
+        'insulation_resistance': 'inverter_insulation_resistance',
+        'power_factor': 'power_factor',
     }
 
-    if os.environ.get("HUAWEI_MODBUS_DEBUG") == "yes":
-        return logging.DEBUG
+    # Transform with mapping
+    result = {mqtt_key: get_value(data.get(register_key))
+              for register_key, mqtt_key in mapping.items()}
 
-    return level_map.get(level_str, logging.INFO)
+    # Critical keys must never be None (EVCC, etc.)
+    critical_defaults = {
+        'power_active': 0,
+        'power_input': 0,
+        'meter_power_active': 0,
+        'battery_power': 0,
+        'battery_soc': 0
+    }
 
+    for key, default in critical_defaults.items():
+        if result.get(key) is None:
+            logger.warning(f"Critical '{key}' missing, using {default}")
+            result[key] = default
 
-def _setup_root_logger(level: int) -> None:
-    """Konfiguriert Root Logger mit einheitlichem Format."""
-    root = logging.getLogger()
-    root.setLevel(level)
-
-    # Handler clearen und neu erstellen
-    for handler in root.handlers[:]:
-        root.removeHandler(handler)
-
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    ))
-    root.addHandler(handler)
-
-
-def _configure_pymodbus(level: int) -> None:
-    """Pymodbus Logging konfigurieren."""
-    pymodbus_logger = logging.getLogger("pymodbus")
-    pymodbus_logger.setLevel(logging.DEBUG if level ==
-                             logging.DEBUG else logging.WARNING)
-
-
-def _configure_huawei_solar(level: int) -> None:
-    """Huawei Solar Logging konfigurieren."""
-    logging.getLogger("huawei_solar").setLevel(level)
-
-
-def heartbeat(topic: str) -> None:
-    """Überwacht erfolgreiche Reads und setzt Status."""
-    global LAST_SUCCESS
-    timeout = int(os.environ.get("HUAWEI_STATUS_TIMEOUT", "180"))
-
-    if LAST_SUCCESS == 0:
-        return
-
-    if time.time() - LAST_SUCCESS > timeout:
-        publish_status("offline", topic)
-        logger.warning(f"No data for {timeout}s → status=offline")
-    else:
-        logger.debug(f"Heartbeat OK: {time.time() - LAST_SUCCESS:.1f}s")
-
-
-async def read_registers(client: AsyncHuaweiSolar) -> Dict[str, Any]:
-    """Liest Essential Registers sequentiell."""
-    logger.debug(f"Reading {len(ESSENTIAL_REGISTERS)} essential registers")
-
-    start = time.time()
-    data = {}
-    successful = 0
-
-    for name in ESSENTIAL_REGISTERS:
-        try:
-            data[name] = await client.get(name)
-            successful += 1
-        except Exception:
-            logger.debug(f"Failed {name}")
+    # Clean up result
+    result = _cleanup_result(result)
 
     duration = time.time() - start
-    logger.info("Essential read: %.1fs (%d/%d)", duration,
-                successful, len(ESSENTIAL_REGISTERS))
+    logger.debug(f"Transform complete: {len(result)} values ({duration:.3f}s)")
 
-    return data
-
-
-async def main_once(client: AsyncHuaweiSolar) -> None:
-    """Ein kompletter Read-Publish-Zyklus."""
-    global LAST_SUCCESS
-    topic = os.environ.get("HUAWEI_MODBUS_MQTT_TOPIC")
-    if not topic:
-        raise RuntimeError("HUAWEI_MODBUS_MQTT_TOPIC not set")
-
-    start = time.time()
-    logger.debug("Starting cycle")
-
-    # Modbus Read
-    modbus_start = time.time()
-    try:
-        data = await read_registers(client)
-        modbus_duration = time.time() - modbus_start
-    except (DecodeError, ReadException) as e:
-        logger.warning(f"Read failed after {time.time() - start:.1f}s: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Read error: {e}")
-        raise
-
-    if not data:
-        logger.warning("No data")
-        return
-
-    # Transform & Publish
-    transform_start = time.time()
-    mqtt_data = transform_result(data)
-    transform_duration = time.time() - transform_start
-
-    mqtt_start = time.time()
-    mqtt_publish_data(mqtt_data, topic)
-    publish_status("online", topic)
-    mqtt_duration = time.time() - mqtt_start
-
-    LAST_SUCCESS = time.time()
-    cycle_duration = time.time() - start
-
-    logger.info(
-        "Published - Solar: %dW | Grid: %dW | Battery: %dW (%.1f%%)",
-        mqtt_data.get('power_active', 0),
-        mqtt_data.get('meter_power_active', 0),
-        mqtt_data.get('battery_power', 0),
-        mqtt_data.get('battery_soc', 0)
-    )
-
-    logger.debug("Cycle: %.1fs (Modbus: %.1fs, Transform: %.2fs, MQTT: %.2fs)",
-                 cycle_duration, modbus_duration, transform_duration, mqtt_duration)
-
-    # Performance Warning
-    poll_interval = int(os.environ.get("HUAWEI_POLL_INTERVAL", "60"))
-    if cycle_duration > poll_interval * 0.8:
-        logger.warning("Cycle %.1fs > 80%% poll_interval (%ds)",
-                       cycle_duration, poll_interval)
+    return result
 
 
-async def main() -> None:
-    """Haupt-Loop mit Error-Handling."""
-    init_logging()
+def _cleanup_result(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Remove None values and convert complex types to str."""
+    cleaned = {}
 
-    topic = os.environ.get("HUAWEI_MODBUS_MQTT_TOPIC")
-    if not topic:
-        logger.error("HUAWEI_MODBUS_MQTT_TOPIC missing")
-        sys.exit(1)
+    for key, value in data.items():
+        if value is None:
+            continue
 
-    # Config
-    host = os.environ.get("HUAWEI_MODBUS_HOST")
-    port = int(os.environ.get("HUAWEI_MODBUS_PORT", "502"))
-    slave_id = int(os.environ.get("HUAWEI_MODBUS_DEVICE_ID", "1"))
+        # Special handling for lists (inverter states)
+        if isinstance(value, list):
+            logger.debug(f"Converting {key}: list → str")
+            value = ','.join(str(v)
+                             for v in value if v)  # Join non-empty values
+            if not value:  # Empty list or all None
+                continue
 
-    logger.info("Huawei Solar → MQTT starting")
-    logger.debug(f"Host={host}:{port}, Slave={slave_id}, Topic={topic}")
+        elif not isinstance(value, (int, float, str, bool)):
+            logger.debug(f"Converting {key}: {type(value).__name__} → str")
+            value = str(value)
 
-    publish_status("offline", topic)
+        cleaned[key] = value
 
-    # Discovery
-    try:
-        publish_discovery_configs(topic)
-        logger.info("Discovery published")
-    except Exception as e:
-        logger.error(f"Discovery failed: {e}")
-
-    # Client
-    try:
-        client = await AsyncHuaweiSolar.create(host, port, slave_id)
-        logger.info(f"Connected (Slave ID: {slave_id})")
-    except Exception as e:
-        logger.error(f"Connection failed: {e}")
-        return
-
-    # Main Loop
-    poll_interval = int(os.environ.get("HUAWEI_POLL_INTERVAL", "30"))
-    logger.info(f"Poll interval: {poll_interval}s")
-
-    cycle_count = 0
-    try:
-        while True:
-            cycle_count += 1
-            logger.debug(f"Cycle #{cycle_count}")
-
-            try:
-                await main_once(client)
-            except DecodeError:
-                logger.error(f"DecodeError cycle #{cycle_count}")
-                publish_status("offline", topic)
-                await asyncio.sleep(10)
-            except ReadException:
-                logger.error(f"Connection issue cycle #{cycle_count}")
-                publish_status("offline", topic)
-                await asyncio.sleep(30)
-            except Exception as e:
-                logger.error(f"Cycle #{cycle_count} failed: {e}")
-                publish_status("offline", topic)
-                await asyncio.sleep(10)
-
-            heartbeat(topic)
-            await asyncio.sleep(poll_interval)
-
-    except asyncio.CancelledError:
-        logger.info("Shutdown")
-        publish_status("offline", topic)
-    except Exception as e:
-        logger.error(f"Fatal: {e}")
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Interrupted")
+    return cleaned
