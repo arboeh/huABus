@@ -54,8 +54,6 @@ Home Assistant Add-on for Huawei SUN2000 inverters via Modbus TCP → MQTT with 
 
 **Logs:** Add-ons → Huawei Solar → Log Tab
 
-Full version history: [CHANGELOG.md](CHANGELOG.md)
-
 ## Credits
 
 **Forked from:** [mjaschen/huawei-solar-modbus-to-mqtt](https://github.com/mjaschen/huawei-solar-modbus-to-mqtt)  
