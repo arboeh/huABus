@@ -1,4 +1,4 @@
-# main.py
+# modbus_energy_meter/main.py
 import asyncio
 import logging
 import os
