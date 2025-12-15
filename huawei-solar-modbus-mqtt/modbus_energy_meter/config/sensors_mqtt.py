@@ -229,7 +229,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
     {
         "name": "Reactive Power",
         "key": "power_reactive",
-        "unit_of_measurement": "VAr",
+        "unit_of_measurement": "var",
         "device_class": "reactive_power",
         "state_class": "measurement",
         "enabled": True,
@@ -312,7 +312,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
     {
         "name": "Meter Reactive Power",
         "key": "meter_reactive_power",
-        "unit_of_measurement": "VAr",
+        "unit_of_measurement": "var",
         "device_class": "reactive_power",
         "state_class": "measurement",
         "enabled": True,
