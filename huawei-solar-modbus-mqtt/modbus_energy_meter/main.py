@@ -157,10 +157,11 @@ async def main_once(client: AsyncHuaweiSolar) -> None:
     cycle_duration = time.time() - start
 
     logger.info(
-        "Published - Solar: %dW | Grid: %dW | Battery: %dW",
-        mqtt_data.get('power_active', 0),
-        mqtt_data.get('meter_power_active', 0),
-        mqtt_data.get('battery_power', 0)
+        "Published - PV: %dW | AC Out: %dW | Grid: %dW | Battery: %dW",
+        mqtt_data.get('power_input', 0),      # Solar DC
+        mqtt_data.get('power_active', 0),     # Inverter AC output
+        mqtt_data.get('meter_power_active', 0),  # Grid
+        mqtt_data.get('battery_power', 0)     # Battery
     )
 
     logger.debug("Cycle: %.1fs (Modbus: %.1fs, Transform: %.2fs, MQTT: %.2fs)",

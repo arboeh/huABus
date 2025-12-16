@@ -1,90 +1,62 @@
 # Changelog
 
+## [1.3.4] - 2025-12-16
+**Bugfix:** Logging statement corrected - Solar power was displayed incorrectly
+- Log line "Published - Solar: XW" incorrectly used `power_active` (AC output power of inverter) instead of `power_input` (DC input power from PV modules)
+- **Register meanings:**
+  - `power_input` (Register 32064) = actual solar/PV power (DC)
+  - `power_active` (Register 32080) = inverter AC output (combined from PV + battery)
+- **Symptom:** At night, e.g. 240W "solar" power was displayed, although this was actually battery discharge
+- **Solution:** Logging now correctly uses `mqtt_data.get('power_input', 0)` for solar display
+- Fixes confusing nighttime values in log; MQTT data and Home Assistant entities were already correct
+
+---
+
 ## [1.3.3] - 2025-12-15
-**Bugfix:** MQTT Discovery Validierungsfehler behoben
-- Einheit für Blindleistungs-Sensoren von `VAr` auf `var` korrigiert (Home Assistant erfordert Kleinschreibung für `device_class: reactive_power`)
-- Behebt Fehler: "The unit of measurement `VAr` is not valid together with device class `reactive_power`"
-- Betrifft Sensoren: `power_reactive` und `meter_reactive_power`
+**Bugfix:** MQTT Discovery validation error fixed
+- Unit for reactive power sensors corrected from `VAr` to `var` (Home Assistant requires lowercase for `device_class: reactive_power`)
+- Fixes error: "The unit of measurement `VAr` is not valid together with device class `reactive_power`"
+- Affects sensors: `power_reactive` and `meter_reactive_power`
+
+---
 
 ## [1.3.2] - 2025-12-15
-**Bugfixes:** Register-Namen korrigiert für Battery Daily Charge/Discharge
+**Bugfixes:** Register names corrected for Battery Daily Charge/Discharge
 - `storage_charge_capacity_today` → `storage_current_day_charge_capacity`
 - `storage_discharge_capacity_today` → `storage_current_day_discharge_capacity`
-- `alarm_1` Register entfernt (nicht bei allen Inverter-Modellen verfügbar, verursachte Template-Fehler)
-- Behebt "Template variable warning: 'dict object' has no attribute" Fehler in Home Assistant
+- `alarm_1` register removed (not available on all inverter models, caused template errors)
+- Fixes "Template variable warning: 'dict object' has no attribute" error in Home Assistant
 
-**Dependencies:** Alle Core-Abhängigkeiten auf neueste stabile Versionen aktualisiert
+**Dependencies:** All core dependencies updated to latest stable versions
 - `huawei-solar`: 2.3.0 → **2.5.0**
-- `paho-mqtt`: 1.6.1 → **2.1.0** (MQTT 5.0 Support)
+- `paho-mqtt`: 1.6.1 → **2.1.0** (MQTT 5.0 support)
 - `pymodbus`: 3.8.6 → **3.11.4**
 - `pytz`: 2024.2 → **2025.2**
 
 ---
 
 ## [1.3.1] - 2025-12-10
-- Register-Set auf **58 Essential Registers** erweitert; alle Namen strikt an `huawei-solar-lib` angepasst (inkl. Grid-/Meter-Register und Groß-/Kleinschreibung)
-- Vollständige 3‑Phasen‑Smart‑Meter-Unterstützung: Phasenleistung, -strom, Leiterspannungen, Frequenz und Leistungsfaktor werden jetzt als eigene MQTT-Werte publiziert
-- MQTT‑Discovery-Sensoren mit den neuen Keys synchronisiert und `unit_of_measurement` konsequent verwendet, konform zur Home‑Assistant‑MQTT‑Spezifikation
-- PV‑Power‑Sensoren entfernt; es werden nur noch PV‑Spannung/-Strom übertragen, sodass die Leistung bei Bedarf in Home Assistant per Template berechnet werden kann
-- Add-on‑Option `modbus_device_id` in `slave_id` umbenannt, um Konflikte mit Home‑Assistant‑Device‑IDs zu vermeiden
+- Register set expanded to **58 Essential Registers**; all names strictly aligned with `huawei-solar-lib` (including grid/meter registers and capitalization)
+- Full 3-phase smart meter support: phase power, current, line-to-line voltages, frequency and power factor are now published as individual MQTT values
+- MQTT Discovery sensors synchronized with new keys and consistently using `unit_of_measurement`, compliant with Home Assistant MQTT specification
+- PV power sensors removed; only PV voltage/current are transmitted, allowing power calculation in Home Assistant via template if needed
+- Add-on option `modbus_device_id` renamed to `slave_id` to avoid conflicts with Home Assistant device IDs
 
 ---
 
 ## [1.3.0] - 2025-12-09
-**Config:** Config nach config/ ausgelagert (registers.py, mappings.py, sensors_mqtt.py) mit 47 Essential Registers und 58 Sensoren  
-**Register:** Fünf neue Register (u. a. Smart‑Meter‑Power, Battery‑Today, Meter‑Status, Grid‑Reactive‑Power) und 13 zusätzliche Entities für Batterie‑Bus und Netzdetails
+**Config:** Configuration moved to config/ (registers.py, mappings.py, sensors_mqtt.py) with 47 Essential Registers and 58 sensors  
+**Registers:** Five new registers (including smart meter power, battery today, meter status, grid reactive power) and 13 additional entities for battery bus and grid details
 
 ---
 
 ## [1.2.1] - 2025-12-09
-**Bugfix:** Persistente MQTT-Verbindung, Status-Flackern behoben  
-**Entities** bleiben dauerhaft "available", keine Connection-Timeouts mehr
+**Bugfix:** Persistent MQTT connection, status flickering fixed  
+**Entities** remain permanently "available", no more connection timeouts
 
 ---
 
 ## [1.2.0] - 2025-12-09
-**Extended Registers:** +8 neue Register (34 → 42)  
-**Device Info:** Model, Serial, Rated Power, Efficiency, Alarms  
-**Entities:** 38 → 46
-
-
-## [1.3.2] - 2025-12-15
-**Bugfixes:** Register-Namen korrigiert für Battery Daily Charge/Discharge
-- `storage_charge_capacity_today` → `storage_current_day_charge_capacity`
-- `storage_discharge_capacity_today` → `storage_current_day_discharge_capacity`
-- `alarm_1` Register entfernt (nicht bei allen Inverter-Modellen verfügbar, verursachte Template-Fehler)
-- Behebt "Template variable warning: 'dict object' has no attribute" Fehler in Home Assistant
-
-**Dependencies:** Alle Core-Abhängigkeiten auf neueste stabile Versionen aktualisiert
-- `huawei-solar`: 2.3.0 → **2.5.0**
-- `paho-mqtt`: 1.6.1 → **2.1.0** (MQTT 5.0 Support)
-- `pymodbus`: 3.8.6 → **3.11.4**
-- `pytz`: 2024.2 → **2025.2**
-
----
-
-## [1.3.1] - 2025-12-10
-- Register-Set auf **58 Essential Registers** erweitert; alle Namen strikt an `huawei-solar-lib` angepasst (inkl. Grid-/Meter-Register und Groß-/Kleinschreibung)
-- Vollständige 3‑Phasen‑Smart‑Meter-Unterstützung: Phasenleistung, -strom, Leiterspannungen, Frequenz und Leistungsfaktor werden jetzt als eigene MQTT-Werte publiziert
-- MQTT‑Discovery-Sensoren mit den neuen Keys synchronisiert und `unit_of_measurement` konsequent verwendet, konform zur Home‑Assistant‑MQTT‑Spezifikation
-- PV‑Power‑Sensoren entfernt; es werden nur noch PV‑Spannung/-Strom übertragen, sodass die Leistung bei Bedarf in Home Assistant per Template berechnet werden kann
-- Add-on‑Option `modbus_device_id` in `slave_id` umbenannt, um Konflikte mit Home‑Assistant‑Device‑IDs zu vermeiden
-
----
-
-## [1.3.0] - 2025-12-09
-**Config:** Config nach config/ ausgelagert (registers.py, mappings.py, sensors_mqtt.py) mit 47 Essential Registers und 58 Sensoren  
-**Register:** Fünf neue Register (u. a. Smart‑Meter‑Power, Battery‑Today, Meter‑Status, Grid‑Reactive‑Power) und 13 zusätzliche Entities für Batterie‑Bus und Netzdetails
-
----
-
-## [1.2.1] - 2025-12-09
-**Bugfix:** Persistente MQTT-Verbindung, Status-Flackern behoben  
-**Entities** bleiben dauerhaft "available", keine Connection-Timeouts mehr
-
----
-
-## [1.2.0] - 2025-12-09
-**Extended Registers:** +8 neue Register (34 → 42)  
+**Extended Registers:** +8 new registers (34 → 42)  
 **Device Info:** Model, Serial, Rated Power, Efficiency, Alarms  
 **Entities:** 38 → 46
