@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Home Assistant Community Discussion
+    url: https://community.home-assistant.io/
+    about: For general questions, visit the Home Assistant Community
+  - name: Documentation
+    url: https://github.com/DEIN-USERNAME/DEIN-REPO/blob/main/README.md
+    about: Read the documentation before opening an issue
