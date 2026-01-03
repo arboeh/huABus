@@ -84,7 +84,10 @@ def _build_sensor_config(sensor: Dict[str, Any], base_topic: str,
         "name": sensor["name"],
         "unique_id": f"huawei_solar_{sensor['key']}",
         "state_topic": base_topic,
-        "value_template": f"{{{{ value_json.{sensor['key']} }}}}",
+        "value_template": sensor.get(
+            "value_template",
+            f"{{{{ value_json.{sensor['key']} }}}}"  # ← Standard-Fallback
+        ),
         "availability_topic": f"{base_topic}/status",
         "payload_available": "online",
         "payload_not_available": "offline",

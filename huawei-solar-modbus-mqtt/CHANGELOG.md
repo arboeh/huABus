@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.5] - 2026-01-03
+**Bugfix:** Template variable warnings in Home Assistant eliminated
+- All optional sensor definitions now include `default()` filters in `value_template` to prevent "dict object has no attribute" warnings
+- Affected sensors: All battery values, PV strings 2-4, grid phases B/C, meter phases, efficiency, and status fields
+- **Root cause:** `_cleanup_result()` removes `None` values from JSON payload → missing keys in MQTT message → Home Assistant template errors
+- **Solution:** Custom `value_template` with `| default(0)` for numeric sensors and `| default('unknown')` for text sensors
+- `_build_sensor_config()` now respects custom `value_template` from sensor definitions instead of always generating standard template
+
+**Dependencies:** Cleaned up and corrected to installable versions
+- **Removed:** `backoff` and `pytz` (not used in codebase)
+- `paho-mqtt` 2.1.0 unchanged (current stable)
+- Reduces installation footprint and eliminates dependency resolution conflicts
+
+---
+
 ## [1.3.4] - 2025-12-16
 **Bugfix:** Logging statement corrected - Solar power was displayed incorrectly
 - Log line "Published - Solar: XW" incorrectly used `power_active` (AC output power of inverter) instead of `power_input` (DC input power from PV modules)

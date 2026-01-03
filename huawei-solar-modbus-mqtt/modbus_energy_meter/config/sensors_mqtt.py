@@ -1,6 +1,8 @@
 from typing import Dict, Any, List
 
+
 NUMERIC_SENSORS: List[Dict[str, Any]] = [
+    # === Core Power Values (immer vorhanden) ===
     {
         "name": "Solar Power",
         "key": "power_active",
@@ -35,9 +37,11 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "device_class": "power",
         "state_class": "measurement",
         "icon": "mdi:battery-charging",
+        "value_template": "{{ value_json.battery_power | default(0) }}",
         "enabled": True,
     },
 
+    # === Energy Values ===
     {
         "name": "Solar Daily Yield",
         "key": "energy_yield_day",
@@ -63,6 +67,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "device_class": "energy",
         "state_class": "total_increasing",
         "icon": "mdi:transmission-tower-export",
+        "value_template": "{{ value_json.energy_grid_exported | default(0) }}",
         "enabled": True,
     },
     {
@@ -75,6 +80,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "enabled": True,
     },
 
+    # === Battery (alle optional) ===
     {
         "name": "Battery SOC",
         "key": "battery_soc",
@@ -82,6 +88,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "device_class": "battery",
         "state_class": "measurement",
         "icon": "mdi:battery",
+        "value_template": "{{ value_json.battery_soc | default(0) }}",
         "enabled": True,
     },
     {
@@ -91,6 +98,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "device_class": "energy",
         "state_class": "total_increasing",
         "icon": "mdi:battery-plus",
+        "value_template": "{{ value_json.battery_charge_day | default(0) }}",
         "enabled": True,
     },
     {
@@ -100,6 +108,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "device_class": "energy",
         "state_class": "total_increasing",
         "icon": "mdi:battery-minus",
+        "value_template": "{{ value_json.battery_discharge_day | default(0) }}",
         "enabled": True,
     },
     {
@@ -108,6 +117,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "kWh",
         "device_class": "energy",
         "state_class": "total_increasing",
+        "value_template": "{{ value_json.battery_charge_total | default(0) }}",
         "enabled": True,
     },
     {
@@ -116,6 +126,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "kWh",
         "device_class": "energy",
         "state_class": "total_increasing",
+        "value_template": "{{ value_json.battery_discharge_total | default(0) }}",
         "enabled": True,
     },
     {
@@ -124,6 +135,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "V",
         "device_class": "voltage",
         "state_class": "measurement",
+        "value_template": "{{ value_json.battery_bus_voltage | default(0) }}",
         "enabled": True,
     },
     {
@@ -132,15 +144,18 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "A",
         "device_class": "current",
         "state_class": "measurement",
+        "value_template": "{{ value_json.battery_bus_current | default(0) }}",
         "enabled": True,
     },
 
+    # === PV Strings (alle optional, nachts = 0) ===
     {
         "name": "PV1 Voltage",
         "key": "voltage_PV1",
         "unit_of_measurement": "V",
         "device_class": "voltage",
         "state_class": "measurement",
+        "value_template": "{{ value_json.voltage_PV1 | default(0) }}",
         "enabled": True,
     },
     {
@@ -149,15 +164,16 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "A",
         "device_class": "current",
         "state_class": "measurement",
+        "value_template": "{{ value_json.current_PV1 | default(0) }}",
         "enabled": True,
     },
-
     {
         "name": "PV2 Voltage",
         "key": "voltage_PV2",
         "unit_of_measurement": "V",
         "device_class": "voltage",
         "state_class": "measurement",
+        "value_template": "{{ value_json.voltage_PV2 | default(0) }}",
         "enabled": False,
     },
     {
@@ -166,6 +182,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "A",
         "device_class": "current",
         "state_class": "measurement",
+        "value_template": "{{ value_json.current_PV2 | default(0) }}",
         "enabled": False,
     },
     {
@@ -174,6 +191,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "V",
         "device_class": "voltage",
         "state_class": "measurement",
+        "value_template": "{{ value_json.voltage_PV3 | default(0) }}",
         "enabled": False,
     },
     {
@@ -182,6 +200,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "A",
         "device_class": "current",
         "state_class": "measurement",
+        "value_template": "{{ value_json.current_PV3 | default(0) }}",
         "enabled": False,
     },
     {
@@ -190,6 +209,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "V",
         "device_class": "voltage",
         "state_class": "measurement",
+        "value_template": "{{ value_json.voltage_PV4 | default(0) }}",
         "enabled": False,
     },
     {
@@ -198,15 +218,18 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "A",
         "device_class": "current",
         "state_class": "measurement",
+        "value_template": "{{ value_json.current_PV4 | default(0) }}",
         "enabled": False,
     },
 
+    # === Inverter Diagnostics ===
     {
         "name": "Inverter Temperature",
         "key": "inverter_temperature",
         "unit_of_measurement": "°C",
         "device_class": "temperature",
         "state_class": "measurement",
+        "value_template": "{{ value_json.inverter_temperature | default(0) }}",
         "enabled": True,
         "entity_category": "diagnostic",
     },
@@ -216,6 +239,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "%",
         "state_class": "measurement",
         "icon": "mdi:gauge",
+        "value_template": "{{ value_json.inverter_efficiency | default(0) }}",
         "enabled": True,
     },
     {
@@ -224,6 +248,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "W",
         "device_class": "power",
         "state_class": "measurement",
+        "value_template": "{{ value_json.power_active_peak_day | default(0) }}",
         "enabled": True,
     },
     {
@@ -232,6 +257,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "var",
         "device_class": "reactive_power",
         "state_class": "measurement",
+        "value_template": "{{ value_json.power_reactive | default(0) }}",
         "enabled": True,
     },
     {
@@ -240,6 +266,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "",
         "state_class": "measurement",
         "icon": "mdi:sine-wave",
+        "value_template": "{{ value_json.power_factor | default(0) }}",
         "enabled": True,
     },
     {
@@ -248,16 +275,19 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "MΩ",
         "state_class": "measurement",
         "icon": "mdi:lightning-bolt-circle",
+        "value_template": "{{ value_json.inverter_insulation_resistance | default(0) }}",
         "enabled": True,
         "entity_category": "diagnostic",
     },
 
+    # === Grid Voltages (3-Phasen System, evtl. nur Phase A bei 1-Phasen) ===
     {
         "name": "Grid Voltage Phase A",
         "key": "voltage_grid_A",
         "unit_of_measurement": "V",
         "device_class": "voltage",
         "state_class": "measurement",
+        "value_template": "{{ value_json.voltage_grid_A | default(0) }}",
         "enabled": True,
     },
     {
@@ -266,6 +296,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "V",
         "device_class": "voltage",
         "state_class": "measurement",
+        "value_template": "{{ value_json.voltage_grid_B | default(0) }}",
         "enabled": True,
     },
     {
@@ -274,6 +305,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "V",
         "device_class": "voltage",
         "state_class": "measurement",
+        "value_template": "{{ value_json.voltage_grid_C | default(0) }}",
         "enabled": True,
     },
     {
@@ -282,6 +314,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "V",
         "device_class": "voltage",
         "state_class": "measurement",
+        "value_template": "{{ value_json.voltage_line_AB | default(0) }}",
         "enabled": True,
     },
     {
@@ -290,6 +323,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "V",
         "device_class": "voltage",
         "state_class": "measurement",
+        "value_template": "{{ value_json.voltage_line_BC | default(0) }}",
         "enabled": True,
     },
     {
@@ -298,6 +332,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "V",
         "device_class": "voltage",
         "state_class": "measurement",
+        "value_template": "{{ value_json.voltage_line_CA | default(0) }}",
         "enabled": True,
     },
     {
@@ -306,18 +341,20 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "Hz",
         "device_class": "frequency",
         "state_class": "measurement",
+        "value_template": "{{ value_json.frequency_grid | default(50) }}",
         "enabled": True,
     },
 
+    # === Meter Values ===
     {
         "name": "Meter Reactive Power",
         "key": "meter_reactive_power",
         "unit_of_measurement": "var",
         "device_class": "reactive_power",
         "state_class": "measurement",
+        "value_template": "{{ value_json.meter_reactive_power | default(0) }}",
         "enabled": True,
     },
-
     {
         "name": "Meter Power Phase A",
         "key": "power_meter_A",
@@ -325,6 +362,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "device_class": "power",
         "state_class": "measurement",
         "icon": "mdi:transmission-tower",
+        "value_template": "{{ value_json.power_meter_A | default(0) }}",
         "enabled": True,
     },
     {
@@ -334,6 +372,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "device_class": "power",
         "state_class": "measurement",
         "icon": "mdi:transmission-tower",
+        "value_template": "{{ value_json.power_meter_B | default(0) }}",
         "enabled": True,
     },
     {
@@ -343,15 +382,16 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "device_class": "power",
         "state_class": "measurement",
         "icon": "mdi:transmission-tower",
+        "value_template": "{{ value_json.power_meter_C | default(0) }}",
         "enabled": True,
     },
-
     {
         "name": "Meter Line Voltage A-B",
         "key": "voltage_meter_line_AB",
         "unit_of_measurement": "V",
         "device_class": "voltage",
         "state_class": "measurement",
+        "value_template": "{{ value_json.voltage_meter_line_AB | default(0) }}",
         "enabled": True,
     },
     {
@@ -360,6 +400,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "V",
         "device_class": "voltage",
         "state_class": "measurement",
+        "value_template": "{{ value_json.voltage_meter_line_BC | default(0) }}",
         "enabled": True,
     },
     {
@@ -368,15 +409,16 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "V",
         "device_class": "voltage",
         "state_class": "measurement",
+        "value_template": "{{ value_json.voltage_meter_line_CA | default(0) }}",
         "enabled": True,
     },
-
     {
         "name": "Meter Current Phase A",
         "key": "current_meter_A",
         "unit_of_measurement": "A",
         "device_class": "current",
         "state_class": "measurement",
+        "value_template": "{{ value_json.current_meter_A | default(0) }}",
         "enabled": True,
     },
     {
@@ -385,6 +427,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "A",
         "device_class": "current",
         "state_class": "measurement",
+        "value_template": "{{ value_json.current_meter_B | default(0) }}",
         "enabled": True,
     },
     {
@@ -393,15 +436,16 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "A",
         "device_class": "current",
         "state_class": "measurement",
+        "value_template": "{{ value_json.current_meter_C | default(0) }}",
         "enabled": True,
     },
-
     {
         "name": "Meter Frequency",
         "key": "frequency_meter",
         "unit_of_measurement": "Hz",
         "device_class": "frequency",
         "state_class": "measurement",
+        "value_template": "{{ value_json.frequency_meter | default(50) }}",
         "enabled": True,
     },
     {
@@ -410,9 +454,11 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "unit_of_measurement": "",
         "state_class": "measurement",
         "icon": "mdi:sine-wave",
+        "value_template": "{{ value_json.power_factor_meter | default(0) }}",
         "enabled": True,
     },
 
+    # === Static Device Info ===
     {
         "name": "Rated Power",
         "key": "rated_power",
@@ -425,11 +471,13 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
     },
 ]
 
+
 TEXT_SENSORS: List[Dict[str, Any]] = [
     {
         "name": "Inverter Status",
         "key": "inverter_status",
         "icon": "mdi:information",
+        "value_template": "{{ value_json.inverter_status | default('unknown') }}",
         "enabled": True,
         "entity_category": "diagnostic",
     },
@@ -437,6 +485,7 @@ TEXT_SENSORS: List[Dict[str, Any]] = [
         "name": "Battery Status",
         "key": "battery_status",
         "icon": "mdi:battery-heart",
+        "value_template": "{{ value_json.battery_status | default('unknown') }}",
         "enabled": True,
         "entity_category": "diagnostic",
     },
@@ -444,6 +493,7 @@ TEXT_SENSORS: List[Dict[str, Any]] = [
         "name": "Meter Status",
         "key": "meter_status",
         "icon": "mdi:meter-electric",
+        "value_template": "{{ value_json.meter_status | default('unknown') }}",
         "enabled": True,
         "entity_category": "diagnostic",
     },
@@ -451,6 +501,7 @@ TEXT_SENSORS: List[Dict[str, Any]] = [
         "name": "Model Name",
         "key": "model_name",
         "icon": "mdi:information",
+        "value_template": "{{ value_json.model_name | default('N/A') }}",
         "enabled": True,
         "entity_category": "diagnostic",
     },
@@ -458,18 +509,21 @@ TEXT_SENSORS: List[Dict[str, Any]] = [
         "name": "Serial Number",
         "key": "serial_number",
         "icon": "mdi:barcode",
+        "value_template": "{{ value_json.serial_number | default('N/A') }}",
         "enabled": True,
         "entity_category": "diagnostic",
     },
     {
         "name": "Inverter State 1",
         "key": "inverter_state_1",
+        "value_template": "{{ value_json.inverter_state_1 | default('') }}",
         "enabled": False,
         "entity_category": "diagnostic",
     },
     {
         "name": "Inverter State 2",
         "key": "inverter_state_2",
+        "value_template": "{{ value_json.inverter_state_2 | default('') }}",
         "enabled": False,
         "entity_category": "diagnostic",
     },
@@ -477,6 +531,7 @@ TEXT_SENSORS: List[Dict[str, Any]] = [
         "name": "Inverter Startup Time",
         "key": "startup_time",
         "device_class": "timestamp",
+        "value_template": "{{ value_json.startup_time | default(None) }}",
         "enabled": False,
         "entity_category": "diagnostic",
     },

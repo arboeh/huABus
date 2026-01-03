@@ -4,7 +4,3 @@ pymodbus>=3.11.4
 
 # MQTT Support
 paho-mqtt>=2.1.0
-
-# Utilities
-backoff>=2.2.1
-pytz>=2025.2
