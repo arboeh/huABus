@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.1] - 2026-01-08
+
+### Changed
+
+- Enhanced startup logging with emoji icons (🚀🔌📡📍⏱️)
+- Added visual separator lines in connection summary
+- Set bashio log level dynamically based on HUAWEI_LOG_LEVEL
+- Improved readability of startup configuration display
+
 ## [1.4.0] - 2026-01-08
 
 **Features:**
