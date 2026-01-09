@@ -1,6 +1,43 @@
 # Huawei Solar Modbus to MQTT
 
-Dieses Add-on liest Daten deines Huawei SUN2000 Wechselrichters per Modbus TCP aus und veröffentlicht sie über MQTT inklusive Home Assistant MQTT Discovery. Dadurch tauchen die meisten Entitäten automatisch im MQTT-Integration-Panel von Home Assistant auf.
+> **⚠️ KRITISCH: Nur EINE Modbus-Verbindung erlaubt!**  
+>
+> Huawei-Wechselrichter haben eine **fundamentale Einschränkung**: Sie erlauben **nur EINE aktive Modbus TCP-Verbindung** zur selben Zeit. Dies ist eine **Hardware-Limitierung** und der häufigste Fehler bei der Smart-Home-Integration.
+>
+> ### Typische Fehlerszenarien:
+>
+> ❌ **Offizielle Huawei Solar Integration UND dieses Add-on** → Beide kämpfen um Verbindung  
+> ❌ **Mehrere Home Assistant Instanzen** → Nur eine kann verbinden  
+> ❌ **FusionSolar App + Modbus aktiv** → Cloud-Verbindung zeigt "Abnormal"  
+> ❌ **Monitoring-Software + Home Assistant** → Intermittierende Timeouts  
+>
+> ### ✅ Vor Installation UNBEDINGT prüfen:
+>
+> 1. **Home Assistant Integrationen checken:**
+>    - Einstellungen → Geräte & Dienste
+>    - Suche nach "Huawei" oder "Solar"
+>    - Entferne ALLE anderen Huawei-Integrationen (wlcrs/huawei_solar, HACS, etc.)
+>
+> 2. **Andere Software deaktivieren:**
+>    - Monitoring-Tools (z.B. Solar-Analytics)
+>    - Mobile Apps mit Modbus-Zugriff
+>    - Weitere Home Assistant Instanzen
+>
+> 3. **FusionSolar Cloud:**
+>    - Cloud funktioniert PARALLEL zu Modbus
+>    - Aber: Cloud zeigt "Abnormale Kommunikation" → **ignorieren!**
+>    - Cloud-Daten werden weiter übertragen
+>
+> 4. **Symptom bei mehreren Verbindungen:**
+>    ```
+>    ERROR - Timeout while waiting for connection
+>    ERROR - No response received after 3 retries
+>    ```
+>    → Das liegt NICHT am Add-on, sondern an Konkurrenz um die Verbindung!
+>
+> **Regel:** NUR EINE Modbus-Verbindung zur selben Zeit = stabiles System ✅
+
+Dieses Add-on liest Daten deines Huawei SUN2000 Wechselrichters per Modbus TCP aus und veröffentlicht sie über MQTT inklusive Home Assistant MQTT Discovery.
 
 ## Funktionen
 
