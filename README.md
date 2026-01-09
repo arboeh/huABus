@@ -10,7 +10,7 @@
 [![release](https://img.shields.io/github/v/release/arboeh/homeassistant-huawei-solar-addon?display_name=tag)](https://github.com/arboeh/homeassistant-huawei-solar-addon/releases/latest)
 
 > **⚠️ IMPORTANT: Single Modbus Connection Limit**  
-> Huawei inverters allow **only ONE active Modbus TCP connection** at a time. This is a common beginner mistake when integrating solar systems into smart home environments.
+> Huawei inverters allow **only ONE active Modbus TCP connection**. This is a common beginner mistake when integrating Huawei solar systems into smart home environments.
 >
 > **Before installing this add-on:**
 > - ✅ Disable or remove any other Huawei Solar integrations (official wlcrs/huawei_solar, HACS integrations, etc.)
