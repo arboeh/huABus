@@ -9,6 +9,16 @@
 [![i386](https://img.shields.io/badge/i386-yes-green.svg)](https://github.com/arboeh/homeassistant-huawei-solar-addon)
 [![release](https://img.shields.io/github/v/release/arboeh/homeassistant-huawei-solar-addon?display_name=tag)](https://github.com/arboeh/homeassistant-huawei-solar-addon/releases/latest)
 
+> **⚠️ WICHTIG: Nur EINE Modbus-Verbindung möglich**  
+> Huawei-Wechselrichter erlauben **nur EINE aktive Modbus TCP-Verbindung** gleichzeitig. Dies ist ein häufiger Anfängerfehler bei der Integration von PV-Anlagen ins Smart Home.
+>
+> **Vor Installation dieses Add-ons:**
+> - ✅ Deaktiviere oder entferne alle anderen Huawei Solar Integrationen (offizielle wlcrs/huawei_solar, HACS-Integrationen, etc.)
+> - ✅ Stelle sicher, dass keine andere Software auf Modbus TCP zugreift (Monitoring-Tools, Apps, andere Home Assistant Instanzen)
+> - ✅ Hinweis: FusionSolar Cloud zeigt möglicherweise "Abnormale Kommunikation" wenn Modbus aktiv ist - das ist normal
+>
+> Mehrere gleichzeitige Modbus-Verbindungen führen zu **Connection-Timeouts und Datenverlust** für alle Clients!
+
 Home Assistant Add-on für Huawei SUN2000 Wechselrichter via Modbus TCP → MQTT mit Auto-Discovery.
 
 **Version 1.4.2** – 58 Essential Registers, 69+ Entitäten, ~2–5 s Zykluszeit  
@@ -72,6 +82,23 @@ Die Add-on-Konfiguration erfolgt über die Home Assistant UI mit übersetzten de
 **Vorher (1.4.0):** Error Tracker mit Downtime-Tracking, verbesserte Logging-Architektur, Abfrageintervall Standard auf 30s optimiert
 
 ## Fehlerbehebung
+
+### ⚠️ Mehrere Modbus-Verbindungen (Häufigster Fehler!)
+
+**Symptom:** Connection Timeouts, "No response received", intermittierende Datenverluste
+
+**Ursache:** Huawei-Wechselrichter unterstützen **nur EINE Modbus TCP-Verbindung** gleichzeitig
+
+**Lösung:**
+1. Prüfe **Einstellungen → Geräte & Dienste** auf andere Huawei-Integrationen
+2. Entferne oder deaktiviere:
+   - Offizielle `wlcrs/huawei_solar` Integration
+   - HACS-basierte Huawei-Integrationen
+   - Monitoring-Software von Drittanbietern
+3. Bei Nutzung von **FusionSolar Cloud**: Beachte, dass aktives Modbus "Abnormale Kommunikation" in der App anzeigen kann - das ist normal
+4. Nur **EIN** System kann gleichzeitig auf Modbus zugreifen
+
+### Weitere häufige Probleme
 
 **Keine Verbindung:** Modbus TCP aktivieren, IP/Slave-ID prüfen (1/16/0 testen), Log-Level auf `DEBUG` setzen  
 **Connection Timeouts:** Verschiedene Slave IDs testen (`0`, `1`, `16`); Abfrageintervall auf 60s erhöhen; prüfen, ob FusionSolar Cloud den Modbus-Zugriff blockiert  
