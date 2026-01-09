@@ -87,7 +87,7 @@ Add-on configuration via Home Assistant UI with translated field names:
 
 **Symptom:** Connection timeouts, "No response received", intermittent data loss
 
-**Cause:** Huawei inverters support **only ONE Modbus TCP connection** at a time
+**Cause:** Huawei inverters support **only ONE active Modbus TCP connection**
 
 **Solution:**
 1. Check **Settings → Devices & Services** for other Huawei integrations
