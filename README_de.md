@@ -88,7 +88,7 @@ Published to topic `huawei-solar`:
 }
 ```
 
-Complete example with all 58+ data points: [examples/mqtt_payload.json](examples/mqtt_payload.json)
+*Komplettbeispiel mit allen 57+ Datenpunkten: siehe [examples/mqtt_payload.json](examples/mqtt_payload.json)*
 
 ## Wichtige Entitäten
 
