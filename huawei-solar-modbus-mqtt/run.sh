@@ -96,18 +96,14 @@ echo "[$(date +'%T')] INFO: ----------------------------------------------------
 bashio::log.info ">> System Info:"
 bashio::log.info "   - Python: $(python3 --version | cut -d' ' -f2)"
 
-# Get huawei-solar version
-HUAWEI_SOLAR_VERSION=$(python3 -c "import huawei_solar; print(huawei_solar.__version__)" 2>/dev/null || echo "unknown")
+# Get package versions using importlib.metadata (Python 3.8+)
+HUAWEI_SOLAR_VERSION=$(python3 -c 'from importlib.metadata import version; print(version("huawei-solar"))' 2>/dev/null || echo 'unknown')
+PYMODBUS_VERSION=$(python3 -c 'from importlib.metadata import version; print(version("pymodbus"))' 2>/dev/null || echo 'unknown')
+PAHO_VERSION=$(python3 -c 'from importlib.metadata import version; print(version("paho-mqtt"))' 2>/dev/null || echo 'unknown')
+
 bashio::log.info "   - huawei-solar: ${HUAWEI_SOLAR_VERSION}"
-
-# Get pymodbus version (optional, but useful)
-PYMODBUS_VERSION=$(python3 -c "import pymodbus; print(pymodbus.__version__)" 2>/dev/null || echo "unknown")
 bashio::log.info "   - pymodbus: ${PYMODBUS_VERSION}"
-
-# Get paho-mqtt version (optional)
-PAHO_VERSION=$(python3 -c "import paho.mqtt; print(paho.mqtt.__version__)" 2>/dev/null || echo "unknown")
 bashio::log.info "   - paho-mqtt: ${PAHO_VERSION}"
-
 bashio::log.info "   - Architecture: $(uname -m)"
 
 echo "[$(date +'%T')] INFO: >> Starting Python application..."
