@@ -96,10 +96,15 @@ echo "[$(date +'%T')] INFO: ----------------------------------------------------
 bashio::log.info ">> System Info:"
 bashio::log.info "   - Python: $(python3 --version | cut -d' ' -f2)"
 
-# Get package versions using importlib.metadata (Python 3.8+)
-HUAWEI_SOLAR_VERSION=$(python3 -c 'from importlib.metadata import version; print(version("huawei-solar"))' 2>/dev/null || echo 'unknown')
-PYMODBUS_VERSION=$(python3 -c 'from importlib.metadata import version; print(version("pymodbus"))' 2>/dev/null || echo 'unknown')
-PAHO_VERSION=$(python3 -c 'from importlib.metadata import version; print(version("paho-mqtt"))' 2>/dev/null || echo 'unknown')
+# Get package versions - using pip show with fallback
+HUAWEI_SOLAR_VERSION=$(pip3 show huawei-solar 2>/dev/null | grep '^Version:' | awk '{print $2}')
+PYMODBUS_VERSION=$(pip3 show pymodbus 2>/dev/null | grep '^Version:' | awk '{print $2}')
+PAHO_VERSION=$(pip3 show paho-mqtt 2>/dev/null | grep '^Version:' | awk '{print $2}')
+
+# Fallback to "unknown" if empty
+HUAWEI_SOLAR_VERSION=${HUAWEI_SOLAR_VERSION:-unknown}
+PYMODBUS_VERSION=${PYMODBUS_VERSION:-unknown}
+PAHO_VERSION=${PAHO_VERSION:-unknown}
 
 bashio::log.info "   - huawei-solar: ${HUAWEI_SOLAR_VERSION}"
 bashio::log.info "   - pymodbus: ${PYMODBUS_VERSION}"
