@@ -5,6 +5,7 @@ from typing import Optional, Dict
 
 logger = logging.getLogger("huawei.errors")
 
+
 class ConnectionErrorTracker:
     """Tracks and aggregates connection errors to reduce log spam."""
 

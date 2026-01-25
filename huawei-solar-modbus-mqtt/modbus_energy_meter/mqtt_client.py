@@ -5,7 +5,7 @@ import json
 import time
 from typing import Dict, Any, List, Optional
 
-import paho.mqtt.client as mqtt
+import paho.mqtt.client as mqtt  # type: ignore
 
 from .config.sensors_mqtt import NUMERIC_SENSORS, TEXT_SENSORS
 
@@ -13,6 +13,7 @@ logger = logging.getLogger("huawei.mqtt")
 
 _mqtt_client: Optional[mqtt.Client] = None
 _is_connected = False
+
 
 def _on_connect(client, userdata, flags, rc, properties=None):
     """Callback when connected."""
@@ -23,12 +24,14 @@ def _on_connect(client, userdata, flags, rc, properties=None):
     else:
         logger.error(f"MQTT connection failed: {rc}")
 
+
 def _on_disconnect(client, userdata, flags, rc=0, properties=None):
     """Callback when disconnected."""
     global _is_connected
     _is_connected = False
     if rc != 0:
         logger.warning(f"MQTT unexpected disconnect: {rc}")
+
 
 def _get_mqtt_client() -> mqtt.Client:
     """Create/reuse MQTT client with LWT (persistent)."""
@@ -57,6 +60,7 @@ def _get_mqtt_client() -> mqtt.Client:
 
     _mqtt_client = client
     return client
+
 
 def connect_mqtt() -> None:
     """Connect MQTT client once at startup."""
@@ -89,6 +93,7 @@ def connect_mqtt() -> None:
     time.sleep(0.3)
     logger.debug("MQTT connection stable")
 
+
 def disconnect_mqtt() -> None:
     """Disconnect MQTT client on shutdown."""
     global _mqtt_client, _is_connected
@@ -110,6 +115,7 @@ def disconnect_mqtt() -> None:
     finally:
         _mqtt_client = None
         _is_connected = False
+
 
 def _build_sensor_config(
     sensor: Dict[str, Any], base_topic: str, device_config: Dict[str, Any]
@@ -144,13 +150,16 @@ def _build_sensor_config(
 
     return config
 
+
 def _load_numeric_sensors() -> List[Dict[str, Any]]:
     """Load numeric sensor definitions."""
     return NUMERIC_SENSORS
 
+
 def _load_text_sensors() -> List[Dict[str, Any]]:
     """Load text sensor definitions."""
     return TEXT_SENSORS
+
 
 def _publish_sensor_configs(
     client: mqtt.Client,
@@ -167,6 +176,7 @@ def _publish_sensor_configs(
         result.wait_for_publish(timeout=1.0)
         count += 1
     return count
+
 
 def publish_discovery_configs(base_topic: str) -> None:
     """Publish all HA MQTT Discovery configs."""
@@ -198,6 +208,7 @@ def publish_discovery_configs(base_topic: str) -> None:
 
     logger.info(f"Discovery complete: {count + text_count + 1} entities")
 
+
 def _publish_status_sensor(
     client: mqtt.Client, base_topic: str, device_config: Dict[str, Any]
 ) -> None:
@@ -218,6 +229,7 @@ def _publish_status_sensor(
         retain=True,
     )
     result.wait_for_publish(timeout=1.0)
+
 
 def publish_data(data: Dict[str, Any], topic: str) -> None:
     """Publish sensor data to MQTT."""
@@ -242,6 +254,7 @@ def publish_data(data: Dict[str, Any], topic: str) -> None:
     except Exception as e:
         logger.error(f"MQTT publish failed: {e}")
         raise
+
 
 def publish_status(status: str, topic: str) -> None:
     """Publish online/offline status."""

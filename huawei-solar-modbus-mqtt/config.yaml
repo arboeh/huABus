@@ -1,5 +1,5 @@
 name: Huawei Solar Modbus to MQTT
-version: "1.5.2"
+version: '1.5.1'
 slug: huawei_solar_modbus_mqtt
 description: Huawei Solar → Modbus → MQTT | Auto-Discovery
 url: https://github.com/arboeh/homeassistant-huawei-solar-addon
@@ -19,7 +19,6 @@ boot: auto
 services:
   - mqtt:need
 options:
-  # === Connection Settings ===
   modbus_host: '192.168.1.100'
   modbus_port: 502
   slave_id: 1
@@ -28,31 +27,18 @@ options:
   mqtt_user: ''
   mqtt_password: ''
   mqtt_topic: 'huawei-solar'
-  
-  # === Performance ===
   log_level: 'INFO'
   status_timeout: 180
   poll_interval: 30
-  
-  # === Advanced (optional) ===
-  filter_energy_resets: false
 schema:
-  # === Modbus Connection (immer sichtbar) ===
   modbus_host: str
   modbus_port: port
   slave_id: int(1,247)
-
-  # === MQTT Connection (immer sichtbar) ===
   mqtt_host: str
   mqtt_port: port
   mqtt_user: str?
   mqtt_password: password?
   mqtt_topic: str
-
-  # === Basic Settings (immer sichtbar) ===
   log_level: list(DEBUG|INFO|WARNING|ERROR)
   status_timeout: int(30,600)
   poll_interval: int(10,300)
-
-  # === Advanced Settings (ausklappbar) ===
-  filter_energy_resets: bool?

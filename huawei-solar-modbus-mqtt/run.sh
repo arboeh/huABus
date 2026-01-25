@@ -20,9 +20,6 @@ export HUAWEI_MODBUS_MQTT_TOPIC=$(bashio::config 'mqtt_topic')
 export HUAWEI_STATUS_TIMEOUT=$(bashio::config 'status_timeout')
 export HUAWEI_POLL_INTERVAL=$(bashio::config 'poll_interval')
 
-# OPtional filter for energy resets
-export HUAWEI_FILTER_RESETS=$(bashio::config 'filter_energy_resets')
-
 # Log Level Configuration
 export HUAWEI_LOG_LEVEL=$(bashio::config 'log_level')
 

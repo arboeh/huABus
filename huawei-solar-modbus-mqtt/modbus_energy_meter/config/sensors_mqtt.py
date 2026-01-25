@@ -1,5 +1,6 @@
 from typing import Dict, Any, List
 
+
 NUMERIC_SENSORS: List[Dict[str, Any]] = [
     # === Core Power Values (immer vorhanden) ===
     {
@@ -68,18 +69,6 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "icon": "mdi:transmission-tower-export",
         "value_template": "{{ value_json.energy_grid_exported | default(0) }}",
         "enabled": True,
-    },
-    # === Raw value ===
-    {
-        "name": "Grid Energy Exported (Raw)",
-        "key": "energy_grid_exported_raw",
-        "unit_of_measurement": "kWh",
-        "device_class": "energy",
-        "state_class": "total_increasing",
-        "icon": "mdi:transmission-tower-export",
-        "value_template": "{{ value_json.energy_grid_exported_raw | default(0) }}",
-        "enabled": False,
-        "entity_category": "diagnostic",
     },
     {
         "name": "Grid Energy Imported",
@@ -481,6 +470,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "entity_category": "diagnostic",
     },
 ]
+
 
 TEXT_SENSORS: List[Dict[str, Any]] = [
     {

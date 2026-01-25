@@ -4,46 +4,10 @@ import logging
 import os
 import sys
 import time
+from typing import Dict, Any
 
-from typing import Dict, Any, Optional
 from huawei_solar import AsyncHuaweiSolar  # type: ignore
 from .error_tracker import ConnectionErrorTracker
-from .config.registers import ESSENTIAL_REGISTERS
-from .mqtt_client import (
-    connect_mqtt,
-    disconnect_mqtt,
-    publish_status,
-    publish_discovery_configs,
-    publish_data,
-)
-
-from .transform import transform_data
-from dataclasses import dataclass
-
-@dataclass
-class ExportEnergyTracker:
-    """Tracks export energy counter to filter resets."""
-    last_valid_value: Optional[float] = None
-    offset: float = 0.0
-    
-    def filter_value(self, raw_value: Optional[float]) -> Optional[float]:
-        """Apply filtering to detect and compensate for counter resets."""
-        if raw_value is None:
-            return None
-        
-        # Reset erkannt? (Wert springt nach unten)
-        if self.last_valid_value is not None and raw_value < self.last_valid_value - 1.0:
-            self.offset += self.last_valid_value
-            logger.info(
-                f"Export reset detected: {self.last_valid_value:.1f} → {raw_value:.1f} kWh "
-                f"(offset now: {self.offset:.1f} kWh)"
-            )
-        
-        # Gefilterten Wert berechnen
-        self.last_valid_value = raw_value
-        return raw_value + self.offset
-
-_export_tracker = ExportEnergyTracker()
 
 try:
     from pymodbus.exceptions import ModbusException  # type: ignore
@@ -54,6 +18,16 @@ except ImportError:
     # Fallback wenn pymodbus nicht verfügbar
     MODBUS_EXCEPTIONS = ()
 
+from .config.registers import ESSENTIAL_REGISTERS
+from .mqtt_client import (
+    connect_mqtt,
+    disconnect_mqtt,
+    publish_status,
+    publish_discovery_configs,
+    publish_data,
+)
+from .transform import transform_data
+
 # Logger
 logger = logging.getLogger("huawei.main")
 
@@ -61,6 +35,7 @@ logger = logging.getLogger("huawei.main")
 error_tracker = ConnectionErrorTracker(log_interval=60)
 
 LAST_SUCCESS = 0
+
 
 def init_logging() -> None:
     """Initialisiert Logging mit ENV-Konfiguration."""
@@ -70,6 +45,7 @@ def init_logging() -> None:
     _configure_huawei_solar(log_level)
 
     logger.info(f"Logging initialized: {logging.getLevelName(log_level)}")
+
 
 def _parse_log_level() -> int:
     """Parse HUAWEI_LOG_LEVEL oder Fallback."""
@@ -86,6 +62,7 @@ def _parse_log_level() -> int:
 
     return level_map.get(level_str, logging.INFO)
 
+
 def _setup_root_logger(level: int) -> None:
     """Konfiguriert Root Logger mit einheitlichem Format."""
     root = logging.getLogger()
@@ -101,11 +78,13 @@ def _setup_root_logger(level: int) -> None:
     )
     root.addHandler(handler)
 
+
 def _configure_pymodbus(level: int) -> None:
     """Pymodbus Logging konfigurieren - nur Errors zeigen."""
     pymodbus_logger = logging.getLogger("pymodbus")
     # Immer ERROR, außer bei DEBUG
     pymodbus_logger.setLevel(logging.ERROR if level != logging.DEBUG else logging.DEBUG)
+
 
 def _configure_huawei_solar(level: int) -> None:
     """Huawei Solar Logging - Tracebacks unterdrücken."""
@@ -114,7 +93,8 @@ def _configure_huawei_solar(level: int) -> None:
     if level == logging.DEBUG:
         hs_logger.setLevel(logging.DEBUG)
     else:
-        hs_logger.setLevel(logging.ERROR)
+        hs_logger.setLevel(logging.ERROR)  # Nur echte Errors
+
 
 def heartbeat(topic: str) -> None:
     """Überwacht erfolgreiche Reads und setzt Status."""
@@ -139,6 +119,7 @@ def heartbeat(topic: str) -> None:
         publish_status("offline", topic)
     else:
         logger.debug(f"Heartbeat OK: {offline_duration:.1f}s since last success")
+
 
 def log_cycle_summary(
     cycle_num: int, timings: Dict[str, float], data: Dict[str, Any]
@@ -170,6 +151,7 @@ def log_cycle_summary(
             data.get("battery_power", 0),
         )
 
+
 async def read_registers(client: AsyncHuaweiSolar) -> Dict[str, Any]:
     """Liest Essential Registers sequentiell."""
     logger.debug(f"Reading {len(ESSENTIAL_REGISTERS)} essential registers")
@@ -192,11 +174,13 @@ async def read_registers(client: AsyncHuaweiSolar) -> Dict[str, Any]:
 
     return data
 
+
 def is_modbus_exception(exc: Exception) -> bool:
     """Check if exception is a Modbus-related error."""
     if not MODBUS_EXCEPTIONS:
         return False
     return isinstance(exc, MODBUS_EXCEPTIONS)
+
 
 async def main_once(client: AsyncHuaweiSolar, cycle_num: int) -> None:
     """Read essential registers and publish."""
@@ -227,14 +211,7 @@ async def main_once(client: AsyncHuaweiSolar, cycle_num: int) -> None:
 
     # Transform & Publish
     transform_start = time.time()
-
-    # Filter optional energy resets
-    filter_resets = os.environ.get("HUAWEI_FILTER_RESETS", "false").lower() == "true"
-    mqtt_data = transform_data(
-        data,
-        export_filter_fn=_export_tracker.filter_value if filter_resets else None
-    )
-
+    mqtt_data = transform_data(data)
     transform_duration = time.time() - transform_start
 
     mqtt_start = time.time()
@@ -269,6 +246,7 @@ async def main_once(client: AsyncHuaweiSolar, cycle_num: int) -> None:
         logger.warning(
             "Cycle %.1fs > 80%% poll_interval (%ds)", cycle_duration, poll_interval
         )
+
 
 async def main() -> None:
     """Haupt-Loop mit Error-Handling."""
@@ -367,6 +345,7 @@ async def main() -> None:
         publish_status("offline", topic)
         disconnect_mqtt()
         sys.exit(1)
+
 
 if __name__ == "__main__":
     try:
