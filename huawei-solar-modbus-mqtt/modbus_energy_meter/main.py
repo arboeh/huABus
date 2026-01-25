@@ -332,13 +332,13 @@ def log_cycle_summary(
             if total_filtered > 0:
                 # Es wurde gefiltert → Details zeigen
                 logger.info(
-                    f"└──> 🔍 Filter summary (last 20 cycles): {total_filtered} values filtered | "
+                    f"└─> 🔍 Filter summary (last 20 cycles): {total_filtered} values filtered | "
                     f"Details: {dict(filter_stats)}"
                 )
             else:
                 # Nichts gefiltert → Bestätigung dass Filter funktioniert
                 logger.info(
-                    "└──> 🔍 Filter summary (last 20 cycles): 0 values filtered - all data valid ✓"
+                    "└─> 🔍 Filter summary (last 20 cycles): 0 values filtered - all data valid ✓"
                 )
 
             # Stats für nächste Periode zurücksetzen
