@@ -3,11 +3,11 @@
 VERSION=$(bashio::addon.version)
 
 # Banner IMMER anzeigen
-echo "[$(date +'%T')] INFO: =================================================================="
-echo "[$(date +'%T')] INFO:  🌞 Huawei Solar Modbus MQTT v${VERSION}"
-echo "[$(date +'%T')] INFO:  📦 https://github.com/arboeh/homeassistant-huawei-solar-addon"
-echo "[$(date +'%T')] INFO: =================================================================="
-echo "[$(date +'%T')] INFO: >> Starting Huawei Solar Modbus MQTT Add-on..."
+echo "[$(date +'%T')] INFO: ========================================================"
+echo "[$(date +'%T')] INFO:  🌞 huABus v${VERSION}"
+echo "[$(date +'%T')] INFO:  📦 https://github.com/arboeh/huABus"
+echo "[$(date +'%T')] INFO: ========================================================"
+echo "[$(date +'%T')] INFO: >> Starting huABus - Huawei Solar Modbus MQTT Add-on..."
 echo "[$(date +'%T')] INFO: >> Log level: $(bashio::config 'log_level')"
 
 # Modbus Configuration
@@ -75,7 +75,7 @@ else
 fi
 
 # Connection Summary - IMMER anzeigen (nur hier, nicht vorher!)
-echo "[$(date +'%T')] INFO: ------------------------------------------------------------------"
+echo "[$(date +'%T')] INFO: --------------------------------------------------------"
 echo "[$(date +'%T')] INFO:  🔌 Inverter: ${HUAWEI_MODBUS_HOST}:${HUAWEI_MODBUS_PORT} (Slave ID: ${HUAWEI_SLAVE_ID})"
 echo "[$(date +'%T')] INFO:  📡 MQTT: ${HUAWEI_MODBUS_MQTT_BROKER}:${HUAWEI_MODBUS_MQTT_PORT} (${MQTT_SOURCE})"
 
@@ -93,7 +93,7 @@ echo "[$(date +'%T')] INFO:  ⏱️  Poll: ${HUAWEI_POLL_INTERVAL}s | Timeout: $
 REGISTER_COUNT=58
 echo "[$(date +'%T')] INFO:  📊 Registers: ${REGISTER_COUNT} essential"
 
-echo "[$(date +'%T')] INFO: ------------------------------------------------------------------"
+echo "[$(date +'%T')] INFO: --------------------------------------------------------"
 
 # System Info
 bashio::log.info ">> System Info:"

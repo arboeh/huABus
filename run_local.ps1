@@ -1,7 +1,7 @@
 # run_local.ps1 - Local development runner (PowerShell)
 
 Write-Host "========================================================================" -ForegroundColor Cyan
-Write-Host "🚀 Huawei Solar MQTT - Local Development" -ForegroundColor Green
+Write-Host "🚀 huABus - Local Development" -ForegroundColor Green
 Write-Host "========================================================================" -ForegroundColor Cyan
 
 # Load .env (besseres Parsing)
