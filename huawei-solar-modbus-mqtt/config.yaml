@@ -1,6 +1,6 @@
 name: huABus | Huawei Solar Modbus to MQTT
 version: '1.6.0'
-slug: huABus
+slug: huawei_solar_modbus_mqtt
 description: Huawei Solar → Modbus → MQTT + Auto-Discovery
 url: https://github.com/arboeh/huABus
 arch:
