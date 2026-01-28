@@ -1,4 +1,6 @@
-# Huawei Solar Modbus to MQTT
+<img src="../logo.svg" alt="jaABlu" height="40"/>
+
+### Huawei Solar Modbus → Home Assistant via MQTT + Auto Discovery
 
 > **⚠️ CRITICAL: Only ONE Modbus Connection Allowed!**
 >
@@ -544,10 +546,10 @@ The add-on has an integrated health check:
 - Status visible at: **Settings → Add-ons → Huawei Solar → Status**
 - If `unhealthy` → restart add-on
 
-Full changelog: [CHANGELOG.md](https://github.com/arboeh/homeassistant-huawei-solar-addon/blob/main/huawei-solar-modbus-mqtt/CHANGELOG.md)
+Full changelog: [CHANGELOG.md](https://github.com/arboeh/huABus/blob/main/huawei-solar-modbus-mqtt/CHANGELOG.md)
 
 ## Support & Development
 
-- **GitHub Repository:** [arboeh/homeassistant-huawei-solar-addon](https://github.com/arboeh/homeassistant-huawei-solar-addon)
-- **Issues & Feature Requests:** [GitHub Issue Templates](https://github.com/arboeh/homeassistant-huawei-solar-addon/issues/new/choose)
+- **GitHub Repository:** [arboeh/huABus](https://github.com/arboeh/huABus)
+- **Issues & Feature Requests:** [GitHub Issue Templates](https://github.com/arboeh/huABus/issues/new/choose)
 - **Based on:** [mjaschen/huawei-solar-modbus-to-mqtt](https://github.com/mjaschen/huawei-solar-modbus-to-mqtt)

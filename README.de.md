@@ -1,6 +1,6 @@
-# huABus
+<img src="logo.svg" alt="jaABlu" height="40"/>
 
-### Huawei Solar Modbus → Home Assistant via MQTT
+### Huawei Solar Modbus → Home Assistant via MQTT + Auto-Discovery
 
 [🇬🇧 English](README.md) | 🇩🇪 **Deutsch**
 
@@ -21,8 +21,6 @@
 > - ✅ Hinweis: FusionSolar Cloud zeigt möglicherweise "Abnormale Kommunikation" wenn Modbus aktiv ist - das ist normal
 >
 > Mehrere gleichzeitige Modbus-Verbindungen führen zu **Connection-Timeouts und Datenverlust** für alle Clients!
-
-Home Assistant Add-on für Huawei SUN2000 Wechselrichter via Modbus TCP → MQTT mit Auto-Discovery.
 
 **Version 1.6.0** – 58 Essential Registers, 69+ Entitäten, ~2–5 s Zykluszeit  
 **Changelog** - [CHANGELOG.md](huawei-solar-modbus-mqtt/CHANGELOG.md)
@@ -83,7 +81,7 @@ _MQTT-Geräteintegrations-Details_
 ## Installation
 
 1. [![Repository hinzufügen](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Farboeh%2FhuABus)
-2. "Huawei Solar Modbus to MQTT" installieren → Starten
+2. "huABus | Huawei Solar Modbus to MQTT" installieren → Starten
 3. **Einstellungen → Geräte & Dienste → MQTT → "Huawei Solar Inverter"**
 
 ## Konfiguration
