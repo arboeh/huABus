@@ -19,8 +19,6 @@ All notable changes to this project will be documented in this file.
 - Added filter timing measurement for performance monitoring
 - Improved filter logging with cycle-by-cycle statistics
 
-## [1.6.1] - 2026-01-28
-
 ### Documentation
 
 - **Quick Start Guide**: Added 5-minute onboarding for new users
@@ -32,11 +30,6 @@ All notable changes to this project will be documented in this file.
   - Quick Start positioned before Features
   - Architecture badges added for platform visibility
   - Better visual separation between sections
-
-### Technical Details
-
-- Documentation-only release
-- No code or configuration changes
 
 ## [1.6.0] - 2026-01-25
 
