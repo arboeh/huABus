@@ -1,6 +1,5 @@
 """Unit-Tests für TotalIncreasingFilter"""
 
-import pytest  # type: ignore
 from modbus_energy_meter.total_increasing_filter import (
     TotalIncreasingFilter,
 )
@@ -14,9 +13,9 @@ class TestTotalIncreasingFilter:
         filter_instance = TotalIncreasingFilter()
 
         # Erste Werte verschiedener Sensoren
-        assert filter_instance.should_filter("energy_grid_exported", 0) == False
-        assert filter_instance.should_filter("energy_yield_accumulated", 0.03) == False
-        assert filter_instance.should_filter("battery_charge_total", 100.5) == False
+        assert filter_instance.should_filter("energy_grid_exported", 0) is False
+        assert filter_instance.should_filter("energy_yield_accumulated", 0.03) is False
+        assert filter_instance.should_filter("battery_charge_total", 100.5) is False
 
     def test_increasing_values_accepted(self):
         """Steigende Werte werden immer akzeptiert"""
@@ -24,22 +23,22 @@ class TestTotalIncreasingFilter:
 
         # Sequenz: 0 → 0.03 → 0.15
         filter_instance.should_filter("energy_grid_exported", 0)
-        assert filter_instance.should_filter("energy_grid_exported", 0.03) == False
-        assert filter_instance.should_filter("energy_grid_exported", 0.15) == False
+        assert filter_instance.should_filter("energy_grid_exported", 0.03) is False
+        assert filter_instance.should_filter("energy_grid_exported", 0.15) is False
 
     def test_equal_values_accepted(self):
         """Gleiche Werte werden akzeptiert (kein Anstieg, aber kein Drop)"""
         filter_instance = TotalIncreasingFilter()
 
         filter_instance.should_filter("energy_grid_exported", 100.0)
-        assert filter_instance.should_filter("energy_grid_exported", 100.0) == False
+        assert filter_instance.should_filter("energy_grid_exported", 100.0) is False
 
     def test_drop_to_zero_filtered(self):
         """Drop von 5432 auf 0 wird gefiltert"""
         filter_instance = TotalIncreasingFilter()
 
         filter_instance.should_filter("energy_grid_exported", 5432.1)
-        assert filter_instance.should_filter("energy_grid_exported", 0) == True
+        assert filter_instance.should_filter("energy_grid_exported", 0) is True
 
         # Letzter gültiger Wert sollte erhalten bleiben
         assert filter_instance.get_last_value("energy_grid_exported") == 5432.1
@@ -51,7 +50,7 @@ class TestTotalIncreasingFilter:
         filter_instance.should_filter("energy_grid_exported", 10000.0)
 
         # 4.9% Drop → Akzeptiert (innerhalb Toleranz)
-        assert filter_instance.should_filter("energy_grid_exported", 9510.0) == False
+        assert filter_instance.should_filter("energy_grid_exported", 9510.0) is False
 
     def test_tolerance_threshold_filtered(self):
         """5.1% Drop wird gefiltert (außerhalb 5% Toleranz)"""
@@ -60,15 +59,15 @@ class TestTotalIncreasingFilter:
         filter_instance.should_filter("energy_grid_exported", 10000.0)
 
         # 5.1% Drop → Gefiltert (außerhalb Toleranz)
-        assert filter_instance.should_filter("energy_grid_exported", 9490.0) == True
+        assert filter_instance.should_filter("energy_grid_exported", 9490.0) is True
 
     def test_negative_values_filtered(self):
         """Negative Werte werden immer gefiltert"""
         filter_instance = TotalIncreasingFilter()
 
         filter_instance.should_filter("energy_grid_exported", 5432.1)
-        assert filter_instance.should_filter("energy_grid_exported", -10) == True
-        assert filter_instance.should_filter("energy_grid_exported", -0.5) == True
+        assert filter_instance.should_filter("energy_grid_exported", -10) is True
+        assert filter_instance.should_filter("energy_grid_exported", -0.5) is True
 
     def test_non_energy_sensors_not_filtered(self):
         """Nicht-Energy-Sensoren werden nicht gefiltert"""
@@ -76,7 +75,7 @@ class TestTotalIncreasingFilter:
 
         # power_active ist kein total_increasing Sensor
         filter_instance.should_filter("power_active", 5000)
-        assert filter_instance.should_filter("power_active", 0) == False  # Kein Filter!
+        assert filter_instance.should_filter("power_active", 0) is False  # Kein Filter!
 
     def test_filter_statistics(self):
         """Filter-Statistik wird korrekt gezählt"""

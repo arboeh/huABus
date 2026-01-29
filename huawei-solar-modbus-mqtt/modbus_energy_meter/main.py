@@ -244,7 +244,6 @@ def heartbeat(topic: str) -> None:
         → MQTT: "huawei-solar/status" = "offline"
         → Home Assistant: binary_sensor.huawei_solar_status = OFF
     """
-    global LAST_SUCCESS
     timeout = int(os.environ.get("HUAWEI_STATUS_TIMEOUT", "180"))
 
     # Beim ersten Start (noch kein erfolgreicher Read)

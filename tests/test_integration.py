@@ -1,6 +1,5 @@
 """Integration-Tests mit Mock-Inverter"""
 
-"""Integration-Tests mit Mock-Inverter"""
 import sys
 from pathlib import Path
 
