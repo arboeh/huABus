@@ -186,8 +186,6 @@ def connect_mqtt() -> None:
         client.loop_start() startet Background-Thread für MQTT-Kommunikation.
         Dieser läuft parallel zu asyncio Event-Loop (kein Konflikt).
     """
-    global _is_connected
-
     client = _get_mqtt_client()
 
     broker = os.environ.get("HUAWEI_MODBUS_MQTT_BROKER")

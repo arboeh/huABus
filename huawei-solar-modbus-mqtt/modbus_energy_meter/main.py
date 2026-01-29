@@ -737,7 +737,7 @@ async def main() -> None:
             heartbeat(topic)
 
             # Warten bis nächster Cycle (poll_interval)
-            # Cycle-Duration wird NICHT abgezogen, daher effektives Interval = poll_interval + cycle_duration
+            # Cycle-Duration wird NICHT abgezogen
             await asyncio.sleep(poll_interval)
 
     except asyncio.CancelledError:
