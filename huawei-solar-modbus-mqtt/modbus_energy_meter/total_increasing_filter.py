@@ -72,7 +72,7 @@ class TotalIncreasingFilter:
         self._last_values: Dict[str, float] = {}  # Speichert letzte gültige Werte
         self._filter_count: Dict[str, int] = {}  # Zählt gefilterte Werte pro Sensor
         logger.info(
-            f"🛡️  TotalIncreasingFilter initialized with {tolerance*100:.0f}% tolerance"
+            f"🛡️ TotalIncreasingFilter initialized with {tolerance*100:.0f}% tolerance"
         )
 
     def filter(self, data: Dict[str, Any]) -> Dict[str, Any]:
