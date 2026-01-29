@@ -4,7 +4,6 @@
 
 This add-on reads data from your Huawei SUN2000 inverter via Modbus TCP and publishes it via MQTT including Home Assistant MQTT Discovery.
 
-> <br>  
 > **⚠️ CRITICAL: Only ONE Modbus Connection Allowed!**
 >
 > Huawei inverters have a **fundamental limitation**: They allow **only ONE active Modbus TCP connection** at the same time. This is a **hardware limitation** and the most common error in smart home integration.
@@ -37,8 +36,7 @@ This add-on reads data from your Huawei SUN2000 inverter via Modbus TCP and publ
 >    ```
 >    → This is NOT the add-on's fault, but competition for the connection!
 >
-> **Rule:** ONLY ONE Modbus connection at a time = stable system ✅  
-> <br>
+> **Rule:** ONLY ONE Modbus connection at a time = stable system ✅
 
 ## 🚀 Quick Start (5 Minutes)
 

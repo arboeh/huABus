@@ -4,7 +4,6 @@
 
 Dieses Add-on liest Daten deines Huawei SUN2000 Wechselrichters per Modbus TCP aus und veröffentlicht sie über MQTT inklusive Home Assistant MQTT Discovery.
 
-> <br>  
 > **⚠️ KRITISCH: Nur EINE Modbus-Verbindung erlaubt!**
 >
 > Huawei-Wechselrichter haben eine **fundamentale Einschränkung**: Sie erlauben **nur EINE aktive Modbus TCP-Verbindung** zur selben Zeit. Dies ist eine **Hardware-Limitierung** und der häufigste Fehler bei der Smart-Home-Integration.
@@ -37,8 +36,7 @@ Dieses Add-on liest Daten deines Huawei SUN2000 Wechselrichters per Modbus TCP a
 >    ```
 >    → Das liegt NICHT am Add-on, sondern an Konkurrenz um die Verbindung!
 >
-> **Regel:** NUR EINE Modbus-Verbindung zur selben Zeit = stabiles System ✅  
-> <br>
+> **Regel:** NUR EINE Modbus-Verbindung zur selben Zeit = stabiles System ✅
 
 ## 🚀 Schnellstart (5 Minuten)
 
