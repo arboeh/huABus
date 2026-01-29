@@ -115,7 +115,8 @@ class TotalIncreasingFilter:
                         if value == 0:
                             logger.warning(
                                 f"⚠️ WARMUP: First value for {key} is 0 - "
-                                f"marking as suspicious (cycle {self._warmup_counter}/{self._warmup_target})"
+                                f"marking as suspicious "
+                                f"(cycle {self._warmup_counter}/{self._warmup_target})"
                             )
                             self._suspicious_first_values[key] = 0
                         else:
