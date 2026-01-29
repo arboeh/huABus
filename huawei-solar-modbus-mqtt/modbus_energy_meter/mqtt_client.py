@@ -14,11 +14,11 @@ Die Verbindung wird einmalig beim Start erstellt und bleibt für die gesamte
 Laufzeit bestehen (persistent), nur Modbus reconnected bei Fehlern.
 """
 
+import json
 import logging
 import os
-import json
 import time
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import paho.mqtt.client as mqtt  # type: ignore
 
@@ -38,18 +38,18 @@ _is_connected = False
 def _on_connect(client, userdata, flags, rc, properties=None):
     """
     Callback wenn MQTT-Verbindung hergestellt wurde.
-    
+
     Wird von paho-mqtt automatisch aufgerufen bei erfolgreicher Verbindung.
     Setzt _is_connected Flag, damit Publishing-Funktionen wissen dass
     sie sicher publizieren können.
-    
+
     Args:
         client: MQTT Client Instanz
         userdata: User-definierte Daten (nicht genutzt)
         flags: Connection flags vom Broker
         rc: Return code (0 = Success)
         properties: MQTT v5 Properties (optional, für Abwärtskompatibilität)
-        
+
     Return Codes (rc):
         0: Success
         1: Connection refused - incorrect protocol version
@@ -63,25 +63,24 @@ def _on_connect(client, userdata, flags, rc, properties=None):
         _is_connected = True
         logger.info("📡 MQTT connected")
     else:
-        # rc != 0 bedeutet Verbindungsfehler
         logger.error(f"MQTT connection failed: {rc}")
 
 
 def _on_disconnect(client, userdata, flags, rc=0, properties=None):
     """
     Callback wenn MQTT-Verbindung getrennt wurde.
-    
+
     Wird von paho-mqtt automatisch aufgerufen bei Verbindungsverlust.
     Setzt _is_connected Flag zurück, damit keine Publishing-Versuche
     mehr gemacht werden (würden fehlschlagen).
-    
+
     Args:
         client: MQTT Client Instanz
         userdata: User-definierte Daten (nicht genutzt)
         flags: Disconnect flags
         rc: Return code (0 = Clean disconnect, sonst Fehler)
         properties: MQTT v5 Properties (optional)
-        
+
     Unterscheidung:
         rc == 0: Sauberer Disconnect (vom Client initiiert)
         rc != 0: Unerwarteter Disconnect (Netzwerkproblem, Broker-Crash)
@@ -96,26 +95,26 @@ def _on_disconnect(client, userdata, flags, rc=0, properties=None):
 def _get_mqtt_client() -> mqtt.Client:
     """
     Erstellt oder gibt existierenden MQTT Client zurück (Singleton-Pattern).
-    
+
     Der Client wird nur einmal erstellt und dann wiederverwendet.
     Konfiguriert:
     - paho-mqtt 2.x API Callbacks
     - Authentifizierung (falls USER/PASSWORD gesetzt)
     - Last Will Testament (LWT) für automatisches offline bei Crash
-    
+
     Last Will Testament (LWT):
         Wenn die Verbindung unerwartet abbricht (Crash, Netzwerk),
         publiziert der MQTT-Broker automatisch "{topic}/status" = "offline".
         Damit weiß Home Assistant sofort dass das Add-on nicht mehr läuft.
-    
+
     Returns:
         Konfigurierter MQTT Client (noch nicht verbunden)
-        
+
     ENV-Konfiguration:
         HUAWEI_MODBUS_MQTT_USER: MQTT Username (optional)
         HUAWEI_MODBUS_MQTT_PASSWORD: MQTT Password (optional)
         HUAWEI_MODBUS_MQTT_TOPIC: Basis-Topic für LWT
-        
+
     Hinweis:
         Bei paho-mqtt >= 2.0 muss CallbackAPIVersion.VERSION2 angegeben
         werden, sonst sind die Callback-Signaturen falsch.
@@ -158,31 +157,31 @@ def _get_mqtt_client() -> mqtt.Client:
 def connect_mqtt() -> None:
     """
     Verbindet MQTT Client einmalig beim Start (persistent).
-    
+
     Workflow:
     1. Client holen/erstellen (_get_mqtt_client)
     2. Zu Broker verbinden (client.connect)
     3. Background-Loop starten (client.loop_start)
     4. Warten bis _is_connected True ist (max 10s)
     5. Zusätzliche 300ms Stabilisierung
-    
+
     Die Verbindung bleibt für die gesamte Laufzeit bestehen.
     Bei Netzwerkproblemen reconnected paho-mqtt automatisch.
-    
+
     Raises:
         RuntimeError: Wenn MQTT Broker nicht konfiguriert
         ConnectionError: Wenn Verbindung nach 10s Timeout nicht steht
-        
+
     ENV-Konfiguration:
         HUAWEI_MODBUS_MQTT_BROKER: IP/Hostname des MQTT Brokers (required)
         HUAWEI_MODBUS_MQTT_PORT: MQTT Port (default: 1883)
-        
+
     Beispiel:
         >>> connect_mqtt()
         # Log: "Connecting MQTT to 192.168.1.2:1883"
         # Log: "MQTT connected"
         # Log: "MQTT connection stable"
-        
+
     Hinweis:
         client.loop_start() startet Background-Thread für MQTT-Kommunikation.
         Dieser läuft parallel zu asyncio Event-Loop (kein Konflikt).
@@ -226,18 +225,18 @@ def connect_mqtt() -> None:
 def disconnect_mqtt() -> None:
     """
     Trennt MQTT Client beim Shutdown sauber.
-    
+
     Workflow:
     1. Status auf "offline" publizieren (sauberes Goodbye)
     2. Background-Loop stoppen (client.loop_stop)
     3. Verbindung trennen (client.disconnect)
     4. Globale Variablen zurücksetzen
-    
+
     Wird aufgerufen bei:
     - Graceful Shutdown (SIGTERM von Docker/Hassio)
     - Fatal Error (vor sys.exit)
     - KeyboardInterrupt (Ctrl+C bei lokalem Test)
-    
+
     Wichtig:
         Status "offline" wird mit retain=True publiziert, damit
         Home Assistant den Status auch nach Reconnect noch sieht.
@@ -275,14 +274,14 @@ def _build_sensor_config(
 ) -> Dict[str, Any]:
     """
     Erstellt MQTT Discovery Config für einzelnen Sensor.
-    
+
     MQTT Discovery ist Home Assistants Protokoll zur automatischen
     Entity-Erstellung. Durch Publishing einer JSON-Config zu einem
     speziellen Topic erstellt HA automatisch den Sensor.
-    
+
     Discovery-Topic-Format:
         homeassistant/sensor/{device}/{entity}/config
-    
+
     Config-Keys (Auswahl):
         name: Anzeigename in HA
         unique_id: Eindeutige ID (für Entity Registry)
@@ -293,15 +292,15 @@ def _build_sensor_config(
         unit_of_measurement: Einheit (kWh, W, °C, ...)
         device_class: HA Device Class (energy, power, temperature, ...)
         state_class: State Class (measurement, total, total_increasing)
-        
+
     Args:
         sensor: Sensor-Definition aus sensors_mqtt.py
         base_topic: MQTT Basis-Topic (z.B. "huawei-solar")
         device_config: Device-Informationen für Gruppierung in HA
-        
+
     Returns:
         Dict mit vollständiger MQTT Discovery Config
-        
+
     Beispiel:
         >>> sensor = {
         ...     "name": "Solar Power",
@@ -337,10 +336,10 @@ def _build_sensor_config(
     # Diese Keys werden 1:1 von sensors_mqtt.py übernommen
     for key in [
         "unit_of_measurement",  # Einheit (kWh, W, V, A, ...)
-        "device_class",         # HA Device Class (energy, power, voltage, ...)
-        "state_class",          # State Class (measurement, total, total_increasing)
-        "icon",                 # MDI Icon (mdi:solar-power, mdi:battery, ...)
-        "entity_category",      # Kategorie (diagnostic, config, None)
+        "device_class",  # HA Device Class (energy, power, voltage, ...)
+        "state_class",  # State Class (measurement, total, total_increasing)
+        "icon",  # MDI Icon (mdi:solar-power, mdi:battery, ...)
+        "entity_category",  # Kategorie (diagnostic, config, None)
     ]:
         if key in sensor:
             config[key] = sensor[key]
@@ -356,13 +355,13 @@ def _build_sensor_config(
 def _load_numeric_sensors() -> List[Dict[str, Any]]:
     """
     Lädt numerische Sensor-Definitionen aus sensors_mqtt.py.
-    
+
     Numerische Sensoren haben unit_of_measurement und oft device_class.
     Beispiele: Leistung (W), Energie (kWh), Spannung (V), Temperatur (°C)
-    
+
     Returns:
         Liste mit Sensor-Definitionen für numerische Werte
-        
+
     Siehe:
         config/sensors_mqtt.py -> NUMERIC_SENSORS
     """
@@ -372,13 +371,13 @@ def _load_numeric_sensors() -> List[Dict[str, Any]]:
 def _load_text_sensors() -> List[Dict[str, Any]]:
     """
     Lädt Text-Sensor-Definitionen aus sensors_mqtt.py.
-    
+
     Text-Sensoren haben keine unit_of_measurement, nur String-Werte.
     Beispiele: Modellname, Seriennummer, Status-Strings
-    
+
     Returns:
         Liste mit Sensor-Definitionen für Text-Werte
-        
+
     Siehe:
         config/sensors_mqtt.py -> TEXT_SENSORS
     """
@@ -393,27 +392,27 @@ def _publish_sensor_configs(
 ) -> int:
     """
     Publiziert MQTT Discovery Configs für Liste von Sensoren.
-    
+
     Für jeden Sensor:
     1. Discovery-Config erstellen (_build_sensor_config)
     2. Zu Discovery-Topic publizieren (mit QoS=1, retain=True)
     3. Auf Publish-Bestätigung warten (max 1s)
-    
+
     QoS=1: Mindestens einmal zugestellt (wichtig für Discovery)
     retain=True: Config bleibt gespeichert, auch nach Broker-Neustart
-    
+
     Args:
         client: MQTT Client Instanz
         base_topic: MQTT Basis-Topic (z.B. "huawei-solar")
         sensors: Liste mit Sensor-Definitionen
         device_config: Device-Info für HA Gruppierung
-        
+
     Returns:
         Anzahl publizierter Sensoren
-        
+
     Discovery-Topic-Format:
         homeassistant/sensor/huawei_solar/{sensor_key}/config
-        
+
     Beispiel:
         homeassistant/sensor/huawei_solar/power_input/config
         → Erstellt sensor.solar_power in Home Assistant
@@ -435,22 +434,22 @@ def _publish_sensor_configs(
 def publish_discovery_configs(base_topic: str) -> None:
     """
     Publiziert alle MQTT Discovery Configs (einmalig beim Start).
-    
+
     Erstellt in Home Assistant:
     - Alle numerischen Sensoren (Leistung, Energie, Spannung, ...)
     - Alle Text-Sensoren (Modellname, Status, ...)
     - Binary Sensor für Connectivity-Status (online/offline)
-    
+
     Die Discovery-Configs werden nur beim Start publiziert, nicht
     bei jedem Cycle. Home Assistant speichert sie in der Entity Registry.
-    
+
     Device-Gruppierung:
         Alle Sensoren werden in HA unter einem Device gruppiert:
         "Huawei Solar Inverter" mit Identifier "huawei_solar_modbus"
-        
+
     Args:
         base_topic: MQTT Basis-Topic (z.B. "huawei-solar")
-        
+
     Beispiel:
         >>> publish_discovery_configs("huawei-solar")
         # Log: "Publishing MQTT Discovery"
@@ -458,7 +457,7 @@ def publish_discovery_configs(base_topic: str) -> None:
         # Log: "Published 8 text sensors"
         # Log: "Discovery complete: 54 entities"
         # → Home Assistant hat jetzt 54 neue Entities unter einem Device
-        
+
     Hinweis:
         Wenn MQTT nicht verbunden ist, wird Discovery übersprungen
         (kann später manuell mit HA MQTT Reload nachgeholt werden).
@@ -474,9 +473,9 @@ def publish_discovery_configs(base_topic: str) -> None:
     # Alle Sensoren erscheinen unter diesem Device in HA UI
     device_config = {
         "identifiers": ["huawei_solar_modbus"],  # Eindeutige Device-ID
-        "name": "Huawei Solar Inverter",         # Anzeigename
-        "model": "SUN2000",                      # Modell
-        "manufacturer": "Huawei",                # Hersteller
+        "name": "Huawei Solar Inverter",  # Anzeigename
+        "model": "SUN2000",  # Modell
+        "manufacturer": "Huawei",  # Hersteller
     }
 
     # Numerische Sensoren publizieren (Leistung, Energie, ...)
@@ -502,27 +501,27 @@ def _publish_status_sensor(
 ) -> None:
     """
     Publiziert Binary Sensor für Connectivity-Status (online/offline).
-    
+
     Erstellt in Home Assistant:
         binary_sensor.huawei_solar_status
         - ON wenn "{base_topic}/status" = "online"
         - OFF wenn "{base_topic}/status" = "offline"
         - Device Class: connectivity
-        
+
     Dieser Sensor zeigt im HA Dashboard ob das Add-on läuft und
     Daten vom Inverter empfängt.
-    
+
     Args:
         client: MQTT Client Instanz
         base_topic: MQTT Basis-Topic (z.B. "huawei-solar")
         device_config: Device-Info für HA Gruppierung
-        
+
     Discovery-Topic:
         homeassistant/binary_sensor/huawei_solar/status/config
-        
+
     State-Topic:
         {base_topic}/status (z.B. "huawei-solar/status")
-        
+
     Verwendung in HA:
         - Automationen: Benachrichtigung bei offline
         - Dashboard: Status-Anzeige
@@ -532,8 +531,8 @@ def _publish_status_sensor(
         "name": "Huawei Solar Status",
         "unique_id": "huawei_solar_status",
         "state_topic": f"{base_topic}/status",
-        "payload_on": "online",   # Sensor ist ON wenn "online"
-        "payload_off": "offline", # Sensor ist OFF wenn "offline"
+        "payload_on": "online",  # Sensor ist ON wenn "online"
+        "payload_off": "offline",  # Sensor ist OFF wenn "offline"
         "device_class": "connectivity",  # Icon/Styling für Connectivity
         "device": device_config,
     }
@@ -550,10 +549,10 @@ def _publish_status_sensor(
 def publish_data(data: Dict[str, Any], topic: str) -> None:
     """
     Publiziert Sensor-Daten zu MQTT (wird jeden Cycle aufgerufen).
-    
+
     Daten-Format:
         JSON mit allen Sensor-Werten + last_update Timestamp
-        
+
     Beispiel-Payload:
         {
           "power_input": 4500,
@@ -565,18 +564,18 @@ def publish_data(data: Dict[str, Any], topic: str) -> None:
           ...
           "last_update": 1706184000
         }
-    
+
     QoS=1: Mindestens einmal zugestellt (wichtig für Statistiken)
     retain=True: Letzter Wert bleibt gespeichert (für Sensor-Init nach HA-Restart)
-    
+
     Args:
         data: Dict mit allen Sensor-Werten (aus transform.py)
         topic: MQTT Topic (z.B. "huawei-solar")
-        
+
     Raises:
         ConnectionError: Wenn MQTT nicht verbunden
         Exception: Bei Publish-Fehler (wird in main.py gefangen)
-        
+
     Beispiel:
         >>> publish_data({"power_input": 4500, "battery_soc": 85.5}, "huawei-solar")
         # Log: "Publishing: Solar=4500W, Grid=N/AW, Battery=800W"
@@ -616,37 +615,37 @@ def publish_data(data: Dict[str, Any], topic: str) -> None:
 def publish_status(status: str, topic: str) -> None:
     """
     Publiziert online/offline Status zu MQTT.
-    
+
     Wird aufgerufen:
     - Nach jedem erfolgreichen Cycle → "online"
     - Bei Fehler im Cycle → "offline"
     - Bei Heartbeat-Timeout → "offline"
     - Beim Start → "offline" (initial)
     - Vor Shutdown → "offline" (cleanup)
-    
+
     Status-Topic:
         {base_topic}/status (z.B. "huawei-solar/status")
-        
+
     Auswirkung:
         - binary_sensor.huawei_solar_status ändert sich (ON/OFF)
         - Alle anderen Sensoren zeigen "unavailable" bei offline
         - Automationen können auf Status-Änderung reagieren
-    
+
     Args:
         status: "online" oder "offline"
         topic: MQTT Basis-Topic (z.B. "huawei-solar")
-        
+
     Beispiel:
         >>> publish_status("online", "huawei-solar")
         # Log: "Status: 'online' → huawei-solar/status"
         # → HA: binary_sensor.huawei_solar_status = ON
         # → HA: Alle Sensoren available
-        
+
         >>> publish_status("offline", "huawei-solar")
         # Log: "Status: 'offline' → huawei-solar/status"
         # → HA: binary_sensor.huawei_solar_status = OFF
         # → HA: Alle Sensoren unavailable
-        
+
     Hinweis:
         Wenn MQTT nicht verbunden, wird Status-Update übersprungen
         (nur DEBUG-Log, kein Error - ist erwartbar bei Disconnect).

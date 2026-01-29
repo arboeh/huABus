@@ -35,7 +35,7 @@ REGISTER_MAPPING: Dict[str, str] = {
     "reactive_power": "power_reactive",  # Blindleistung in var
     # Energie-Counter (Tagesertrag & Gesamtertrag)
     "daily_yield_energy": "energy_yield_day",  # Ertrag heute in kWh (resettet um Mitternacht)
-    "accumulated_yield_energy": "energy_yield_accumulated",  # Gesamtertrag seit Installation in kWh
+    "accumulated_yield_energy": "energy_yield_accumulated",  # Gesamtertrag seit Installation
     # Netz-Energie (Einspeisung & Bezug)
     "grid_exported_energy": "energy_grid_exported",  # Total eingespeiste Energie in kWh
     "grid_accumulated_energy": "energy_grid_accumulated",  # Total bezogene Energie in kWh
@@ -64,7 +64,7 @@ REGISTER_MAPPING: Dict[str, str] = {
     # === Smart Meter (optional) ===
     # Nur verfügbar wenn Smart Meter am Inverter angeschlossen
     # Misst tatsächlichen Netz-Anschluss (Hausanschluss)
-    "power_meter_active_power": "meter_power_active",  # Netzleistung in W (pos=Bezug, neg=Einspeisung)
+    "power_meter_active_power": "meter_power_active",  # Netzleistung in W
     "power_meter_reactive_power": "meter_reactive_power",  # Blindleistung in var
     "meter_status": "meter_status",  # Meter-Status (0=offline, 1=normal)
     # Smart Meter: 3-Phasen Details
@@ -85,17 +85,17 @@ REGISTER_MAPPING: Dict[str, str] = {
     # === Batterie (optional) ===
     # Nur verfügbar wenn Batterie-System angeschlossen (z.B. LUNA2000)
     "storage_state_of_capacity": "battery_soc",  # State of Charge in % (0-100)
-    "storage_charge_discharge_power": "battery_power",  # Lade-/Entladeleistung in W (pos=Laden, neg=Entladen)
+    "storage_charge_discharge_power": "battery_power",  # Lade-/Entladeleistung in W
     "storage_bus_voltage": "battery_bus_voltage",  # Bus-Spannung in V
     "storage_bus_current": "battery_bus_current",  # Bus-Strom in A
     # Batterie: Tages-Energie (resettet um Mitternacht)
     "storage_current_day_charge_capacity": "battery_charge_day",  # Geladene Energie heute in kWh
-    "storage_current_day_discharge_capacity": "battery_discharge_day",  # Entladene Energie heute in kWh
+    "storage_current_day_discharge_capacity": "battery_discharge_day",  # Entladene Energie
     # Batterie: Gesamt-Energie (seit Installation)
     "storage_total_charge": "battery_charge_total",  # Total geladene Energie in kWh
     "storage_total_discharge": "battery_discharge_total",  # Total entladene Energie in kWh
     # Batterie: Status
-    "storage_running_status": "battery_status",  # Laufstatus (0=offline, 1=standby, 2=running, 3=fault)
+    "storage_running_status": "battery_status",  # Laufstatus
     # === Inverter Status & Diagnose ===
     "device_status": "inverter_status",  # Device-Status Code (siehe Huawei-Doku)
     "state_1": "inverter_state_1",  # State 1 Bitfeld (siehe Huawei-Doku)

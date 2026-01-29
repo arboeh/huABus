@@ -107,7 +107,7 @@ Siehe auch:
     - Home Assistant MQTT Discovery Doku
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 # Numerische Sensoren mit unit_of_measurement
 # Diese erscheinen in HA als sensor.{entity_id} mit numerischem State
@@ -149,7 +149,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "device_class": "power",
         "state_class": "measurement",
         "icon": "mdi:battery-charging",
-        "value_template": "{{ value_json.battery_power | default(0) }}",  # Optional (keine Batterie)
+        "value_template": "{{ value_json.battery_power | default(0) }}",
         "enabled": True,
     },
     # === Energy Values ===
@@ -179,7 +179,7 @@ NUMERIC_SENSORS: List[Dict[str, Any]] = [
         "device_class": "energy",
         "state_class": "total_increasing",
         "icon": "mdi:transmission-tower-export",
-        "value_template": "{{ value_json.energy_grid_exported | default(0) }}",  # Optional (kein Meter)
+        "value_template": "{{ value_json.energy_grid_exported | default(0) }}",
         "enabled": True,
     },
     {

@@ -298,14 +298,6 @@ def log_cycle_summary(
         cycle_num: Aktuelle Cycle-Nummer seit Start (fortlaufend)
         timings: Dict mit Zeitmessungen {modbus, transform, filter, mqtt, total}
         data: MQTT-Daten (für Power-Werte)
-
-    Beispiel JSON-Output:
-        {
-          "cycle": 42,
-          "timestamp": 1706184000.5,
-          "timings": {"modbus": 2.1, "transform": 0.005, "filter": 0.001, "mqtt": 0.194, "total": 2.3},
-          "power": {"pv": 4500, "ac_out": 4200, "grid": -200, "battery": 800}
-        }
     """
     if os.environ.get("HUAWEI_LOG_FORMAT") == "json":
         import json
