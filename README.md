@@ -70,7 +70,7 @@ Both solutions use the same `huawei-solar` library but target different use case
 
 **This Add-on** (MQTT Bridge):
 
-- ✅ MQTT-native (data accessible to Node-RED, Grafana, etc.)
+- ✅ MQTT-native (data accessible to [EVCC](https://evcc.io/), Node-RED, Grafana, etc.)
 - ✅ total_increasing filter (protects energy statistics from false resets)
 - ✅ Advanced error tracking & performance monitoring
 - ✅ Fast 2-5s cycle times
