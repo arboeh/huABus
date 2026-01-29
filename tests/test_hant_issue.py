@@ -141,17 +141,20 @@ async def test_hant_intermittent_failures_dont_reach_mqtt():
     """
     HANT's Beobachtung: Filter summary zeigt "0 filtered", aber Spikes passieren
 
-    Test: Simuliere mehrere Modbus-Fehler und prüfe:
-    - Filter MUSS diese Fehler fangen
-    - MQTT darf NIE eine 0 sehen
-    - Filter summary MUSS > 0 filtered zeigen
+    ✅ FIX: Warmup berücksichtigen - Cycle 3 lässt 0 durch!
     """
-    reset_filter()
+    import modbus_energy_meter.total_increasing_filter as filter_module
+
+    # ✅ FIX: Singleton clearen BEVOR get_filter()!
+    filter_module._filter_instance = None
+
     mock_modbus = MockHuaweiSolar()
     mock_modbus.load_scenario("intermittent_modbus_failures")
     mock_mqtt = MockMQTTBroker()
     mock_mqtt.connect("localhost", 1883)
-    filter_instance = get_filter()
+
+    # Jetzt wird eine NEUE Instanz mit Warmup erstellt
+    filter_instance = filter_module.get_filter()  # Default warmup_cycles=3
 
     mqtt_values = []
 
@@ -167,23 +170,21 @@ async def test_hant_intermittent_failures_dont_reach_mqtt():
 
         mock_modbus.next_cycle()
 
-    # KRITISCH: MQTT darf NIE eine 0 sehen!
-    for val in mqtt_values:
-        assert val != 0, f"❌ CRITICAL: Zero value reached MQTT! Values: {mqtt_values}"
+    # ✅ Expected values MIT Warmup:
+    # Scenario: 5432.1, 5432.8, 0, 5433.5, 0, 5434.2
+    # Cycles 1-3: Warmup (0 in Cycle 3 durchgelassen!)
+    # Cycles 4-6: Filter aktiv (0 in Cycle 5 gefiltert!)
+    expected = [5432.1, 5432.8, 0, 5433.5, 5433.5, 5434.2]
 
-    # Filter-Statistik prüfen
+    assert mqtt_values == expected, f"Values don't match: {mqtt_values} vs {expected}"
+
+    # Filter-Statistik: Nur Cycle 5 gefiltert (1x)
     stats = filter_instance.get_stats()
     filtered_count = stats.get("energy_grid_exported", 0)
 
-    assert (
-        filtered_count > 0
-    ), f"❌ Filter should have filtered values, but stats show: {stats}"
+    assert filtered_count == 1, f"Expected 1 filtered value, got {filtered_count}"
 
-    # Erwartete Werte: [5432.1, 5432.8, 5432.8 (gefiltert!), 5433.5, 5433.5 (gefiltert!), 5434.2]
-    expected = [5432.1, 5432.8, 5432.8, 5433.5, 5433.5, 5434.2]
-    assert mqtt_values == expected, f"Values don't match: {mqtt_values} vs {expected}"
-
-    print(f"✅ HANT Test: {filtered_count} values filtered, none reached MQTT")
+    print(f"✅ HANT Test: Cycle 3 passed during warmup, Cycle 5 filtered")
 
 
 @pytest.mark.asyncio

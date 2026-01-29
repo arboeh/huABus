@@ -52,7 +52,7 @@ class TotalIncreasingFilter:
         "battery_discharge_total",  # Battery Total Discharge - Gesamt entladene Energie
     }
 
-    def __init__(self, tolerance: float = 0.05):
+    def __init__(self, tolerance: float = 0.05, warmup_cycles: int = 3):
         """
         Initialisiert den Filter mit konfigurierbarer Toleranz.
 
@@ -61,6 +61,7 @@ class TotalIncreasingFilter:
                        Filtert nur wenn Wert um mehr als 5% fällt.
                        Kleine Toleranz verhindert False-Positives bei
                        gleichzeitigen Modbus-Reads während Counter-Updates.
+            warmup_cycles: Anzahl Cycles für Warmup (default: 3)
 
         Hinweis:
             Eine Toleranz von 5% bedeutet:
@@ -71,8 +72,18 @@ class TotalIncreasingFilter:
         self.tolerance = tolerance
         self._last_values: Dict[str, float] = {}  # Speichert letzte gültige Werte
         self._filter_count: Dict[str, int] = {}  # Zählt gefilterte Werte pro Sensor
+
+        # Warmup-Periode
+        self.warmup_mode = True
+        self.warmup_cycles = 0
+        self.warmup_required = warmup_cycles
+
+        # First-Value Tracking
+        self.suspicious_first_values: Dict[str, float] = {}
+
         logger.info(
-            f"🛡️ TotalIncreasingFilter initialized with {tolerance*100:.0f}% tolerance"
+            f"🛡️ TotalIncreasingFilter initialized with {self.tolerance*100:.0f}% tolerance "
+            f"and {self.warmup_required}-cycle warmup period"
         )
 
     def filter(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -95,6 +106,52 @@ class TotalIncreasingFilter:
                     # 0 wurde durch letzten gültigen Wert ersetzt
         """
         result = data.copy()
+
+        # === WARMUP-PHASE ===
+        if self.warmup_mode:
+            self.warmup_cycles += 1
+
+            for key, value in data.items():
+                if key in self.TOTAL_INCREASING_KEYS and isinstance(
+                    value, (int, float)
+                ):
+                    if key not in self._last_values:
+                        if value == 0:
+                            logger.warning(
+                                f"⚠️ WARMUP: First value for {key} is 0 - "
+                                f"marking as suspicious (cycle {self.warmup_cycles}/{self.warmup_required})"
+                            )
+                            self.suspicious_first_values[key] = 0
+                        else:
+                            logger.info(
+                                f"✅ WARMUP: First value for {key}: {value:.2f} "
+                                f"(cycle {self.warmup_cycles}/{self.warmup_required})"
+                            )
+
+                    self._last_values[key] = value
+
+            if self.warmup_cycles >= self.warmup_required:
+                self.warmup_mode = False
+                logger.info(
+                    f"✅ Filter warmup complete after {self.warmup_cycles} cycles - "
+                    f"protection now ACTIVE"
+                )
+
+                if self.suspicious_first_values:
+                    logger.warning(
+                        f"⚠️ Suspicious zero values detected during warmup: "
+                        f"{list(self.suspicious_first_values.keys())} - "
+                        f"monitoring closely for next cycles"
+                    )
+            else:
+                logger.debug(
+                    f"WARMUP: Cycle {self.warmup_cycles}/{self.warmup_required} - "
+                    f"storing values, no filtering yet"
+                )
+
+            return result  # Während Warmup: Unverändert durchlassen
+
+        # === NORMAL-BETRIEB ===
         filtered_count = 0
 
         for key, value in data.items():
@@ -109,23 +166,25 @@ class TotalIncreasingFilter:
                 if last_value is not None:
                     result[key] = last_value
                     filtered_count += 1
-                    logger.debug(
-                        f"⚠️ Replaced {key}: {value} → {last_value:.2f} (filtered)"
-                    )
-                else:
-                    # Kein letzter Wert verfügbar → Original behalten
-                    # (sollte nur beim allerersten Cycle passieren)
                     logger.warning(
-                        f"⚠️ Cannot filter {key}: {value} (no previous value)"
+                        f"⚠️ FILTERED: {key}: {value:.2f} → {last_value:.2f} "
+                        f"(drop > {self.tolerance*100:.0f}% or invalid)"
                     )
-        else:
-            # Logge auch akzeptierte Werte (nur bei DEBUG)
-            if key in self.TOTAL_INCREASING_KEYS:
-                last = self.get_last_value(key)
-                if last is not None:
-                    logger.debug(f"✓ Accepted {key}: {last:.2f} → {value:.2f}")
                 else:
-                    logger.debug(f"✓ First value for {key}: {value:.2f}")
+                    logger.error(
+                        f"❌ Cannot filter {key}={value:.2f} - no previous valid value!"
+                    )
+            else:  # ✅ KORREKT: Gehört zu if self.should_filter()
+                # Logge auch akzeptierte Werte (nur bei DEBUG)
+                if key in self.TOTAL_INCREASING_KEYS:
+                    last = self.get_last_value(key)
+                    if last is not None:
+                        logger.debug(f"✅ Accepted {key}: {last:.2f} → {value:.2f}")
+                    else:
+                        logger.debug(f"✅ First value for {key}: {value:.2f}")
+
+        if filtered_count > 0:
+            logger.info(f"🔍 Filtered {filtered_count} values in this cycle")
 
         return result
 
@@ -167,14 +226,16 @@ class TotalIncreasingFilter:
         # Negative Werte sind niemals erlaubt für Energie-Counter
         # Mögliche Ursachen: Modbus-Übertragungsfehler, ungültiges Register
         if value < 0:
-            logger.warning(f"Filtering {key}: negative value {value}")
-            self._increment_filter_count(key)
+            logger.debug(f"Filter criterion: {key}={value} is negative")
             return True
 
         # Ersten Wert immer akzeptieren (Initialisierung beim Start)
         if key not in self._last_values:
+            logger.warning(
+                f"⚠️ First value after reset for {key}: {value:.2f} "
+                f"(unexpected - should have been handled in warmup)"
+            )
             self._last_values[key] = value
-            logger.debug(f"First value for {key}: {value:.2f}")
             return False
 
         last_value = self._last_values[key]
@@ -183,30 +244,33 @@ class TotalIncreasingFilter:
         # Counter sollten monoton steigend sein
         if value >= last_value:
             self._last_values[key] = value
+
+            # Recovery from suspicious zero
+            if key in self.suspicious_first_values:
+                logger.info(
+                    f"✅ {key} recovered from suspicious zero: "
+                    f"0 → {value:.2f} (normal operation resumed)"
+                )
+                del self.suspicious_first_values[key]
+
             return False
 
-        # Rückgang erkannt - jetzt mit Toleranz prüfen
-        # threshold = letzter_wert * (1 - toleranz)
-        # Beispiel: 10000 kWh * (1 - 0.05) = 9500 kWh Schwellwert
-        threshold = last_value * (1.0 - self.tolerance)
-        if value < threshold:
-            # Rückgang ist größer als Toleranz → wahrscheinlich Lesefehler
-            drop_percent = ((last_value - value) / last_value) * 100
-            logger.warning(
-                f"Filtering {key}: dropped from {last_value:.2f} to {value:.2f} "
-                f"(-{drop_percent:.1f}%) - likely read error"
-            )
-            self._increment_filter_count(key)
-            return True
+        drop_percent = (last_value - value) / last_value
 
-        # Kleiner Rückgang innerhalb Toleranz → akzeptieren und speichern
-        # Kann bei gleichzeitigen Reads während Counter-Update passieren
-        # (Race-Condition zwischen Inverter-Update und Modbus-Read)
-        self._last_values[key] = value
+        if drop_percent <= self.tolerance:
+            logger.debug(
+                f"Small drop for {key}: {last_value:.2f} → {value:.2f} "
+                f"({drop_percent*100:.1f}% < {self.tolerance*100:.0f}%) - within tolerance"
+            )
+            self._last_values[key] = value
+            return False
+
+        self._filter_count[key] = self._filter_count.get(key, 0) + 1
         logger.debug(
-            f"{key}: small drop within tolerance ({last_value:.2f} → {value:.2f})"
+            f"Filter criterion: {key} dropped {drop_percent*100:.1f}% "
+            f"({last_value:.2f} → {value:.2f}) > {self.tolerance*100:.0f}% tolerance"
         )
-        return False
+        return True
 
     def get_last_value(self, key: str) -> Optional[float]:
         """
@@ -270,18 +334,18 @@ class TotalIncreasingFilter:
         """
         self._last_values.clear()
         self._filter_count.clear()
-        logger.info("TotalIncreasingFilter reset (all stored values cleared)")
 
-    def _increment_filter_count(self, key: str) -> None:
-        """
-        Zählt gefilterte Werte für Statistik.
+        # Warmup neu starten
+        self.warmup_mode = True
+        self.warmup_cycles = 0
 
-        Private Methode - wird intern bei jedem gefilterten Wert aufgerufen.
+        # suspicious_first_values NICHT clearen (für Diagnose behalten)
+        # Wenn du Diagnose-Historie behalten willst, ist das OK
+        # Wenn du sauberen Reset willst: self.suspicious_first_values.clear()
 
-        Args:
-            key: Sensor-Key des gefilterten Wertes
-        """
-        self._filter_count[key] = self._filter_count.get(key, 0) + 1
+        logger.info(
+            f"Filter reset - restarting {self.warmup_required}-cycle warmup period"
+        )
 
 
 # Globale Instanz für das gesamte Modul (Singleton-Pattern)
@@ -289,7 +353,9 @@ class TotalIncreasingFilter:
 _filter_instance: Optional[TotalIncreasingFilter] = None
 
 
-def get_filter(tolerance: Optional[float] = None) -> TotalIncreasingFilter:
+def get_filter(
+    tolerance: Optional[float] = None, warmup_cycles: Optional[int] = None
+) -> TotalIncreasingFilter:
     """
     Gibt die globale Filter-Instanz zurück (Singleton-Pattern).
 
@@ -302,6 +368,8 @@ def get_filter(tolerance: Optional[float] = None) -> TotalIncreasingFilter:
     Args:
         tolerance: Toleranz für die erste Initialisierung (optional)
                    Falls None, wird HUAWEI_FILTER_TOLERANCE ENV gelesen (default: 0.05)
+        warmup_cycles: Warmup-Zyklen für die erste Initialisierung (optional)
+                   Falls None, wird HUAWEI_FILTER_WARMUP ENV gelesen (default: 3)
 
     Returns:
         TotalIncreasingFilter Instanz (immer dieselbe)
@@ -312,11 +380,19 @@ def get_filter(tolerance: Optional[float] = None) -> TotalIncreasingFilter:
         >>> assert filter is filter2
     """
     global _filter_instance
+
     if _filter_instance is None:
         # Toleranz aus ENV lesen falls nicht explizit übergeben
         if tolerance is None:
             tolerance = float(os.environ.get("HUAWEI_FILTER_TOLERANCE", "0.05"))
-        _filter_instance = TotalIncreasingFilter(tolerance=tolerance)
+
+        if warmup_cycles is None:
+            warmup_cycles = int(os.environ.get("HUAWEI_FILTER_WARMUP", "3"))
+
+        _filter_instance = TotalIncreasingFilter(
+            tolerance=tolerance, warmup_cycles=warmup_cycles
+        )
+
     return _filter_instance
 
 

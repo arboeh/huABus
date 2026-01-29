@@ -30,10 +30,9 @@ werden kann und von Home Assistant verstanden wird.
 
 import logging
 import time
-from typing import Dict, Any
+from typing import Any, Dict
 
-from .total_increasing_filter import get_filter
-from .config.mappings import REGISTER_MAPPING, CRITICAL_DEFAULTS
+from .config.mappings import CRITICAL_DEFAULTS, REGISTER_MAPPING
 
 logger = logging.getLogger("huawei.transform")
 
@@ -47,8 +46,9 @@ def transform_data(data: Dict[str, Any]) -> Dict[str, Any]:
     2. RegisterValue-Objekte extrahieren (.value Attribut)
     3. Ungültige Modbus-Werte filtern (65535 → None)
     4. Critical Defaults für fehlende Pflicht-Keys
-    5. total_increasing Filter (verhindert falsche Drops)
-    6. Cleanup (None entfernen, Timestamp hinzufügen)
+    5. Cleanup (None entfernen, Timestamp hinzufügen)
+
+    HINWEIS: total_increasing Filter wird jetzt in main_once() angewendet!
 
     Args:
         data: Dict mit Modbus-Register-Daten aus read_registers()
@@ -100,12 +100,7 @@ def transform_data(data: Dict[str, Any]) -> Dict[str, Any]:
             logger.warning(f"Critical '{key}' missing, using {default}")
             result[key] = default
 
-    # === PHASE 3: total_increasing Filter ===
-    # WICHTIG: Filtert Energie-Counter gegen falsche Drops auf 0
-    # Siehe total_increasing_filter.py für Details
-    result = _apply_total_increasing_filter(result)
-
-    # === PHASE 4: Cleanup ===
+    # === PHASE 3: Cleanup ===
     # - Entfernt None-Werte (würden in JSON als null erscheinen)
     # - Fügt last_update Timestamp hinzu
     result = _cleanup_result(result)
@@ -114,92 +109,6 @@ def transform_data(data: Dict[str, Any]) -> Dict[str, Any]:
     logger.debug(f"Transform complete: {len(result)} values ({duration:.3f}s)")
 
     return result
-
-
-def _apply_total_increasing_filter(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Wendet Filter auf total_increasing Sensoren an zur Vermeidung falscher Resets.
-
-    Für jeden total_increasing Sensor (definiert in filter.TOTAL_INCREASING_KEYS):
-    1. Wert zu float konvertieren
-    2. Filter prüfen lassen: should_filter(key, value)
-    3. Bei ungültigem Wert: Letzten gültigen Wert einsetzen
-    4. Kein letzter Wert vorhanden: 0.0 als Fallback
-
-    Dieser Filter ist essentiell um falsche Counter-Resets in Home Assistant
-    zu verhindern. Ohne Filter würden Modbus-Lesefehler (Timeout → 0) als
-    echte Counter-Resets interpretiert und Energie-Statistiken verfälschen.
-
-    Args:
-        data: Transformierte MQTT-Daten (nach Mapping, vor Cleanup)
-
-    Returns:
-        Gefilterte Daten mit ersetzten ungültigen Werten
-
-    Beispiel ohne Filter:
-        energy_yield_accumulated: 15420 kWh
-        → Modbus-Timeout → 0 kWh (falscher Wert)
-        → MQTT Publishing → HA interpretiert als Reset
-        → Energie-Statistik verfälscht
-
-    Beispiel mit Filter:
-        energy_yield_accumulated: 15420 kWh
-        → Modbus-Timeout → 0 kWh (falscher Wert)
-        → Filter erkennt: "Unmöglich, letzter Wert war 15420"
-        → Filter ersetzt: 0 → 15420 (letzter gültiger Wert)
-        → MQTT Publishing → HA sieht stabilen Wert
-        → Energie-Statistik korrekt
-
-    Betroffene Sensoren:
-        - energy_yield_accumulated (Solar Total Yield)
-        - energy_grid_exported (Grid Energy Exported)
-        - energy_grid_accumulated (Grid Energy Imported)
-        - battery_charge_total (Battery Total Charge)
-        - battery_discharge_total (Battery Total Discharge)
-
-    Siehe auch:
-        total_increasing_filter.py für vollständige Filter-Logik
-    """
-    filter_instance = get_filter()
-    filtered_data = data.copy()
-
-    # Über alle definierten total_increasing Keys iterieren
-    for key in filter_instance.TOTAL_INCREASING_KEYS:
-        if key not in filtered_data:
-            # Key existiert nicht in Daten (Register nicht gelesen) → Skip
-            continue
-
-        value = filtered_data[key]
-
-        # None-Werte überspringen (werden später von cleanup entfernt)
-        # None bedeutet: Modbus-Wert ungültig (65535) oder Register fehlt
-        if value is None:
-            continue
-
-        # Zu float konvertieren für numerischen Vergleich
-        try:
-            value = float(value)
-        except (TypeError, ValueError):
-            # Nicht-numerischer Wert (sollte nie passieren bei Energie-Countern)
-            logger.warning(f"Cannot convert {key} to float: {value}")
-            continue
-
-        # Filter anwenden: Prüft ob Wert gültig ist
-        # Returns True wenn gefiltert werden soll (ungültiger Wert)
-        if filter_instance.should_filter(key, value):
-            # Ungültigen Wert durch letzten gültigen ersetzen
-            last_value = filter_instance.get_last_value(key)
-            if last_value is not None:
-                # Letzter gültiger Wert vorhanden → verwenden
-                filtered_data[key] = last_value
-                logger.debug(f"Replaced {key} with last valid value: {last_value:.2f}")
-            else:
-                # Kein letzter Wert vorhanden (erster Cycle nach Start/Reset)
-                # → Fallback auf 0 (sicherer als ungültigen Wert durchzulassen)
-                filtered_data[key] = 0.0
-                logger.debug(f"No last value for {key}, using 0")
-
-    return filtered_data
 
 
 def get_value(value):
