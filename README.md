@@ -44,7 +44,6 @@
 - **Error Tracking:** Intelligent error aggregation with downtime tracking
 - **MQTT Stability:** Connection wait loop and retry logic for reliable publishing
 - **Optimized Logging:** Bashio log level synchronization with filter status indicators
-- **Enhanced Translations:** German and English UI with concrete examples and helpful tips
 - **Cross-Platform:** Supports all major architectures (aarch64, amd64, armhf, armv7, i386)
 
 ## 🚀 Quick Start
