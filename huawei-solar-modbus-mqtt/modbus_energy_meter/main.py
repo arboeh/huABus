@@ -675,6 +675,11 @@ async def main() -> None:
         disconnect_mqtt()
         return
 
+    # Wichtig: Filter muss existieren BEVOR erste Daten publiziert werden
+    # Sonst gibt es beim Restart einen kurzen ungeschützten Moment
+    get_filter()
+    logger.info("🔍 TotalIncreasingFilter initialized (simplified)")
+
     # === Main Loop ===
     poll_interval = int(os.environ.get("HUAWEI_POLL_INTERVAL", "30"))
     logger.info(f"⏱️  Poll interval: {poll_interval}s")
@@ -686,67 +691,49 @@ async def main() -> None:
             logger.debug(f"Cycle #{cycle_count}")
 
             try:
-                # === Cycle ausführen ===
-                # Enthält: Modbus Read + Transform (mit Filter!) + MQTT Publish
                 await main_once(client, cycle_count)
                 error_tracker.mark_success()
                 publish_status("online", topic)
 
             except asyncio.TimeoutError as e:
-                # Timeout bei Modbus-Read (Netzwerk langsam, Inverter antwortet nicht)
                 error_tracker.track_error("timeout", str(e))
                 publish_status("offline", topic)
-                # Filter zurücksetzen weil nach Timeout alle Werte ungültig sein könnten
                 reset_filter()
                 logger.debug("🔄 Filter reset due to timeout")
-                await asyncio.sleep(10)  # Kurze Pause vor Retry
+                await asyncio.sleep(10)
 
             except (ModbusException, ExceptionResponse) as e:  # type: ignore[misc]
-                # Modbus-Protokoll-Fehler (CRC-Fehler, ungültige Response, etc.)
                 error_tracker.track_error("modbus_exception", str(e))
                 publish_status("offline", topic)
-                # Filter zurücksetzen weil Modbus-Fehler zu partiellen Reads führen können
                 reset_filter()
                 logger.debug("🔄 Filter reset due to Modbus exception")
                 await asyncio.sleep(10)
 
             except ConnectionRefusedError as e:
-                # Verbindung verweigert (Port zu, Firewall, Inverter aus, etc.)
                 error_tracker.track_error("connection_refused", f"Errno {e.errno}")
                 publish_status("offline", topic)
-                # Filter zurücksetzen weil nach Reconnect Counter resetten könnten
                 reset_filter()
                 logger.debug("🔄 Filter reset due to connection error")
                 await asyncio.sleep(10)
 
             except Exception as e:
-                # Unbekannte/unerwartete Fehler mit vollem Traceback loggen
                 error_type = type(e).__name__
                 if error_tracker.track_error(error_type, str(e)):
-                    # Nur beim ersten Auftreten Traceback loggen (nicht bei Wiederholung)
                     logger.error(f"Unexpected: {error_type}", exc_info=True)
                 publish_status("offline", topic)
-                # Filter zurücksetzen aus Vorsicht (unbekannter Fehler könnte alles sein)
                 reset_filter()
                 logger.debug("🔄 Filter reset due to unexpected error")
                 await asyncio.sleep(10)
 
-            # Heartbeat prüft ob Timeout überschritten (setzt ggf. offline)
             heartbeat(topic)
-
-            # Warten bis nächster Cycle (poll_interval)
-            # Cycle-Duration wird NICHT abgezogen
             await asyncio.sleep(poll_interval)
 
     except asyncio.CancelledError:
-        # Graceful Shutdown durch SIGTERM (Docker Stop, Hassio Restart)
         logger.info("🛑 Shutdown")
         publish_status("offline", topic)
         disconnect_mqtt()
 
     except Exception as e:
-        # Fatal Error - Addon muss neu starten
-        # Sollte nie passieren, aber Safety-Net
         logger.error(f"💥 Fatal: {e}")
         publish_status("offline", topic)
         disconnect_mqtt()

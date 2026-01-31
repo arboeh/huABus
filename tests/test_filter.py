@@ -36,10 +36,19 @@ def test_drop_to_zero_filtered():
     """Drop von 5432 auf 0 wird gefiltert"""
     filter_instance = TotalIncreasingFilter()
 
-    filter_instance._should_filter("energy_grid_exported", 5432.1)
-    assert filter_instance._should_filter("energy_grid_exported", 0) is True
+    # Erste Messung: 5432.1 kWh (wird akzeptiert und gespeichert)
+    data1 = {"energy_grid_exported": 5432.1}
+    result1 = filter_instance.filter(data1)
+    assert result1["energy_grid_exported"] == 5432.1
 
-    # get_last_value ist auch private!
+    # Zweite Messung: Drop auf 0 (wird gefiltert!)
+    data2 = {"energy_grid_exported": 0}
+    result2 = filter_instance.filter(data2)
+
+    # Wert wurde durch letzten gültigen ersetzt
+    assert result2["energy_grid_exported"] == 5432.1
+
+    # Last value ist immer noch 5432.1 (0 wurde nicht gespeichert)
     assert filter_instance._last_values.get("energy_grid_exported") == 5432.1
 
 
@@ -83,9 +92,15 @@ def test_reset_clears_state():
     """Reset löscht alle gespeicherten Werte"""
     filter_instance = TotalIncreasingFilter()
 
-    filter_instance._should_filter("energy_grid_exported", 5432.1)
+    # Wert über filter() speichern (nicht _should_filter()!)
+    data = {"energy_grid_exported": 5432.1}
+    filter_instance.filter(data)
+
+    # Wert wurde gespeichert
     assert filter_instance._last_values.get("energy_grid_exported") == 5432.1
 
+    # Reset
     filter_instance.reset()
 
+    # Wert ist weg
     assert filter_instance._last_values.get("energy_grid_exported") is None

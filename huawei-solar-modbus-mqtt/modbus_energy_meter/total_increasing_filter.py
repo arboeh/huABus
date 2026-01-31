@@ -72,6 +72,13 @@ class TotalIncreasingFilter:
                     filtered_count += 1
                     self._filter_stats[key] = self._filter_stats.get(key, 0) + 1
                     logger.warning(f"FILTERED: {key} {value:.2f} → {last:.2f}")
+                else:
+                    # Kein last_value vorhanden (z.B. erster Wert ist negativ)
+                    # → Key komplett aus result entfernen!
+                    del result[key]
+                    # Optional: Als "gefiltert" zählen
+                    filtered_count += 1
+                    self._filter_stats[key] = self._filter_stats.get(key, 0) + 1
             else:
                 # Wert ist OK → Speichern
                 self._last_values[key] = value
@@ -108,10 +115,9 @@ class TotalIncreasingFilter:
 
         last = self._last_values.get(key)
 
-        # Erster Wert? → IMMER akzeptieren (auch 0)
+        # Erster Wert? → Akzeptieren (Speichern passiert in filter()!)
         if last is None:
-            self._last_values[key] = value
-            return False
+            return False  # ← KEIN self._last_values[key] = value hier!
 
         # Drop auf 0? → Filtern (außer letzter war auch 0)
         if value == 0 and last > 0:
@@ -152,6 +158,8 @@ def get_filter() -> TotalIncreasingFilter:
 
 
 def reset_filter():
-    """Setzt Singleton zurück."""
+    """Setzt Singleton zurück (löscht Instanz komplett)."""
+    global _filter_instance
     if _filter_instance is not None:
         _filter_instance.reset()
+        _filter_instance = None
