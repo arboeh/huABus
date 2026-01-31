@@ -16,7 +16,7 @@ RUN chmod a+x /run.sh
 LABEL \
     io.hass.name="Huawei Solar Modbus to MQTT" \
     io.hass.description="Huawei Solar Inverter - Modbus to MQTT with auto discovery" \
-    io.hass.version="1.7.0" \
+    io.hass.version="1.7.1" \
     io.hass.type="addon" \
     io.hass.arch="aarch64|amd64|armhf|armv7|i386"
 
