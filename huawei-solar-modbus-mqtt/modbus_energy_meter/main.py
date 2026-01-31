@@ -58,7 +58,7 @@ error_tracker = ConnectionErrorTracker(log_interval=60)
 # Globaler Timestamp des letzten erfolgreichen Reads
 # Wird von main_once() gesetzt und von heartbeat() geprüft
 # 0 = noch kein erfolgreicher Read (Startup-Phase)
-LAST_SUCCESS = 0
+LAST_SUCCESS: float = 0
 
 TRACE = 5  # DEBUG ist 10, INFO ist 20, WARNING ist 30
 logging.addLevelName(TRACE, "TRACE")
@@ -273,7 +273,7 @@ def heartbeat(topic: str) -> None:
 
 
 def log_cycle_summary(
-    cycle_num: int, timings: Dict[str, float], data: Dict[str, Any]
+    cycle_num: float, timings: Dict[str, float], data: Dict[str, Any]
 ) -> None:
     """
     Loggt Cycle-Zusammenfassung - human-readable oder JSON für Monitoring-Tools.
@@ -449,7 +449,7 @@ def is_modbus_exception(exc: Exception) -> bool:
     return isinstance(exc, MODBUS_EXCEPTIONS)
 
 
-async def main_once(client: AsyncHuaweiSolar, cycle_num: int) -> None:
+async def main_once(client: AsyncHuaweiSolar, cycle_num: float) -> None:
     """
     Führt einen kompletten Read-Transform-Filter-Publish Cycle aus.
 
@@ -679,7 +679,7 @@ async def main() -> None:
     poll_interval = int(os.environ.get("HUAWEI_POLL_INTERVAL", "30"))
     logger.info(f"⏱️  Poll interval: {poll_interval}s")
 
-    cycle_count = 0
+    cycle_count: float = 0
     try:
         while True:
             cycle_count += 1
