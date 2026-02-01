@@ -20,13 +20,15 @@ ENV/
 .env.production
 
 # IDE - VS Code
-.vscode/launch.json
-.vscode/tasks.json
-# .vscode/settings.json wird commited (Team-Settings für Tests)
+.vscode/
+*.code-workspace
+.history/
 
 # IDE - Other
 .idea/
 *.iml
+*.swp
+*~
 
 # OS
 .DS_Store
@@ -70,18 +72,16 @@ coverage.xml
 test-results/
 tests/fixtures/local_*.yaml
 
-# Ruff & Pre-commit (v1.7.0+)
+# Ruff & Pre-commit
 .ruff_cache/
 .pre-commit-config.yaml.backup
 
 # Docker
 .dockerignore.backup
 
-# Temporary files & Editor backups
+# Temporary files
 *.tmp
 *.bak
-*.swp
-*~
 *.orig
 \#*\#
 .\#*
