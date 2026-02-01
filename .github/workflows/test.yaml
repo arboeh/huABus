@@ -30,6 +30,15 @@ jobs:
           pip install pytest pytest-asyncio pytest-cov pytest-mock pyyaml
           pip install huawei-solar>=2.5.0 paho-mqtt>=2.1.0 pymodbus>=3.7.0
 
+      - name: Verify installation
+        run: |
+          echo "=== Installed packages ==="
+          pip list | grep -E "(huawei|modbus|mqtt)"
+          echo "=== Test imports ==="
+          python -c "import huawei_solar; print(f'✅ huawei_solar {huawei_solar.__version__}')" || echo "❌ huawei_solar failed"
+          python -c "import paho.mqtt.client; print('✅ paho.mqtt')" || echo "❌ paho.mqtt failed"
+          python -c "import pymodbus; print('✅ pymodbus')" || echo "❌ pymodbus failed"
+
       - name: Debug Python path
         run: |
           echo "=== Workspace: $GITHUB_WORKSPACE ==="
