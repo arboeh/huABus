@@ -30,6 +30,12 @@ jobs:
           pip install pytest pytest-asyncio pytest-cov pytest-mock pyyaml
           pip install huawei-solar>=2.5.0 paho-mqtt>=2.1.0 pymodbus>=3.7.0
 
+      - name: Debug Python path
+        run: |
+          python -c "import sys; print('Python paths:'); [print(p) for p in sys.path]"
+          ls -la huawei-solar-modbus-mqtt/
+          ls -la huawei-solar-modbus-mqtt/modbus_energy_meter/
+
       - name: Add module to Python path
         run: |
           echo "$GITHUB_WORKSPACE/huawei-solar-modbus-mqtt" >> $GITHUB_PATH
