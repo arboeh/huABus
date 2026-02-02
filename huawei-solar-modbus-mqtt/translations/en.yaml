@@ -13,11 +13,11 @@ configuration:
 
   mqtt_host:
     name: MQTT Broker
-    description: Hostname of the MQTT broker (default core-mosquitto for Home Assistant add-on)
+    description: Hostname of MQTT broker (default core-mosquitto for Home Assistant add-on)
 
   mqtt_port:
     name: MQTT Port
-    description: Port of the MQTT broker (default 1883)
+    description: Port of MQTT broker (default 1883)
 
   mqtt_user:
     name: MQTT Username
@@ -29,20 +29,41 @@ configuration:
 
   mqtt_topic:
     name: MQTT Topic
-    description: Base topic where sensor data will be published (e.g. huawei-solar)
+    description: Base topic under which sensor data is published (e.g. huawei-solar)
 
   log_level:
     name: Log Level
-    description: "TRACE: Everything | DEBUG: Detailed performance metrics | INFO: Important events (recommended) | WARNING/ERROR: Problems only"
+    description: "TRACE: Everything incl. Modbus bytes | DEBUG: Detailed performance metrics | INFO: Important events (recommended) | WARNING/ERROR: Problems only"
 
   status_timeout:
     name: Status Timeout
-    description: Time in seconds before status switches to offline when no data is received (default 180s)
+    description: Time in seconds after which the inverter is marked as offline if no data is received (default 180s)
 
   poll_interval:
     name: Poll Interval
-    description: Interval in seconds between Modbus queries. Recommended 30-60s for optimal balance between data freshness and network load
+    description: Interval in seconds between Modbus queries to the inverter. Recommended 30-60s for optimal balance between freshness and network load
 
-  filter_energy_resets:
-    name: Export Energy Filter
-    description: "⚡ Experimental: Prevents jumps in export counters during inverter state changes (e.g. night Standby → Running). Only enable if you experience Utility Meter issues!"
+addon:
+  name: huABus | Huawei Solar → MQTT
+  description: |
+    # Home Assistant Add-on: huABus | Huawei Solar → MQTT
+
+    A complete and easy way to integrate Huawei SUN2000 inverters with Home Assistant via MQTT.
+
+    ## About
+
+    Quickly set up a reliable integration without much fuss. It doesn't require deep knowledge of Modbus, MQTT, or Home Assistant's architecture. Just install the addon, configure your inverter's IP address and MQTT settings, and start it. The addon will automatically create all sensors in Home Assistant via MQTT Discovery.
+
+    ## Features
+
+    - **Automatic sensor creation** via Home Assistant MQTT Discovery (69+ sensors)
+    - **Intelligent filtering** for `total_increasing` sensors to prevent false counter resets
+    - **Connection monitoring** with configurable timeout and offline detection
+    - **Comprehensive error handling** with automatic reconnection logic
+    - **Flexible logging** with adjustable verbosity (TRACE, DEBUG, INFO, WARNING, ERROR)
+    - **Privacy-centric design** - all data stays local, no cloud services required
+    - **Low resource usage** - efficient async implementation (~2-5s cycle time)
+    - **Well tested** - 86% code coverage with comprehensive test suite
+    - **Easy installation and configuration**
+
+    See the [Documentation](https://github.com/arboeh/huABus) for detailed setup instructions, or just install the addon and configure it. The configuration tab explains everything you need to do.

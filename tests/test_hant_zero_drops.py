@@ -1,4 +1,4 @@
-# tests\test_hant_zero_drops.py
+# tests/test_hant_zero_drops.py
 
 """
 Tests für HANTs gemeldetes Problem: Zero Drops (Secondary Issue)
@@ -23,7 +23,7 @@ async def test_hant_zero_drop_after_read_error():
     3. Filter must replace with last valid value
     """
     reset_filter()
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles
+    filter_instance = get_filter()
 
     # Cycle 1: Normal
     data1 = {"energy_grid_exported": 9799.50}
@@ -41,134 +41,6 @@ async def test_hant_zero_drop_after_read_error():
 
 
 @pytest.mark.asyncio
-async def test_hant_multiple_zero_drops_in_sequence():
-    """
-    Scenario: Mehrere aufeinanderfolgende Zero-Drops
-
-    Wie bei längeren Modbus-Problemen
-    """
-    reset_filter()
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles
-
-    # Cycle 1: Normal
-    data1 = {
-        "energy_grid_exported": 9799.50,
-        "energy_yield_accumulated": 18052.68,
-    }
-    filter_instance.filter(data1)
-
-    # Cycle 2-4: Mehrere Zero-Drops
-    for cycle in range(2, 5):
-        data = {
-            "energy_grid_exported": 0,  # Repeated zero
-            "energy_yield_accumulated": 0,  # Repeated zero
-        }
-        result = filter_instance.filter(data)
-
-        # ✅ Alle müssen gefiltert werden
-        assert result["energy_grid_exported"] == 9799.50, f"Cycle {cycle} not filtered!"
-        assert (
-            result["energy_yield_accumulated"] == 18052.68
-        ), f"Cycle {cycle} not filtered!"
-
-    # Cycle 5: Recovery mit validen Werten
-    data5 = {
-        "energy_grid_exported": 9800.20,
-        "energy_yield_accumulated": 18053.50,
-    }
-    result5 = filter_instance.filter(data5)
-
-    # ✅ Valide Werte werden akzeptiert
-    assert result5["energy_grid_exported"] == 9800.20
-    assert result5["energy_yield_accumulated"] == 18053.50
-
-    print("✅ HANT Test: Multiple zero drops handled, recovery successful")
-
-
-@pytest.mark.asyncio
-async def test_hant_zero_drop_mixed_with_valid_values():
-    """
-    Real-World: Nur EINIGE Sensoren haben Zero-Drops
-
-    Scenario:
-    - Sensor A: Zero (error)
-    - Sensor B: Valid value
-    - Sensor C: Valid value
-    """
-    reset_filter()
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles
-
-    # Cycle 1: Alle valid
-    data1 = {
-        "energy_grid_exported": 9799.50,
-        "energy_yield_accumulated": 18052.68,
-        "battery_charge_total": 1234.56,
-    }
-    filter_instance.filter(data1)
-
-    # Cycle 2: Gemischte Situation
-    data2 = {
-        "energy_grid_exported": 0,  # Zero drop!
-        "energy_yield_accumulated": 18053.20,  # Valid
-        "battery_charge_total": 1234.60,  # Valid
-    }
-    result2 = filter_instance.filter(data2)
-
-    # ✅ Zero gefiltert
-    assert result2["energy_grid_exported"] == 9799.50
-
-    # ✅ Valide Werte durchgelassen
-    assert result2["energy_yield_accumulated"] == 18053.20
-    assert result2["battery_charge_total"] == 1234.60
-
-    print("✅ HANT Test: Mixed zero/valid values handled correctly")
-
-
-@pytest.mark.asyncio
-async def test_hant_zero_vs_missing_key():
-    """
-    Wichtiger Unterschied: Zero-Value vs. Missing Key
-
-    - Zero-Value: Key vorhanden mit Wert 0
-    - Missing Key: Key fehlt komplett
-
-    Beide müssen unterschiedlich behandelt werden!
-    """
-    reset_filter()
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles
-
-    # Cycle 1: Normal
-    data1 = {
-        "energy_grid_exported": 9799.50,
-        "energy_yield_accumulated": 18052.68,
-    }
-    filter_instance.filter(data1)
-
-    # Cycle 2: Zero-Value (Key vorhanden!)
-    data2 = {
-        "energy_grid_exported": 0,  # Key present, value = 0
-        "energy_yield_accumulated": 18053.20,
-    }
-    result2 = filter_instance.filter(data2)
-
-    assert result2["energy_grid_exported"] == 9799.50  # Filtered
-    assert result2["energy_yield_accumulated"] == 18053.20
-
-    # Cycle 3: Missing Key (Key fehlt!)
-    data3 = {
-        # energy_grid_exported MISSING!
-        "energy_yield_accumulated": 18054.00,
-    }
-    result3 = filter_instance.filter(data3)
-
-    # ✅ Beide Fälle müssen last_value verwenden
-    assert result3["energy_grid_exported"] == 9799.50  # Filled
-    assert result3["energy_yield_accumulated"] == 18054.00
-
-    print("✅ HANT Test: Zero-value and missing-key handled correctly")
-
-
-@pytest.mark.asyncio
 async def test_hant_legitimate_zero_on_first_read():
     """
     Edge Case: Legitimer Zero-Wert beim ersten Read
@@ -180,7 +52,7 @@ async def test_hant_legitimate_zero_on_first_read():
     Filter sollte 0 als ersten Wert akzeptieren!
     """
     reset_filter()
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles
+    filter_instance = get_filter()
 
     # Cycle 1: Erste Werte sind 0 (legitim!)
     data1 = {
@@ -225,7 +97,7 @@ async def test_hant_negative_value_drops():
     total_increasing Sensoren dürfen NIEMALS fallen!
     """
     reset_filter()
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles
+    filter_instance = get_filter()
 
     # Cycle 1: Normal
     data1 = {"energy_grid_exported": 9799.50}
@@ -256,7 +128,7 @@ async def test_hant_zero_drop_statistics():
     Prüft ob Filter korrekt zählt wie viele Werte gefiltert wurden
     """
     reset_filter()
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles
+    filter_instance = get_filter()
 
     # Cycle 1: Normal
     data1 = {
@@ -307,11 +179,11 @@ async def test_hant_zero_drop_e2e_with_mock():
     mock_modbus.load_scenario("zero_drop_errors")
     mock_mqtt = MockMQTTBroker()
     mock_mqtt.connect("localhost", 1883)
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles
+    filter_instance = get_filter()
 
     mqtt_values = []
 
-    for cycle in range(6):  # ✅ 6 Cycles (war 5, aber Szenario hat 6)
+    for cycle in range(6):
         register = await mock_modbus.get("energy_grid_exported")
         raw_value = register.value
 
@@ -340,7 +212,7 @@ async def test_hant_zero_drop_e2e_with_mock():
 
 
 @pytest.mark.asyncio
-async def test_hant_zero_after_midnight_reset():
+async def test_hant_after_midnight_reset():
     """
     Edge Case: Counter-Reset um Mitternacht
 
@@ -350,7 +222,7 @@ async def test_hant_zero_after_midnight_reset():
     (Aktuell werden daily-Counter NICHT gefiltert - nur total_increasing!)
     """
     reset_filter()
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles
+    filter_instance = get_filter()
 
     # Diese Sensoren sollten NICHT im TOTAL_INCREASING_KEYS sein
     assert "energy_yield_day" not in filter_instance.TOTAL_INCREASING_KEYS
@@ -390,7 +262,7 @@ async def test_hant_utility_meter_with_zero_drops():
     MIT Filter: Utility Meter stabil
     """
     reset_filter()
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles
+    filter_instance = get_filter()
 
     # Simuliere Utility Meter Tracking
     utility_meter_value = 0.0

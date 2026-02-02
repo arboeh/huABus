@@ -1,4 +1,4 @@
-# requirements-dev.txt
+# Development & Testing Dependencies
 
 # Testing
 pytest>=8.0.0
@@ -6,13 +6,15 @@ pytest-asyncio>=0.23.0
 pytest-cov>=4.1.0
 pytest-mock>=3.12.0
 
-# Code Quality
+# Linting & Formatting
 black>=24.0.0
 flake8>=7.0.0
 mypy>=1.8.0
 
-# YAML Support
+# Other
 pyyaml>=6.0
 
-# NOTE: Production dependencies (huawei-solar, pymodbus, paho-mqtt)
-# are installed separately in CI/CD to avoid version conflicts
+# Runtime Dependencies (needed for tests!)
+huawei-solar>=2.5.0
+paho-mqtt>=2.1.0
+pymodbus>=3.7.0

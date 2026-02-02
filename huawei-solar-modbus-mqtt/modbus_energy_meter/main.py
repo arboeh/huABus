@@ -702,13 +702,6 @@ async def main() -> None:
                 logger.debug("🔄 Filter reset due to timeout")
                 await asyncio.sleep(10)
 
-            except (ModbusException, ExceptionResponse) as e:  # type: ignore[misc]
-                error_tracker.track_error("modbus_exception", str(e))
-                publish_status("offline", topic)
-                reset_filter()
-                logger.debug("🔄 Filter reset due to Modbus exception")
-                await asyncio.sleep(10)
-
             except ConnectionRefusedError as e:
                 error_tracker.track_error("connection_refused", f"Errno {e.errno}")
                 publish_status("offline", topic)
@@ -717,24 +710,30 @@ async def main() -> None:
                 await asyncio.sleep(10)
 
             except Exception as e:
-                error_type = type(e).__name__
-                if error_tracker.track_error(error_type, str(e)):
-                    logger.error(f"Unexpected: {error_type}", exc_info=True)
+                # Prüfe ob es eine Modbus Exception ist
+                if MODBUS_EXCEPTIONS and isinstance(e, MODBUS_EXCEPTIONS):
+                    error_tracker.track_error("modbus_exception", str(e))
+                    logger.warning("Modbus error, will retry")
+                else:
+                    error_type = type(e).__name__
+                    if error_tracker.track_error(error_type, str(e)):
+                        logger.error(f"Unexpected: {error_type}", exc_info=True)
+
                 publish_status("offline", topic)
                 reset_filter()
-                logger.debug("🔄 Filter reset due to unexpected error")
+                logger.debug("🔄 Filter reset")
                 await asyncio.sleep(10)
 
             heartbeat(topic)
             await asyncio.sleep(poll_interval)
 
-    except asyncio.CancelledError:
+    except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("🛑 Shutdown")
         publish_status("offline", topic)
         disconnect_mqtt()
 
     except Exception as e:
-        logger.error(f"💥 Fatal: {e}")
+        logger.error(f"💥 Fatal: {e}", exc_info=True)
         publish_status("offline", topic)
         disconnect_mqtt()
         sys.exit(1)

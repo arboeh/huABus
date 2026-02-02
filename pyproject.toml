@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "huawei-solar-modbus-mqtt"
+dynamic = ["version"]
+description = "Huawei Solar Modbus → MQTT + Auto-Discovery"
+authors = [{name = "arboeh"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Home Automation",
+]
+
+dependencies = [
+    "huawei-solar==2.5.0",
+    "pymodbus==3.11.4",
+    "paho-mqtt==2.1.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "huawei-solar-modbus-mqtt"}
+
+[tool.setuptools.dynamic]
+version = {attr = "modbus_energy_meter.__version__.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["huawei-solar-modbus-mqtt"]
+include = ["modbus_energy_meter*"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+    "pre-commit>=3.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/arboeh/huABus"
+Repository = "https://github.com/arboeh/huABus"
+Issues = "https://github.com/arboeh/huABus/issues"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-v"
+
+[tool.coverage.run]
+source = ["modbus_energy_meter"]
+omit = ["*/tests/*", "*/venv/*", "*/__version__.py"]
+
+[tool.coverage.report]
+fail_under = 70
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+python_version = "py311"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = []

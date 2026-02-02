@@ -6,3 +6,11 @@ repos:
         args: [--ignore-missing-imports, --check-untyped-defs]
         additional_dependencies: [types-paho-mqtt]
         files: ^huawei-solar-modbus-mqtt/modbus_energy_meter/
+
+  - repo: local
+    hooks:
+      - id: sync-version
+        name: Sync version from config.yaml
+        entry: python update_version.py
+        language: system
+        pass_filenames: false

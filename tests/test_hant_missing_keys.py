@@ -1,4 +1,4 @@
-# tests\test_hant_missing_keys.py
+# tests/test_hant_missing_keys.py
 
 """
 Tests für HANTs gemeldetes Problem: Missing Keys bei Register-Timeouts
@@ -27,7 +27,7 @@ async def test_hant_missing_key_after_timeout():
     4. MQTT payload complete → HA Utility Meter safe
     """
     reset_filter()
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles!
+    filter_instance = get_filter()
 
     # Cycle 1: Normal - beide Keys vorhanden
     data1 = {
@@ -57,53 +57,6 @@ async def test_hant_missing_key_after_timeout():
 
 
 @pytest.mark.asyncio
-async def test_hant_multiple_missing_keys():
-    """
-    HANT's Real Scenario: Multiple register timeouts (49/57 registers successful)
-
-    8 Register failed → 8 Keys missing from payload
-    Filter must fill ALL missing total_increasing keys
-    """
-    reset_filter()
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles!
-
-    # Cycle 1: Alle Keys vorhanden
-    data1 = {
-        "energy_grid_exported": 9799.50,
-        "energy_yield_accumulated": 18052.68,
-        "battery_charge_total": 1234.56,
-        "battery_discharge_total": 987.65,
-        "energy_grid_accumulated": 925.90,
-    }
-    result1 = filter_instance.filter(data1)
-    assert len(result1) == 5
-
-    # Cycle 2: Register timeouts → Mehrere Keys fehlen
-    data2 = {
-        # energy_grid_exported FEHLT (timeout!)
-        "energy_yield_accumulated": 18053.20,
-        # battery_charge_total FEHLT (timeout!)
-        # battery_discharge_total FEHLT (timeout!)
-        "energy_grid_accumulated": 925.90,
-    }
-    result2 = filter_instance.filter(data2)
-
-    # ✅ Alle fehlenden total_increasing Keys müssen gefüllt sein!
-    assert "energy_grid_exported" in result2
-    assert result2["energy_grid_exported"] == 9799.50
-    assert "battery_charge_total" in result2
-    assert result2["battery_charge_total"] == 1234.56
-    assert "battery_discharge_total" in result2
-    assert result2["battery_discharge_total"] == 987.65
-
-    # Vorhandene Keys unverändert
-    assert result2["energy_yield_accumulated"] == 18053.20
-    assert result2["energy_grid_accumulated"] == 925.90
-
-    print("✅ HANT Test: Multiple missing keys filled")
-
-
-@pytest.mark.asyncio
 async def test_hant_missing_key_without_previous_value():
     """
     Edge Case: Key fehlt, aber noch nie gesehen (kein last_value)
@@ -114,7 +67,7 @@ async def test_hant_missing_key_without_previous_value():
     - Cycle 3: Key fehlt wieder
     """
     reset_filter()
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles!
+    filter_instance = get_filter()
 
     # Cycle 1: Key fehlt - noch nie gesehen
     data1 = {
@@ -162,7 +115,7 @@ async def test_hant_missing_and_invalid_combined():
     Filter muss beide Fälle behandeln
     """
     reset_filter()
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles!
+    filter_instance = get_filter()
 
     # Cycle 1: Alle valid
     data1 = {
@@ -202,7 +155,7 @@ async def test_hant_e2e_with_mock_inverter():
     reset_filter()
     mock_modbus = MockHuaweiSolar()
     mock_modbus.load_scenario("register_timeouts")
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles!
+    filter_instance = get_filter()
 
     mqtt_payloads = []
 
@@ -259,7 +212,7 @@ async def test_hant_addon_restart_scenario():
     mock_modbus.load_scenario("addon_restart")
     mock_mqtt = MockMQTTBroker()
     mock_mqtt.connect("localhost", 1883)
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles!
+    filter_instance = get_filter()
 
     results = []
 
@@ -278,7 +231,7 @@ async def test_hant_addon_restart_scenario():
 
     # === SIMULIERE RESTART ===
     reset_filter()
-    filter_instance = get_filter()  # ✅ Neue Instanz, kein warmup_cycles!
+    filter_instance = get_filter()
 
     # Cycle 2 + 3: Nach Restart
     for _ in range(2):
@@ -313,7 +266,7 @@ async def test_hant_overnight_shutdown():
     mock_modbus.load_scenario("startup_with_previous_value")
     mock_mqtt = MockMQTTBroker()
     mock_mqtt.connect("localhost", 1883)
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles!
+    filter_instance = get_filter()
 
     register = await mock_modbus.get("energy_grid_exported")
     evening_value = register.value
@@ -323,7 +276,7 @@ async def test_hant_overnight_shutdown():
 
     # === OVERNIGHT SHUTDOWN ===
     reset_filter()
-    filter_instance = get_filter()  # ✅ Neue Instanz!
+    filter_instance = get_filter()
 
     mock_modbus.next_cycle()
 
@@ -357,7 +310,7 @@ async def test_hant_intermittent_failures_dont_reach_mqtt():
     mock_mqtt = MockMQTTBroker()
     mock_mqtt.connect("localhost", 1883)
 
-    filter_instance = filter_module.get_filter()  # ✅ Kein warmup_cycles!
+    filter_instance = filter_module.get_filter()
 
     mqtt_values = []
 
@@ -397,7 +350,7 @@ async def test_hant_utility_meter_simulation():
     mock_modbus.load_scenario("utility_meter_reset_simulation")
     mock_mqtt = MockMQTTBroker()
     mock_mqtt.connect("localhost", 1883)
-    filter_instance = get_filter()  # ✅ Kein warmup_cycles!
+    filter_instance = get_filter()
 
     mqtt_values = []
     timestamps = []

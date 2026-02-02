@@ -85,3 +85,11 @@ tests/fixtures/local_*.yaml
 *.orig
 \#*\#
 .\#*
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Old/backup directories
+venv_old/
