@@ -5,6 +5,24 @@ param(
     [switch]$Coverage
 )
 
+# ===== CHECK VIRTUAL ENVIRONMENT =====
+if (-not $env:VIRTUAL_ENV) {
+    Write-Host "⚠️  Virtual environment not activated. Activating..." -ForegroundColor Yellow
+    
+    if (Test-Path "venv\Scripts\Activate.ps1") {
+        & ".\venv\Scripts\Activate.ps1"
+        Write-Host "✅ Virtual environment activated" -ForegroundColor Green
+    } elseif (Test-Path ".venv\Scripts\Activate.ps1") {
+        & ".\.venv\Scripts\Activate.ps1"
+        Write-Host "✅ Virtual environment activated" -ForegroundColor Green
+    } else {
+        Write-Host "❌ No virtual environment found (venv or .venv)!" -ForegroundColor Red
+        Write-Host "   Run: python -m venv venv" -ForegroundColor Yellow
+        exit 1
+    }
+    Write-Host ""
+}
+
 # ===== TEST MODE =====
 if ($Test) {
     Write-Host "🧪 Running tests..." -ForegroundColor Yellow

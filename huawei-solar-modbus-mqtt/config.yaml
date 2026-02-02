@@ -1,5 +1,5 @@
 name: huABus | Huawei Solar Modbus to MQTT
-version: "1.7.1"
+version: "1.7.2"
 slug: huawei_solar_modbus_mqtt
 description: Huawei Solar Modbus → MQTT + Auto-Discovery
 url: https://github.com/arboeh/huABus
@@ -14,6 +14,7 @@ hassio_api: true
 hassio_role: default
 homeassistant_api: false
 host_network: true
+apparmor: auto
 startup: services
 boot: auto
 services:
