@@ -1,12 +1,18 @@
 # tests\test_main.py
 
-"""Tests for main module connection and retry logic."""
-
 import os
-from unittest.mock import AsyncMock, patch
+import time
+from unittest.mock import AsyncMock, Mock, patch
 
+import modbus_energy_meter.main as main_module
 import pytest  # type: ignore
-from modbus_energy_meter.main import main
+from modbus_energy_meter.main import (
+    heartbeat,
+    init_logging,
+    is_modbus_exception,
+    main,
+    main_once,
+)
 from modbus_energy_meter.total_increasing_filter import reset_filter
 
 
@@ -161,3 +167,209 @@ async def test_main_modbus_exception_handling(mock_env):
             call for call in mock_status.call_args_list if call[0][0] == "offline"
         ]
         assert len(offline_calls) >= 1
+
+
+@pytest.mark.asyncio
+async def test_main_missing_mqtt_topic():
+    """Test main() exits when MQTT topic is not configured."""
+    with patch.dict("os.environ", {}, clear=True):
+        with pytest.raises(SystemExit):
+            await main()
+
+
+@pytest.mark.asyncio
+async def test_main_missing_modbus_host():
+    """Test main() exits when Modbus host is not configured."""
+    env = {"HUAWEI_MODBUS_MQTT_TOPIC": "test"}
+    with patch.dict("os.environ", env, clear=True):
+        with (
+            patch("modbus_energy_meter.main.connect_mqtt"),
+            pytest.raises(SystemExit),
+        ):
+            await main()
+
+
+@pytest.mark.asyncio
+async def test_main_mqtt_connection_failure(mock_env):
+    """Test main() handles MQTT connection failure."""
+    with (
+        patch("modbus_energy_meter.main.connect_mqtt") as mock_mqtt,
+        pytest.raises(SystemExit),
+    ):
+        mock_mqtt.side_effect = Exception("MQTT connection failed")
+        await main()
+
+
+def test_heartbeat_startup_no_check():
+    """Test heartbeat does nothing during startup (LAST_SUCCESS == 0)."""
+    # Reset LAST_SUCCESS to startup state
+    main_module.LAST_SUCCESS = 0
+
+    with patch("modbus_energy_meter.main.publish_status") as mock_status:
+        heartbeat("test-topic")
+        # Should not publish status during startup
+        mock_status.assert_not_called()
+
+
+def test_heartbeat_online_within_timeout():
+    """Test heartbeat remains online when within timeout."""
+    # Set LAST_SUCCESS to 50 seconds ago (within 180s timeout)
+    main_module.LAST_SUCCESS = time.time() - 50
+
+    with (
+        patch("modbus_energy_meter.main.publish_status") as mock_status,
+        patch.dict("os.environ", {"HUAWEI_STATUS_TIMEOUT": "180"}),
+    ):
+        heartbeat("test-topic")
+        # Should not publish offline status
+        offline_calls = [
+            call for call in mock_status.call_args_list if call[0][0] == "offline"
+        ]
+        assert len(offline_calls) == 0
+
+
+def test_heartbeat_offline_timeout_exceeded():
+    """Test heartbeat publishes offline when timeout exceeded."""
+    # Set LAST_SUCCESS to 200 seconds ago (exceeds 180s timeout)
+    main_module.LAST_SUCCESS = time.time() - 200
+
+    with (
+        patch("modbus_energy_meter.main.publish_status") as mock_status,
+        patch.dict("os.environ", {"HUAWEI_STATUS_TIMEOUT": "180"}),
+    ):
+        heartbeat("test-topic")
+        # Should publish offline status
+        mock_status.assert_called_with("offline", "test-topic")
+
+
+def test_is_modbus_exception_true():
+    """Test is_modbus_exception returns True for ModbusException."""
+    from pymodbus.exceptions import ModbusException
+
+    assert is_modbus_exception(ModbusException("test error"))
+
+
+def test_is_modbus_exception_false_for_generic_exception():
+    """Test is_modbus_exception returns False for generic exceptions."""
+    assert not is_modbus_exception(ValueError("test error"))
+
+
+def test_is_modbus_exception_false_for_timeout():
+    """Test is_modbus_exception returns False for timeout errors."""
+    import asyncio
+
+    assert not is_modbus_exception(asyncio.TimeoutError())
+
+
+@pytest.mark.asyncio
+async def test_main_once_successful_cycle():
+    """Test main_once executes complete cycle successfully."""
+    mock_client = AsyncMock()
+
+    with (
+        patch("modbus_energy_meter.main.read_registers") as mock_read,
+        patch("modbus_energy_meter.main.transform_data") as mock_transform,
+        patch("modbus_energy_meter.main.publish_data") as mock_publish,
+        patch("modbus_energy_meter.main.get_filter") as mock_filter,
+        patch("modbus_energy_meter.main.log_cycle_summary"),
+        patch.dict("os.environ", {"HUAWEI_MODBUS_MQTT_TOPIC": "test"}),
+    ):
+        # Setup mocks
+        mock_read.return_value = {"power_active": 4500}
+        mock_transform.return_value = {"power_active": 4500}
+        mock_filter_instance = Mock()
+        mock_filter_instance.filter.return_value = {"power_active": 4500}
+        mock_filter.return_value = mock_filter_instance
+
+        await main_once(mock_client, 1)
+
+        # Verify complete pipeline executed
+        assert mock_read.call_count == 1
+        assert mock_transform.call_count == 1
+        assert mock_filter_instance.filter.call_count == 1
+        assert mock_publish.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_main_once_empty_data_handling():
+    """Test main_once handles empty data gracefully."""
+    mock_client = AsyncMock()
+
+    with (
+        patch("modbus_energy_meter.main.read_registers") as mock_read,
+        patch("modbus_energy_meter.main.publish_data") as mock_publish,
+        patch.dict("os.environ", {"HUAWEI_MODBUS_MQTT_TOPIC": "test"}),
+    ):
+        # Return empty data
+        mock_read.return_value = {}
+
+        await main_once(mock_client, 1)
+
+        # Should return early without publishing
+        assert mock_publish.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_main_once_updates_last_success():
+    """Test main_once updates LAST_SUCCESS timestamp on success."""
+    mock_client = AsyncMock()
+
+    # Reset LAST_SUCCESS
+    main_module.LAST_SUCCESS = 0
+    before = time.time()
+
+    with (
+        patch("modbus_energy_meter.main.read_registers") as mock_read,
+        patch("modbus_energy_meter.main.transform_data") as mock_transform,
+        patch("modbus_energy_meter.main.publish_data"),
+        patch("modbus_energy_meter.main.log_cycle_summary"),
+        patch("modbus_energy_meter.main.get_filter") as mock_filter,
+        patch.dict("os.environ", {"HUAWEI_MODBUS_MQTT_TOPIC": "test"}),
+    ):
+        mock_read.return_value = {"power_active": 4500}
+        mock_transform.return_value = {"power_active": 4500}
+        mock_filter_instance = Mock()
+        mock_filter_instance.filter.return_value = {"power_active": 4500}
+        mock_filter.return_value = mock_filter_instance
+
+        await main_once(mock_client, 1)
+
+        # Verify LAST_SUCCESS was updated
+        assert main_module.LAST_SUCCESS > before
+
+
+def test_init_logging_debug_level():
+    """Test init_logging sets DEBUG level correctly."""
+    import logging
+
+    with patch.dict("os.environ", {"HUAWEI_LOG_LEVEL": "DEBUG"}):
+        init_logging()
+        assert logging.getLogger().level == logging.DEBUG
+
+
+def test_init_logging_default_level():
+    """Test init_logging defaults to INFO level."""
+    import logging
+
+    with patch.dict("os.environ", {}, clear=True):
+        init_logging()
+        assert logging.getLogger().level == logging.INFO
+
+
+def test_init_logging_trace_level():
+    """Test init_logging sets TRACE level (custom level)."""
+    import logging
+
+    with patch.dict("os.environ", {"HUAWEI_LOG_LEVEL": "TRACE"}):
+        init_logging()
+        # TRACE = 5
+        assert logging.getLogger().level == 5
+
+
+def test_init_logging_legacy_debug_env():
+    """Test init_logging respects legacy HUAWEI_MODBUS_DEBUG variable."""
+    import logging
+
+    with patch.dict("os.environ", {"HUAWEI_MODBUS_DEBUG": "yes"}):
+        init_logging()
+        assert logging.getLogger().level == logging.DEBUG
