@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "huawei-solar-modbus-mqtt"
-version = "1.7.2"
+dynamic = ["version"]
 description = "Huawei Solar Modbus → MQTT + Auto-Discovery"
 authors = [{name = "arboeh"}]
 readme = "README.md"
@@ -23,6 +23,9 @@ dependencies = [
     "pymodbus==3.11.4",
     "paho-mqtt==2.1.0",
 ]
+
+[tool.setuptools.dynamic]
+version = {attr = "modbus_energy_meter.__version__.__version__"}
 
 [project.optional-dependencies]
 dev = [
@@ -62,14 +65,14 @@ exclude_lines = [
 ]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "1.7.2"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
 
 [tool.ruff]
 line-length = 120
-target-version = "py311"
+target-version = "1.7.2"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
