@@ -16,7 +16,7 @@ class MockRegisterValue:
         self.unit = unit
 
 
-class ModbusException(Exception):
+class ModbusException(Exception):  # noqa: N818
     """Mock für Modbus-Exception"""
 
     pass

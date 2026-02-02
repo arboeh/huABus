@@ -70,14 +70,14 @@ exclude_lines = [
 ]
 
 [tool.mypy]
-python_version = "1.7.2"
+python_version = "py311"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
 
 [tool.ruff]
 line-length = 120
-target-version = "1.7.2"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
