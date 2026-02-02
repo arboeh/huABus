@@ -17,6 +17,9 @@ host_network: true
 apparmor: auto
 startup: services
 boot: auto
+image: "ghcr.io/arboeh/huabus-{arch}"
+logo: logo.png
+icon: icon.png
 services:
   - mqtt:need
 options:
