@@ -16,7 +16,6 @@ homeassistant_api: false
 host_network: true
 startup: services
 boot: auto
-image: "ghcr.io/arboeh/huabus-{arch}"
 logo: logo.png
 icon: icon.png
 services:
