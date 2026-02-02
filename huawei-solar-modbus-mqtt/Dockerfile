@@ -1,6 +1,6 @@
 # Multi-arch base image
-ARG BUILD_ARCH
-FROM ghcr.io/home-assistant/${BUILD_ARCH}-base:latest
+ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
+FROM ${BUILD_FROM}
 
 # Install dependencies
 RUN apk add --no-cache \
