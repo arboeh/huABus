@@ -6,9 +6,9 @@ build-backend = "setuptools.build_meta"
 name = "huawei-solar-modbus-mqtt"
 dynamic = ["version"]
 description = "Huawei Solar Modbus → MQTT + Auto-Discovery"
-authors = [{name = "arboeh"}]
+authors = [{ name = "arboeh", email = "arend.boehmer@web.de" }]
 readme = "README.md"
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
 requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -17,18 +17,13 @@ classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Home Automation",
 ]
-
-dependencies = [
-    "huawei-solar==2.5.0",
-    "pymodbus==3.11.4",
-    "paho-mqtt==2.1.0",
-]
+dependencies = ["huawei-solar>=2.5.0", "pymodbus>=3.11.4", "paho-mqtt>=2.1.0"]
 
 [tool.setuptools]
-package-dir = {"" = "huawei-solar-modbus-mqtt"}
+package-dir = { "" = "huawei-solar-modbus-mqtt" }
 
 [tool.setuptools.dynamic]
-version = {attr = "modbus_energy_meter.__version__.__version__"}
+version = { attr = "modbus_energy_meter.__version__.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["huawei-solar-modbus-mqtt"]

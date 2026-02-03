@@ -1,0 +1,46 @@
+#include <tunables/global>
+
+profile huawei_solar_modbus_mqtt flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # Capabilities
+  capability net_bind_service,
+  capability setgid,
+  capability setuid,
+
+  # S6-Overlay Support
+  /init ix,
+  /bin/** ix,
+  /usr/bin/** ix,
+  /command/** ix,
+  /run/s6/** rw,
+  /run/service/** rw,
+  
+  # Python
+  /usr/bin/python3* ix,
+  /usr/lib/python3*/** mr,
+  
+  # Addon files
+  /app/** r,
+  /run.sh rix,
+  /data/** rw,
+  /config/** r,
+  /share/** r,
+
+  # Networking
+  network inet stream,
+  network inet6 stream,
+  network inet dgram,
+  network inet6 dgram,
+
+  # Temp
+  /tmp/** rw,
+  
+  # Proc
+  /proc/sys/kernel/hostname r,
+  
+  # Deny dangerous
+  deny /proc/sys/kernel/** wl,
+  deny /sys/kernel/security/** wl,
+  deny @{PROC}/sys/vm/** wl,
+}
