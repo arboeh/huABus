@@ -79,9 +79,9 @@ jobs:
       - name: Run ruff check
         run: |
           ruff check huawei-solar-modbus-mqtt/modbus_energy_meter tests/
-        continue-on-error: true
+        # ← continue-on-error ENTFERNT! Sollte fehlschlagen wenn Linter fehlschlägt
 
       - name: Run ruff format check
         run: |
           ruff format --check huawei-solar-modbus-mqtt/modbus_energy_meter tests/
-        continue-on-error: true
+        # ← continue-on-error ENTFERNT!
