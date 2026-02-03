@@ -2,23 +2,40 @@ name: CI
 
 on:
   push:
-    branches:
-      - main # Production
-      - dev # Development
-      - "feature/*" # Feature branches
+    branches: [main, dev, "feature/*"]
   pull_request:
-    branches:
-      - main # PRs to main
-      - dev # PRs to dev (optional)
+    branches: [main, dev]
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint
+        run: ruff check huawei-solar-modbus-mqtt/modbus_energy_meter tests/
+
+      - name: Format check
+        run: ruff format --check huawei-solar-modbus-mqtt/modbus_energy_meter tests/
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
@@ -26,29 +43,43 @@ jobs:
           pip install -e .[dev]
 
       - name: Run tests
-        run: |
-          pytest tests/ -v --cov=modbus_energy_meter --cov-report=term-missing
+        run: pytest tests/ -v --cov=modbus_energy_meter --cov-report=xml --cov-report=term
 
-      - name: Lint with ruff
-        run: |
-          ruff check huawei-solar-modbus-mqtt/modbus_energy_meter tests/
+      - name: Upload coverage (Python 3.12 only)
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
 
-      - name: Format check with ruff
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
         run: |
-          ruff format --check huawei-solar-modbus-mqtt/modbus_energy_meter tests/
+          pip install mypy types-paho-mqtt
+          pip install -e .
 
       - name: Type check
-        run: |
-          mypy huawei-solar-modbus-mqtt/modbus_energy_meter --ignore-missing-imports
+        run: mypy huawei-solar-modbus-mqtt/modbus_energy_meter --ignore-missing-imports
         continue-on-error: true
 
   validate-config:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Validate config.yaml
         run: |
+          pip install pyyaml
           python -c "
           import yaml
           with open('huawei-solar-modbus-mqtt/config.yaml') as f:
