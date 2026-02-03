@@ -223,7 +223,7 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
 
 ### Filter Activity
 
-**Occasional filtering (1-2/hour):** Normal - protects energy statistics  
+**Occasional filtering (1-2/hour):** Normal - protects energy statistics
 **Frequent filtering (every cycle):** Connection issues - enable DEBUG mode
 
 **Understanding filter summaries:**

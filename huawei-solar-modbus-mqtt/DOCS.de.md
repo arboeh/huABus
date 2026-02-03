@@ -223,7 +223,7 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
 
 ### Filter-Aktivität
 
-**Gelegentliches Filtern (1-2/Stunde):** Normal - schützt Energie-Statistiken  
+**Gelegentliches Filtern (1-2/Stunde):** Normal - schützt Energie-Statistiken
 **Häufiges Filtern (jeden Cycle):** Verbindungsprobleme - DEBUG-Modus aktivieren
 
 **Filter-Zusammenfassungen verstehen:**

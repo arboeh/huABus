@@ -15,11 +15,11 @@ profile huawei_solar_modbus_mqtt flags=(attach_disconnected,mediate_deleted) {
   /command/** ix,
   /run/s6/** rw,
   /run/service/** rw,
-  
+
   # Python
   /usr/bin/python3* ix,
   /usr/lib/python3*/** mr,
-  
+
   # Addon files
   /app/** r,
   /run.sh rix,
@@ -35,10 +35,10 @@ profile huawei_solar_modbus_mqtt flags=(attach_disconnected,mediate_deleted) {
 
   # Temp
   /tmp/** rw,
-  
+
   # Proc
   /proc/sys/kernel/hostname r,
-  
+
   # Deny dangerous
   deny /proc/sys/kernel/** wl,
   deny /sys/kernel/security/** wl,

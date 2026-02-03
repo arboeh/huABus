@@ -293,8 +293,8 @@ async def test_hant_utility_meter_with_zero_drops():
     # ✅ Utility Meter sollte korrekte Summe haben
     # Total increase: 0.7 + 0.8 + 0.5 = 2.0 kWh
     expected_total = 2.0
-    assert abs(utility_meter_readings[-1] - expected_total) < 0.1, (
-        f"Utility Meter incorrect: {utility_meter_readings[-1]} vs {expected_total}"
-    )
+    assert (
+        abs(utility_meter_readings[-1] - expected_total) < 0.1
+    ), f"Utility Meter incorrect: {utility_meter_readings[-1]} vs {expected_total}"
 
     print(f"✅ HANT Test: Utility Meter stable with zero-drops: {utility_meter_readings}")

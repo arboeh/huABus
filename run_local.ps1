@@ -105,7 +105,7 @@ try {
         $addonVersion = "dev"
         Write-Host "   [DEBUG] __version__.py not found (Path: $versionPath)" -ForegroundColor DarkYellow
     }
-} catch { 
+} catch {
     $addonVersion = "dev"
     Write-Host "   [DEBUG] Error reading __version__.py: $_" -ForegroundColor Red
 }

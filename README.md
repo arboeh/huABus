@@ -8,14 +8,14 @@
 [![Tests](https://github.com/arboeh/huABus/workflows/Tests/badge.svg)](https://github.com/arboeh/huABus/actions)
 [![codecov](https://codecov.io/gh/arboeh/huABus/branch/main/graph/badge.svg)](https://codecov.io/gh/arboeh/huABus)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/arboeh/huABus/blob/main/LICENSE)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Add--on-41BDF5?logo=home-assistant)](https://www.home-assistant.io/)  
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Add--on-41BDF5?logo=home-assistant)](https://www.home-assistant.io/)
 [![aarch64](https://img.shields.io/badge/aarch64-yes-green.svg)](https://github.com/arboeh/huABus)
 [![amd64](https://img.shields.io/badge/amd64-yes-green.svg)](https://github.com/arboeh/huABus)
 [![armhf](https://img.shields.io/badge/armhf-yes-green.svg)](https://github.com/arboeh/huABus)
 [![armv7](https://img.shields.io/badge/armv7-yes-green.svg)](https://github.com/arboeh/huABus)
 [![i386](https://img.shields.io/badge/i386-yes-green.svg)](https://github.com/arboeh/huABus)
 
-> **⚠️ IMPORTANT: Single Modbus Connection Limit**  
+> **⚠️ IMPORTANT: Single Modbus Connection Limit**
 > Huawei inverters allow **only ONE active Modbus TCP connection**. This is a common beginner mistake.
 >
 > **Before installing:**
@@ -26,7 +26,7 @@
 >
 > Multiple connections cause **timeouts and data loss**!
 
-**58 Essential Registers, 69+ entities, ~2–5s cycle time**  
+**58 Essential Registers, 69+ entities, ~2–5s cycle time**
 **Changelog:** [CHANGELOG.md](huawei-solar-modbus-mqtt/CHANGELOG.md)
 
 ## Features
@@ -78,13 +78,13 @@ Both use the same `huawei-solar` library but target different use cases:
 
 ### Home Assistant Integration
 
-![Diagnostic Entities](screenshots/diagnostics.png)  
+![Diagnostic Entities](screenshots/diagnostics.png)
 _Diagnostic entities showing inverter status, temperature, and battery information_
 
-![Sensor Overview](screenshots/sensors.png)  
+![Sensor Overview](screenshots/sensors.png)
 _Complete sensor overview with real-time power, energy, and grid data_
 
-![MQTT Device Info](screenshots/mqtt-info.png)  
+![MQTT Device Info](screenshots/mqtt-info.png)
 _MQTT device integration details_
 
 ## Installation
@@ -194,6 +194,6 @@ Found a bug or have a feature request? Use our [GitHub Issue Templates](https://
 
 ## Credits
 
-**Based on:** [mjaschen/huawei-solar-modbus-to-mqtt](https://github.com/mjaschen/huawei-solar-modbus-to-mqtt)  
-**Uses library:** [wlcrs/huawei-solar-lib](https://github.com/wlcrs/huawei-solar-lib)  
+**Based on:** [mjaschen/huawei-solar-modbus-to-mqtt](https://github.com/mjaschen/huawei-solar-modbus-to-mqtt)
+**Uses library:** [wlcrs/huawei-solar-lib](https://github.com/wlcrs/huawei-solar-lib)
 **Developed by:** [arboeh](https://github.com/arboeh) | **License:** MIT
