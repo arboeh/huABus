@@ -1,7 +1,7 @@
 repos:
   # Ruff - Linter & Formatter
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.14  # ← Deine lokale Version!
+    rev: v0.14.14
     hooks:
       # Linter (mit Auto-Fix)
       - id: ruff-check
