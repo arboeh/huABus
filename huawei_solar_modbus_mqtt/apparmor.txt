@@ -4,43 +4,57 @@ profile huawei_solar_modbus_mqtt flags=(attach_disconnected,mediate_deleted) {
   #include <abstractions/base>
 
   # Capabilities
-  capability net_bind_service,
-  capability setgid,
-  capability setuid,
+  capability,
+  file,
+  signal (send) set=(kill,term,int,hup,cont),
 
-  # S6-Overlay Support
+  # Network
+  network inet stream,
+  network inet dgram,
+  network inet6 stream,
+  network inet6 dgram,
+  network tcp,
+  network udp,
+
+  # S6-Overlay
   /init ix,
   /bin/** ix,
   /usr/bin/** ix,
+  /sbin/** ix,
+  /usr/sbin/** ix,
+  /lib/** ix,
+  /usr/lib/** ix,
+  /run/{s6,s6-rc*,service}/** ix,
+  /package/** ix,
   /command/** ix,
-  /run/s6/** rw,
-  /run/service/** rw,
+  /etc/services.d/** rwix,
+  /etc/cont-init.d/** rwix,
+  /etc/cont-finish.d/** rwix,
+  /run/{,**} rwk,
+  /dev/tty rw,
+  /dev/null rw,
+  /dev/zero rw,
 
-  # Python
-  /usr/bin/python3* ix,
-  /usr/lib/python3*/** mr,
-
-  # Addon files
-  /app/** r,
+  # Run script
   /run.sh rix,
+
+  # Bashio
+  /usr/lib/bashio/** ix,
+  /tmp/** rwk,
+
+  # Data directory
   /data/** rw,
-  /config/** r,
-  /share/** r,
 
-  # Networking
-  network inet stream,
-  network inet6 stream,
-  network inet dgram,
-  network inet6 dgram,
+  # Application
+  /app/** r,
+  /usr/bin/python3* ix,
 
-  # Temp
-  /tmp/** rw,
+  # System files
+  /etc/** r,
+  /proc/** r,
+  /sys/** r,
 
-  # Proc
-  /proc/sys/kernel/hostname r,
-
-  # Deny dangerous
-  deny /proc/sys/kernel/** wl,
-  deny /sys/kernel/security/** wl,
-  deny @{PROC}/sys/vm/** wl,
+  # Deny dangerous writes
+  deny /proc/sys/kernel/** w,
+  deny /sys/firmware/** w,
 }

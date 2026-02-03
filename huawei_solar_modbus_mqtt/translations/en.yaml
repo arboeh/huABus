@@ -42,28 +42,3 @@ configuration:
   poll_interval:
     name: Poll Interval
     description: Interval in seconds between Modbus queries to the inverter. Recommended 30-60s for optimal balance between freshness and network load
-
-addon:
-  name: huABus | Huawei Solar → MQTT
-  description: |
-    # Home Assistant Add-on: huABus | Huawei Solar → MQTT
-
-    A complete and easy way to integrate Huawei SUN2000 inverters with Home Assistant via MQTT.
-
-    ## About
-
-    Quickly set up a reliable integration without much fuss. It doesn't require deep knowledge of Modbus, MQTT, or Home Assistant's architecture. Just install the addon, configure your inverter's IP address and MQTT settings, and start it. The addon will automatically create all sensors in Home Assistant via MQTT Discovery.
-
-    ## Features
-
-    - **Automatic sensor creation** via Home Assistant MQTT Discovery (69+ sensors)
-    - **Intelligent filtering** for `total_increasing` sensors to prevent false counter resets
-    - **Connection monitoring** with configurable timeout and offline detection
-    - **Comprehensive error handling** with automatic reconnection logic
-    - **Flexible logging** with adjustable verbosity (TRACE, DEBUG, INFO, WARNING, ERROR)
-    - **Privacy-centric design** - all data stays local, no cloud services required
-    - **Low resource usage** - efficient async implementation (~2-5s cycle time)
-    - **Well tested** - 86% code coverage with comprehensive test suite
-    - **Easy installation and configuration**
-
-    See the [Documentation](https://github.com/arboeh/huABus) for detailed setup instructions, or just install the addon and configure it. The configuration tab explains everything you need to do.

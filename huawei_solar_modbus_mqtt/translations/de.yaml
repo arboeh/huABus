@@ -42,28 +42,3 @@ configuration:
   poll_interval:
     name: Abfrageintervall
     description: Intervall in Sekunden zwischen Modbus-Abfragen vom Wechselrichter. Empfohlen 30-60s für optimale Balance zwischen Aktualität und Netzwerklast
-
-addon:
-  name: huABus | Huawei Solar → MQTT
-  description: |
-    # Home Assistant Add-on: huABus | Huawei Solar → MQTT
-
-    Eine einfache und vollständige Lösung zur Integration von Huawei SUN2000 Wechselrichtern mit Home Assistant über MQTT.
-
-    ## Über das Addon
-
-    Richte schnell eine zuverlässige Integration ein, ohne viel Aufwand. Es erfordert kein tiefes Wissen über Modbus, MQTT oder die Home Assistant Architektur. Installiere einfach das Addon, konfiguriere die IP-Adresse deines Wechselrichters und die MQTT-Einstellungen, und starte es. Das Addon erstellt automatisch alle Sensoren in Home Assistant via MQTT Discovery.
-
-    ## Funktionen
-
-    - **Automatische Sensor-Erstellung** via Home Assistant MQTT Discovery (69+ Sensoren)
-    - **Intelligente Filterung** für `total_increasing` Sensoren gegen falsche Zähler-Resets
-    - **Verbindungsüberwachung** mit konfigurierbarem Timeout und Offline-Erkennung
-    - **Umfassende Fehlerbehandlung** mit automatischer Wiederverbindungs-Logik
-    - **Flexibles Logging** mit einstellbarer Ausführlichkeit (TRACE, DEBUG, INFO, WARNING, ERROR)
-    - **Datenschutz-orientiert** - alle Daten bleiben lokal, keine Cloud-Dienste nötig
-    - **Geringer Ressourcenverbrauch** - effiziente async Implementierung (~2-5s Zykluszeit)
-    - **Gut getestet** - 86% Code Coverage mit umfassender Test Suite
-    - **Einfache Installation und Konfiguration**
-
-    Siehe die [Dokumentation](https://github.com/arboeh/huABus) für detaillierte Setup-Anweisungen, oder installiere einfach das Addon und konfiguriere es. Der Konfigurations-Tab erklärt alles, was du brauchst.
