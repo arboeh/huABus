@@ -32,13 +32,24 @@ def get_version_from_pyproject():
         return None
 
     content = pyproject_path.read_text(encoding="utf-8")
+
+    # Statische Version: version = "1.7.3"
     match = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
-    return match.group(1) if match else None
+    if match:
+        return match.group(1)
+
+    # Dynamische Version: attr = "bridge.__version__.__version__"
+    # → Verwende __version__.py als Source of Truth
+    match = re.search(r'attr\s*=\s*"bridge\.__version__\.__version__"', content)
+    if match:
+        return get_version_from_version_py()  # Nutze die gleiche Version
+
+    return None
 
 
 def get_version_from_version_py():
     """Read version from __version__.py"""
-    version_file = Path("huawei_solar_modbus_mqtt/modbus_energy_meter/__version__.py")
+    version_file = Path("huawei_solar_modbus_mqtt/bridge/__version__.py")
     if not version_file.exists():
         return None
 

@@ -16,7 +16,7 @@ Mit Fix:
 - Alle Werte von Anfang an geschützt
 """
 
-from modbus_energy_meter.total_increasing_filter import (
+from bridge.total_increasing_filter import (
     TotalIncreasingFilter,
     get_filter,
     reset_filter,

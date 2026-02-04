@@ -6,7 +6,7 @@ import time
 from unittest.mock import Mock
 
 import pytest  # type: ignore
-from modbus_energy_meter.transform import _cleanup_result, get_value, transform_data
+from bridge.transform import _cleanup_result, get_value, transform_data
 
 
 class TestGetValue:
@@ -88,8 +88,8 @@ class TestTransformData:
             "activepower": "power_active",
             "inputpower": "power_input",
         }
-        mocker.patch("modbus_energy_meter.transform.REGISTER_MAPPING", mock_mapping)
-        mocker.patch("modbus_energy_meter.transform.CRITICAL_DEFAULTS", {})
+        mocker.patch("bridge.transform.REGISTER_MAPPING", mock_mapping)
+        mocker.patch("bridge.transform.CRITICAL_DEFAULTS", {})
 
         # Create mock RegisterValue objects
         mock_active = Mock()
@@ -114,8 +114,8 @@ class TestTransformData:
             "activepower": "power_active",
             "alarm1": "alarm_1",
         }
-        mocker.patch("modbus_energy_meter.transform.REGISTER_MAPPING", mock_mapping)
-        mocker.patch("modbus_energy_meter.transform.CRITICAL_DEFAULTS", {})
+        mocker.patch("bridge.transform.REGISTER_MAPPING", mock_mapping)
+        mocker.patch("bridge.transform.CRITICAL_DEFAULTS", {})
 
         mock_active = Mock()
         mock_active.value = 4500
@@ -137,8 +137,8 @@ class TestTransformData:
         mock_mapping = {"activepower": "power_active"}
         mock_defaults = {"battery_power": 0}
 
-        mocker.patch("modbus_energy_meter.transform.REGISTER_MAPPING", mock_mapping)
-        mocker.patch("modbus_energy_meter.transform.CRITICAL_DEFAULTS", mock_defaults)
+        mocker.patch("bridge.transform.REGISTER_MAPPING", mock_mapping)
+        mocker.patch("bridge.transform.CRITICAL_DEFAULTS", mock_defaults)
 
         mock_active = Mock()
         mock_active.value = 4500
@@ -152,8 +152,8 @@ class TestTransformData:
 
     def test_transform_empty_input(self, mocker):
         """Empty input should return only timestamp."""
-        mocker.patch("modbus_energy_meter.transform.REGISTER_MAPPING", {})
-        mocker.patch("modbus_energy_meter.transform.CRITICAL_DEFAULTS", {})
+        mocker.patch("bridge.transform.REGISTER_MAPPING", {})
+        mocker.patch("bridge.transform.CRITICAL_DEFAULTS", {})
 
         result = transform_data({})
 

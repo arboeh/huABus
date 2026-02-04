@@ -1,4 +1,4 @@
-# modbus_energy_meter/config/mappings.py
+# bridge/config/mappings.py
 
 """
 Register-Mappings von huawei_solar Library zu MQTT-Keys.

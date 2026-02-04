@@ -1,4 +1,4 @@
-# modbus_energy_meter/config/sensors_mqtt.py
+# bridge/config/sensors_mqtt.py
 
 """
 MQTT Sensor Definitions für Home Assistant Discovery.

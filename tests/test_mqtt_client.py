@@ -7,7 +7,7 @@ import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
-from modbus_energy_meter.mqtt_client import (
+from bridge.mqtt_client import (
     _build_sensor_config,
     _get_mqtt_client,
     _on_connect,
@@ -23,7 +23,7 @@ from modbus_energy_meter.mqtt_client import (
 @pytest.fixture
 def mock_mqtt_client():
     """Mock MQTT Client für Tests."""
-    with patch("modbus_energy_meter.mqtt_client.mqtt.Client") as mock:
+    with patch("bridge.mqtt_client.mqtt.Client") as mock:
         client_instance = MagicMock()
         mock.return_value = client_instance
         # Mock publish result
@@ -46,7 +46,7 @@ def mqtt_env_vars(monkeypatch):
 @pytest.fixture(autouse=True)
 def reset_mqtt_globals():
     """Reset globale MQTT Variablen vor jedem Test."""
-    import modbus_energy_meter.mqtt_client as mqtt_module
+    import bridge.mqtt_client as mqtt_module
 
     mqtt_module._mqtt_client = None
     mqtt_module._is_connected = False
@@ -60,21 +60,21 @@ class TestCallbacks:
 
     def test_on_connect_success(self):
         """Test erfolgreichen Connect-Callback."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
         _on_connect(None, None, None, 0)
         assert mqtt_module._is_connected is True
 
     def test_on_connect_failure(self):
         """Test fehlerhaften Connect-Callback."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
         _on_connect(None, None, None, 5)  # rc=5 = not authorized
         assert mqtt_module._is_connected is False
 
     def test_on_disconnect_clean(self):
         """Test sauberen Disconnect."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
         mqtt_module._is_connected = True
 
@@ -83,7 +83,7 @@ class TestCallbacks:
 
     def test_on_disconnect_unexpected(self):
         """Test unerwarteten Disconnect."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
         mqtt_module._is_connected = True
 
@@ -96,7 +96,7 @@ class TestClientCreation:
 
     def test_get_mqtt_client_creates_new(self, mock_mqtt_client, mqtt_env_vars):
         """Test dass Client neu erstellt wird."""
-        with patch("modbus_energy_meter.mqtt_client.mqtt.Client") as mock_client:
+        with patch("bridge.mqtt_client.mqtt.Client") as mock_client:
             mock_client.return_value = mock_mqtt_client
             client = _get_mqtt_client()
 
@@ -105,9 +105,9 @@ class TestClientCreation:
 
     def test_get_mqtt_client_singleton(self, mock_mqtt_client, mqtt_env_vars):
         """Test dass Client nur einmal erstellt wird (Singleton)."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
-        with patch("modbus_energy_meter.mqtt_client.mqtt.Client") as mock_client:
+        with patch("bridge.mqtt_client.mqtt.Client") as mock_client:
             mock_client.return_value = mock_mqtt_client
             mqtt_module._mqtt_client = mock_mqtt_client
 
@@ -119,7 +119,7 @@ class TestClientCreation:
 
     def test_get_mqtt_client_with_auth(self, mock_mqtt_client, mqtt_env_vars):
         """Test Client-Erstellung mit Authentifizierung."""
-        with patch("modbus_energy_meter.mqtt_client.mqtt.Client") as mock_client:
+        with patch("bridge.mqtt_client.mqtt.Client") as mock_client:
             mock_client.return_value = mock_mqtt_client
             _get_mqtt_client()
 
@@ -127,7 +127,7 @@ class TestClientCreation:
 
     def test_get_mqtt_client_with_lwt(self, mock_mqtt_client, mqtt_env_vars):
         """Test Client-Erstellung mit Last Will Testament."""
-        with patch("modbus_energy_meter.mqtt_client.mqtt.Client") as mock_client:
+        with patch("bridge.mqtt_client.mqtt.Client") as mock_client:
             mock_client.return_value = mock_mqtt_client
             _get_mqtt_client()
 
@@ -139,9 +139,9 @@ class TestConnect:
 
     def test_connect_mqtt_success(self, mock_mqtt_client, mqtt_env_vars):
         """Test erfolgreiche MQTT Verbindung."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
-        with patch("modbus_energy_meter.mqtt_client.mqtt.Client") as mock_client:
+        with patch("bridge.mqtt_client.mqtt.Client") as mock_client:
             mock_client.return_value = mock_mqtt_client
 
             # Simuliere erfolgreichen Connect
@@ -164,14 +164,14 @@ class TestConnect:
 
     def test_connect_mqtt_timeout(self, mock_mqtt_client, mqtt_env_vars):
         """Test Connect-Timeout."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
-        with patch("modbus_energy_meter.mqtt_client.mqtt.Client") as mock_client:
+        with patch("bridge.mqtt_client.mqtt.Client") as mock_client:
             mock_client.return_value = mock_mqtt_client
             # _is_connected bleibt False (simuliert Timeout)
             mqtt_module._is_connected = False
 
-            with patch("modbus_energy_meter.mqtt_client.time.sleep"):
+            with patch("bridge.mqtt_client.time.sleep"):
                 with pytest.raises(ConnectionError, match="MQTT connection timeout"):
                     connect_mqtt()
 
@@ -181,7 +181,7 @@ class TestDisconnect:
 
     def test_disconnect_mqtt_when_connected(self, mock_mqtt_client, mqtt_env_vars):
         """Test saubere Trennung."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
         mqtt_module._mqtt_client = mock_mqtt_client
         mqtt_module._is_connected = True
@@ -252,7 +252,7 @@ class TestPublishing:
 
     def test_publish_data_success(self, mock_mqtt_client, mqtt_env_vars):
         """Test erfolgreiches Daten-Publishing."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
         mqtt_module._mqtt_client = mock_mqtt_client
         mqtt_module._is_connected = True
@@ -272,7 +272,7 @@ class TestPublishing:
 
     def test_publish_data_not_connected(self):
         """Test Publishing wenn nicht verbunden."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
         mqtt_module._is_connected = False
 
@@ -281,7 +281,7 @@ class TestPublishing:
 
     def test_publish_status_online(self, mock_mqtt_client, mqtt_env_vars):
         """Test Status-Publishing (online)."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
         mqtt_module._mqtt_client = mock_mqtt_client
         mqtt_module._is_connected = True
@@ -292,7 +292,7 @@ class TestPublishing:
 
     def test_publish_status_not_connected(self, mock_mqtt_client):
         """Test Status-Publishing wenn nicht verbunden."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
         mqtt_module._is_connected = False
 
@@ -301,7 +301,7 @@ class TestPublishing:
         mock_mqtt_client.publish.assert_not_called()
 
     def test_publish_data_publish_exception(self, mock_mqtt_client, mqtt_env_vars):
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
         mqtt_module._mqtt_client = mock_mqtt_client
         mqtt_module._is_connected = True
@@ -313,7 +313,7 @@ class TestPublishing:
 
     def test_publish_status_publish_exception(self, mock_mqtt_client, mqtt_env_vars, caplog):
         """Test Exception-Handling bei Status-Publish-Fehler."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
         mqtt_module._mqtt_client = mock_mqtt_client
         mqtt_module._is_connected = True
@@ -330,7 +330,7 @@ class TestPublishing:
 
     def test_publish_data_with_debug_logging(self, mock_mqtt_client, mqtt_env_vars, caplog):
         """Test Debug-Logging bei publish_data."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
         mqtt_module._mqtt_client = mock_mqtt_client
         mqtt_module._is_connected = True
@@ -353,13 +353,13 @@ class TestDiscovery:
 
     def test_publish_discovery_configs(self, mock_mqtt_client, mqtt_env_vars):
         """Test Discovery-Config Publishing."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
         mqtt_module._mqtt_client = mock_mqtt_client
         mqtt_module._is_connected = True
 
-        with patch("modbus_energy_meter.mqtt_client._load_numeric_sensors") as mock_numeric:
-            with patch("modbus_energy_meter.mqtt_client._load_text_sensors") as mock_text:
+        with patch("bridge.mqtt_client._load_numeric_sensors") as mock_numeric:
+            with patch("bridge.mqtt_client._load_text_sensors") as mock_text:
                 mock_numeric.return_value = [{"name": "Test", "key": "test"}]
                 mock_text.return_value = []
 
@@ -370,7 +370,7 @@ class TestDiscovery:
 
     def test_publish_discovery_not_connected(self, mock_mqtt_client):
         """Test Discovery wenn nicht verbunden."""
-        import modbus_energy_meter.mqtt_client as mqtt_module
+        import bridge.mqtt_client as mqtt_module
 
         mqtt_module._is_connected = False
 

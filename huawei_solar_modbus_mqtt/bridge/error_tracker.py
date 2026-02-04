@@ -1,4 +1,4 @@
-# modbus_energy_meter/error_tracker.py
+# bridge/error_tracker.py
 
 """
 Connection Error Tracker für intelligentes Fehler-Logging.

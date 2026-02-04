@@ -4,16 +4,16 @@ import os
 import time
 from unittest.mock import AsyncMock, Mock, patch
 
-import modbus_energy_meter.main as main_module
+import bridge.main as main_module
 import pytest  # type: ignore
-from modbus_energy_meter.main import (
+from bridge.main import (
     heartbeat,
     init_logging,
     is_modbus_exception,
     main,
     main_once,
 )
-from modbus_energy_meter.total_increasing_filter import reset_filter
+from bridge.total_increasing_filter import reset_filter
 
 
 @pytest.fixture(autouse=True)
@@ -44,12 +44,12 @@ def mock_env():
 async def test_main_connection_retry_on_failure(mock_env):
     """Test that main() handles connection failures gracefully."""
     with (
-        patch("modbus_energy_meter.main.AsyncHuaweiSolar.create") as mock_create,
-        patch("modbus_energy_meter.main.connect_mqtt"),
-        patch("modbus_energy_meter.main.disconnect_mqtt"),
-        patch("modbus_energy_meter.main.publish_status"),
-        patch("modbus_energy_meter.main.publish_discovery_configs"),
-        patch("modbus_energy_meter.main.main_once"),
+        patch("bridge.main.AsyncHuaweiSolar.create") as mock_create,
+        patch("bridge.main.connect_mqtt"),
+        patch("bridge.main.disconnect_mqtt"),
+        patch("bridge.main.publish_status"),
+        patch("bridge.main.publish_discovery_configs"),
+        patch("bridge.main.main_once"),
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
         # Connection fails
@@ -66,12 +66,12 @@ async def test_main_connection_retry_on_failure(mock_env):
 async def test_main_graceful_shutdown(mock_env):
     """Test graceful shutdown on KeyboardInterrupt."""
     with (
-        patch("modbus_energy_meter.main.AsyncHuaweiSolar.create") as mock_create,
-        patch("modbus_energy_meter.main.connect_mqtt"),
-        patch("modbus_energy_meter.main.disconnect_mqtt") as mock_disconnect,
-        patch("modbus_energy_meter.main.publish_status") as mock_status,
-        patch("modbus_energy_meter.main.publish_discovery_configs"),
-        patch("modbus_energy_meter.main.main_once") as mock_once,
+        patch("bridge.main.AsyncHuaweiSolar.create") as mock_create,
+        patch("bridge.main.connect_mqtt"),
+        patch("bridge.main.disconnect_mqtt") as mock_disconnect,
+        patch("bridge.main.publish_status") as mock_status,
+        patch("bridge.main.publish_discovery_configs"),
+        patch("bridge.main.main_once") as mock_once,
     ):
         mock_client = AsyncMock()
         mock_create.return_value = mock_client
@@ -96,12 +96,12 @@ async def test_main_graceful_shutdown(mock_env):
 async def test_main_timeout_exception_triggers_reconnect(mock_env):
     """Test that timeout exception triggers filter reset and continues."""
     with (
-        patch("modbus_energy_meter.main.AsyncHuaweiSolar.create") as mock_create,
-        patch("modbus_energy_meter.main.connect_mqtt"),
-        patch("modbus_energy_meter.main.publish_status") as mock_status,
-        patch("modbus_energy_meter.main.publish_discovery_configs"),
-        patch("modbus_energy_meter.main.main_once") as mock_once,
-        patch("modbus_energy_meter.main.reset_filter") as mock_reset_filter,
+        patch("bridge.main.AsyncHuaweiSolar.create") as mock_create,
+        patch("bridge.main.connect_mqtt"),
+        patch("bridge.main.publish_status") as mock_status,
+        patch("bridge.main.publish_discovery_configs"),
+        patch("bridge.main.main_once") as mock_once,
+        patch("bridge.main.reset_filter") as mock_reset_filter,
         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
     ):
         mock_client = AsyncMock()
@@ -135,12 +135,12 @@ async def test_main_modbus_exception_handling(mock_env):
     from pymodbus.exceptions import ModbusException
 
     with (
-        patch("modbus_energy_meter.main.AsyncHuaweiSolar.create") as mock_create,
-        patch("modbus_energy_meter.main.connect_mqtt"),
-        patch("modbus_energy_meter.main.publish_status") as mock_status,
-        patch("modbus_energy_meter.main.publish_discovery_configs"),
-        patch("modbus_energy_meter.main.main_once") as mock_once,
-        patch("modbus_energy_meter.main.reset_filter") as mock_reset_filter,
+        patch("bridge.main.AsyncHuaweiSolar.create") as mock_create,
+        patch("bridge.main.connect_mqtt"),
+        patch("bridge.main.publish_status") as mock_status,
+        patch("bridge.main.publish_discovery_configs"),
+        patch("bridge.main.main_once") as mock_once,
+        patch("bridge.main.reset_filter") as mock_reset_filter,
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
         mock_client = AsyncMock()
@@ -179,7 +179,7 @@ async def test_main_missing_modbus_host():
     env = {"HUAWEI_MODBUS_MQTT_TOPIC": "test"}
     with patch.dict("os.environ", env, clear=True):
         with (
-            patch("modbus_energy_meter.main.connect_mqtt"),
+            patch("bridge.main.connect_mqtt"),
             pytest.raises(SystemExit),
         ):
             await main()
@@ -189,7 +189,7 @@ async def test_main_missing_modbus_host():
 async def test_main_mqtt_connection_failure(mock_env):
     """Test main() handles MQTT connection failure."""
     with (
-        patch("modbus_energy_meter.main.connect_mqtt") as mock_mqtt,
+        patch("bridge.main.connect_mqtt") as mock_mqtt,
         pytest.raises(SystemExit),
     ):
         mock_mqtt.side_effect = Exception("MQTT connection failed")
@@ -201,7 +201,7 @@ def test_heartbeat_startup_no_check():
     # Reset LAST_SUCCESS to startup state
     main_module.LAST_SUCCESS = 0
 
-    with patch("modbus_energy_meter.main.publish_status") as mock_status:
+    with patch("bridge.main.publish_status") as mock_status:
         heartbeat("test-topic")
         # Should not publish status during startup
         mock_status.assert_not_called()
@@ -213,7 +213,7 @@ def test_heartbeat_online_within_timeout():
     main_module.LAST_SUCCESS = time.time() - 50
 
     with (
-        patch("modbus_energy_meter.main.publish_status") as mock_status,
+        patch("bridge.main.publish_status") as mock_status,
         patch.dict("os.environ", {"HUAWEI_STATUS_TIMEOUT": "180"}),
     ):
         heartbeat("test-topic")
@@ -228,7 +228,7 @@ def test_heartbeat_offline_timeout_exceeded():
     main_module.LAST_SUCCESS = time.time() - 200
 
     with (
-        patch("modbus_energy_meter.main.publish_status") as mock_status,
+        patch("bridge.main.publish_status") as mock_status,
         patch.dict("os.environ", {"HUAWEI_STATUS_TIMEOUT": "180"}),
     ):
         heartbeat("test-topic")
@@ -261,11 +261,11 @@ async def test_main_once_successful_cycle():
     mock_client = AsyncMock()
 
     with (
-        patch("modbus_energy_meter.main.read_registers") as mock_read,
-        patch("modbus_energy_meter.main.transform_data") as mock_transform,
-        patch("modbus_energy_meter.main.publish_data") as mock_publish,
-        patch("modbus_energy_meter.main.get_filter") as mock_filter,
-        patch("modbus_energy_meter.main.log_cycle_summary"),
+        patch("bridge.main.read_registers") as mock_read,
+        patch("bridge.main.transform_data") as mock_transform,
+        patch("bridge.main.publish_data") as mock_publish,
+        patch("bridge.main.get_filter") as mock_filter,
+        patch("bridge.main.log_cycle_summary"),
         patch.dict("os.environ", {"HUAWEI_MODBUS_MQTT_TOPIC": "test"}),
     ):
         # Setup mocks
@@ -290,8 +290,8 @@ async def test_main_once_empty_data_handling():
     mock_client = AsyncMock()
 
     with (
-        patch("modbus_energy_meter.main.read_registers") as mock_read,
-        patch("modbus_energy_meter.main.publish_data") as mock_publish,
+        patch("bridge.main.read_registers") as mock_read,
+        patch("bridge.main.publish_data") as mock_publish,
         patch.dict("os.environ", {"HUAWEI_MODBUS_MQTT_TOPIC": "test"}),
     ):
         # Return empty data
@@ -313,11 +313,11 @@ async def test_main_once_updates_last_success():
     before = time.time()
 
     with (
-        patch("modbus_energy_meter.main.read_registers") as mock_read,
-        patch("modbus_energy_meter.main.transform_data") as mock_transform,
-        patch("modbus_energy_meter.main.publish_data"),
-        patch("modbus_energy_meter.main.log_cycle_summary"),
-        patch("modbus_energy_meter.main.get_filter") as mock_filter,
+        patch("bridge.main.read_registers") as mock_read,
+        patch("bridge.main.transform_data") as mock_transform,
+        patch("bridge.main.publish_data"),
+        patch("bridge.main.log_cycle_summary"),
+        patch("bridge.main.get_filter") as mock_filter,
         patch.dict("os.environ", {"HUAWEI_MODBUS_MQTT_TOPIC": "test"}),
     ):
         mock_read.return_value = {"power_active": 4500}

@@ -1,4 +1,4 @@
-# modbus_energy_meter/main.py
+# bridge/main.py
 
 """
 Hauptmodul des Huawei Solar Modbus-to-MQTT Add-ons.

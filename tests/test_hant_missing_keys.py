@@ -6,7 +6,7 @@ GitHub Issue: #7 - Root Cause: Missing keys from register timeouts
 """
 
 import pytest  # type: ignore
-from modbus_energy_meter.total_increasing_filter import (
+from bridge.total_increasing_filter import (
     get_filter,
     reset_filter,
 )
@@ -300,7 +300,7 @@ async def test_hant_intermittent_failures_dont_reach_mqtt():
     """
     HANT's Beobachtung: Intermittierende Fehler werden korrekt gefiltert
     """
-    import modbus_energy_meter.total_increasing_filter as filter_module
+    import bridge.total_increasing_filter as filter_module
 
     # Singleton clearen
     filter_module._filter_instance = None

@@ -1,4 +1,4 @@
-# modbus_energy_meter/total_increasing_filter.py
+# bridge/total_increasing_filter.py
 
 """
 Vereinfachter Filter für total_increasing Sensoren.

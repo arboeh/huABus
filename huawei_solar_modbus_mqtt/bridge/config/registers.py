@@ -1,4 +1,4 @@
-# modbus_energy_meter/config/registers.py
+# bridge/config/registers.py
 
 """
 Essential Registers Definition für Huawei SUN2000 Inverter.

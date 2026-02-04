@@ -1,4 +1,4 @@
-# modbus_energy_meter/mqtt_client.py
+# bridge/mqtt_client.py
 
 """
 MQTT Client Manager für Home Assistant Integration.

@@ -1,4 +1,4 @@
-# modbus_energy_meter/transform.py
+# bridge/transform.py
 
 """
 Transformiert Modbus-Register-Daten in MQTT-Format.

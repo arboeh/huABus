@@ -5,7 +5,7 @@
 import json
 
 import pytest  # type: ignore
-from modbus_energy_meter.total_increasing_filter import (
+from bridge.total_increasing_filter import (
     get_filter,
     reset_filter,
 )

@@ -6,10 +6,10 @@ repos:
       # Linter (mit Auto-Fix)
       - id: ruff-check
         args: [--fix]
-        files: ^(huawei_solar_modbus_mqtt/modbus_energy_meter|tests)/
+        files: ^(huawei_solar_modbus_mqtt/bridge|tests)/
       # Formatter
       - id: ruff-format
-        files: ^(huawei_solar_modbus_mqtt/modbus_energy_meter|tests)/
+        files: ^(huawei_solar_modbus_mqtt/bridge|tests)/
 
   # MyPy - Type Checking
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -18,7 +18,7 @@ repos:
       - id: mypy
         args: [--ignore-missing-imports, --check-untyped-defs]
         additional_dependencies: [types-paho-mqtt]
-        files: ^huawei_solar_modbus_mqtt/modbus_energy_meter/
+        files: ^huawei_solar_modbus_mqtt/bridge/
 
   # Pre-Commit Hooks - Standard Checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -39,7 +39,7 @@ repos:
       # Version Consistency Check (läuft ZUERST)
       - id: check-version-sync
         name: Check version synchronization
-        entry: python check_version_sync.py
+        entry: python scripts/check_version_sync.py
         language: system
         pass_filenames: false
         always_run: true
@@ -48,7 +48,7 @@ repos:
       # Version Sync (nur bei Manual-Run)
       - id: sync-version
         name: Sync version from config.yaml
-        entry: python update_version.py
+        entry: python scripts/update_version.py
         language: system
         pass_filenames: false
         stages: [manual]

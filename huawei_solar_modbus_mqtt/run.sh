@@ -115,4 +115,4 @@ echo "[$(date +'%T')] INFO: >> Starting Python application..."
 
 # Start Python application
 cd /app || exit 1
-exec python3 -u -m modbus_energy_meter.main
+exec python3 -u -m bridge.main

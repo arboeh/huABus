@@ -7,7 +7,7 @@ Tests für Connection Error Tracker - Korrigierte Version
 import logging
 from unittest.mock import patch
 
-from modbus_energy_meter.error_tracker import ConnectionErrorTracker
+from bridge.error_tracker import ConnectionErrorTracker
 
 
 class TestBasicErrorTracking:
@@ -59,16 +59,16 @@ class TestBasicErrorTracking:
         tracker = ConnectionErrorTracker(log_interval=60)
 
         # Erster Fehler
-        with patch("modbus_energy_meter.error_tracker.time.time", return_value=1000.0):
+        with patch("bridge.error_tracker.time.time", return_value=1000.0):
             tracker.track_error("timeout", "Connection timed out")
 
         # Zweiter Fehler nach 10s (wird nicht geloggt)
-        with patch("modbus_energy_meter.error_tracker.time.time", return_value=1010.0):
+        with patch("bridge.error_tracker.time.time", return_value=1010.0):
             tracker.track_error("timeout", "Connection timed out")
 
         # Dritter Fehler nach 65s (wird geloggt)
         caplog.clear()
-        with patch("modbus_energy_meter.error_tracker.time.time", return_value=1065.0):
+        with patch("bridge.error_tracker.time.time", return_value=1065.0):
             result = tracker.track_error("timeout", "Connection timed out")
 
         assert result is True  # Fehler wurde geloggt
@@ -195,13 +195,13 @@ class TestMultipleErrorTypes:
         tracker = ConnectionErrorTracker(log_interval=60)
 
         # Erster Timeout bei t=1000
-        with patch("modbus_energy_meter.error_tracker.time.time", return_value=1000.0):
+        with patch("bridge.error_tracker.time.time", return_value=1000.0):
             result1 = tracker.track_error("timeout", "Error 1")
             assert result1 is True  # Geloggt
 
         # Erste Modbus-Exception bei t=1010 (anderer Typ!)
         caplog.clear()
-        with patch("modbus_energy_meter.error_tracker.time.time", return_value=1010.0):
+        with patch("bridge.error_tracker.time.time", return_value=1010.0):
             result2 = tracker.track_error("modbus_exception", "Error 2")
             assert result2 is True  # Auch geloggt (neuer Typ)
             assert len(caplog.records) == 1
@@ -222,7 +222,7 @@ class TestEdgeCases:
         log_count = 0
         for i in range(240):
             with patch(
-                "modbus_energy_meter.error_tracker.time.time",
+                "bridge.error_tracker.time.time",
                 return_value=1000.0 + i * 30,
             ):
                 if tracker.track_error("timeout", "Inverter offline"):
@@ -303,7 +303,7 @@ class TestStatusReporting:
         """Status wird nach mark_success() aktualisiert."""
         tracker = ConnectionErrorTracker()
 
-        with patch("modbus_energy_meter.error_tracker.time.time", return_value=1000.0):
+        with patch("bridge.error_tracker.time.time", return_value=1000.0):
             tracker.track_error("timeout", "Error")
             tracker.mark_success()
 

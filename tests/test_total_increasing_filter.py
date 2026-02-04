@@ -1,6 +1,6 @@
 # tests/test_filter.py
 
-from modbus_energy_meter.total_increasing_filter import TotalIncreasingFilter
+from bridge.total_increasing_filter import TotalIncreasingFilter
 
 
 class TestBasicFiltering:

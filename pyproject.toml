@@ -20,11 +20,11 @@ classifiers = [
 dependencies = ["huawei-solar>=2.5.0", "pymodbus>=3.11.4", "paho-mqtt>=2.1.0"]
 
 [tool.setuptools.dynamic]
-version = { attr = "modbus_energy_meter.__version__.__version__" }
+version = { attr = "bridge.__version__.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["huawei_solar_modbus_mqtt"]
-include = ["modbus_energy_meter*"]
+include = ["bridge*"]
 
 [project.optional-dependencies]
 dev = [
@@ -49,7 +49,7 @@ asyncio_default_fixture_loop_scope = "function"
 addopts = "-v"
 
 [tool.coverage.run]
-source = ["huawei_solar_modbus_mqtt/modbus_energy_meter"]
+source = ["huawei_solar_modbus_mqtt/bridge"]
 omit = ["*/tests/*", "*/venv/*", "*/__version__.py"]
 
 [tool.coverage.report]
