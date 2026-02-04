@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.4] - 2026-02-04
+
+### Fixed
+
+- **AppArmor supervisor backup support**: Resolved permission issues preventing backup operations
+  - Fixed `apparmor="DENIED"` errors for cgroup access during container startup
+  - Backup creation and restoration now fully functional
+
+### Added
+
+- **New Modbus registers**: Additional inverter data points
+  - Added missing energy and power registers from Huawei Solar library
+  - More comprehensive inverter monitoring
+
+- **Type checking support**: Enhanced IDE integration
+  - Added `pyrightconfig.json` for better import resolution
+  - Improved autocomplete and code navigation in VS Code
+
+### Refactored
+
+- **Project structure**: Renamed main package to `bridge` for cleaner imports
+  - Better code organization and maintainability
+  - All functionality preserved - internal change only
+
+### Technical Details
+
+**AppArmor Profile:**
+- Added cgroup access rules for container operations
+- No security compromise - scoped to necessary paths only
+
+**Package Structure:**
+```
+huawei_solar_modbus_mqtt/ → bridge/
+```
+
+**No configuration changes required** - Fully backward compatible with v1.7.3.
+
+**Upgrade Notes:**
+- ✅ Backup functionality now works out of the box
+- ✅ Configuration automatically preserved
+- ✅ New registers automatically published to MQTT
+- ✅ No service interruption during upgrade
+
 ## [1.7.3] - 2026-02-03
 
 ### Infrastructure & Build System

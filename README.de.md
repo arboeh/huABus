@@ -158,13 +158,11 @@ Siehe [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) für detaillierte Re
 
 **Letzte Highlights:**
 
-- ✅ AppArmor-Sicherheitsprofil für Container-Isolation
-- ✅ Automatische requirements.txt Generierung aus pyproject.toml
-- ✅ Restart Zero-Drop Fix (Filter vor erstem Cycle initialisiert)
-- ✅ 86% Code-Coverage mit umfassender Test-Suite
-- ✅ Filter-Vereinfachung (keine Warmup, keine Toleranz)
-- ✅ TRACE Log Level für tiefes Debugging
-- ✅ Erweiterte Übersetzungen (EN/DE)
+- ✅ **v1.7.4:** Backup-Unterstützung gefixt, neue Register, Projekt-Restrukturierung
+- ✅ **v1.7.3:** AppArmor-Sicherheitsprofil + requirements.txt
+- ✅ **v1.7.2:** 86% Test-Coverage, umfassende Test-Suite
+- ✅ **v1.7.1:** Filter Restart-Schutz (keine Zero-Drops)
+- ✅ **v1.7.0:** Vereinfachter Filter (keine Warmup/Toleranz)
 
 ## Fehlerbehebung
 
