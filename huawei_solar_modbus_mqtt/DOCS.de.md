@@ -25,7 +25,7 @@ Liest Daten deines Huawei SUN2000 Wechselrichters per Modbus TCP aus und veröff
 
 ### 1. Installation
 
-1. Einstellungen → Add-ons → Add-on Store → ⋮ (oben rechts) → Repositories
+1. Einstellungen → Apps → App installieren → App-Store⋮ (oben rechts) → Repositories
 2. Hinzufügen: `https://github.com/arboeh/huABus`
 3. Installiere "huABus | Huawei Solar Modbus to MQTT"
 
@@ -208,7 +208,7 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
 **Symptom:** `ERROR - MQTT publish failed`
 
 **Lösungen:**
-- MQTT Broker prüfen (Einstellungen → Add-ons → Mosquitto)
+- MQTT Broker prüfen (Einstellungen → Apps → Mosquitto)
 - `mqtt_host: core-mosquitto` setzen
 - Zugangsdaten kontrollieren
 
@@ -243,11 +243,6 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
 - `binary_sensor.huawei_solar_status` für Verbindungsstatus prüfen
 - Filter-Zusammenfassungen für Datenqualität beobachten
 - Health Check im Add-on Status überwachen
-
-### Multi-Inverter Setup
-- Add-on mehrfach installieren mit verschiedenen Namen
-- Verschiedene `mqtt_topic` pro Instanz verwenden
-- Unterschiedliche `modbus_host` Adressen konfigurieren
 
 ## Support
 

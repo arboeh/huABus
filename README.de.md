@@ -56,27 +56,27 @@
 
 Perfekt für Einsteiger! Erfahrene Nutzer: springe zu [Konfiguration](#konfiguration).
 
-## Vergleich: wlcrs/huawei_solar vs. dieses Add-on
+## Vergleich: wlcrs/huawei_solar vs. diese App
 
-Die `wlcrs/huawei_solar` ist eine **native Home Assistant Integration**, während dies ein **Home Assistant Add-on** ist. Beide nutzen die gleiche `huawei-solar` Library, haben aber unterschiedliche Anwendungsfälle:
+Die `wlcrs/huawei_solar` ist eine **native Home Assistant Integration**, während dies eine **Home Assistant App** ist. Beide nutzen die gleiche `huawei-solar` Library, haben aber unterschiedliche Anwendungsfälle:
 
-| Feature                 | wlcrs/huawei_solar<br>(Integration) | Dieses Add-on<br>(MQTT-Bridge) |
+| Feature                 | wlcrs/huawei_solar<br>(Integration) | Diese App<br>(MQTT-Bridge) |
 | ----------------------- | ----------------------------------- | ------------------------------ |
-| Installation            | Via HACS oder manuell               | Via Add-on Store               |
+| Installation            | Via HACS oder manuell               | Via App Store               |
 | Batterie-Steuerung      | ✅                                  | ❌ (read-only)                 |
 | MQTT-nativ              | ❌                                  | ✅                             |
 | total_increasing Filter | ❌                                  | ✅                             |
 | Externe Integrationen   | Begrenzt                            | ✅ (EVCC, Node-RED, Grafana)   |
 | Zykluszeit              | Variabel                            | 2-5s                           |
 | Error Tracking          | Basis                               | Advanced                       |
-| Konfiguration           | UI oder YAML                        | Add-on UI                      |
+| Konfiguration           | UI oder YAML                        | App UI                      |
 
 **Wichtig:** Beide teilen die gleiche Limitierung - nur **EINE Modbus-Verbindung**. Für gleichzeitige Nutzung wird ein Modbus Proxy benötigt.
 
 **Wann welches nutzen?**
 
 - **wlcrs (Integration):** Batterie-Steuerung + native HA-Integration + direkter Entitäts-Zugriff
-- **Dieses Add-on (MQTT-Bridge):** MQTT-Monitoring + externe System-Integration + besseres Error-Tracking
+- **Diese App (MQTT-Bridge):** MQTT-Monitoring + externe System-Integration + besseres Error-Tracking
 
 ## Screenshots
 
@@ -187,7 +187,7 @@ Siehe [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) für detaillierte Re
 | **Performance-Warnungen** | Poll-Interval erhöhen wenn Cycle-Zeit > 80% des Intervalls                           |
 | **Filter-Aktivität**      | Gelegentliches Filtern (1-2/Stunde) ist normal; häufig = Verbindungsprobleme         |
 
-**Logs:** Add-ons → Huawei Solar Modbus to MQTT → Log-Tab
+**Logs:** Apps → Huawei Solar Modbus to MQTT → Log-Tab
 
 ## Support & Issues
 

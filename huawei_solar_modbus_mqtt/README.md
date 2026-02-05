@@ -4,7 +4,7 @@ Reads data from your Huawei SUN2000 inverter via Modbus TCP and publishes it via
 
 ## About
 
-This add-on monitors your Huawei solar inverter using Modbus TCP protocol and publishes all data to MQTT with automatic Home Assistant discovery. It provides comprehensive monitoring of:
+This app monitors your Huawei solar inverter using Modbus TCP protocol and publishes all data to MQTT with automatic Home Assistant discovery. It provides comprehensive monitoring of:
 
 - PV power generation (up to 4 strings)
 - Battery status and energy flow

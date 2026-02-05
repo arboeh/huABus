@@ -56,27 +56,27 @@
 
 Perfect for beginners! Experienced users: jump to [Configuration](#configuration).
 
-## Comparison: wlcrs/huawei_solar vs. This Add-on
+## Comparison: wlcrs/huawei_solar vs. This App
 
-The `wlcrs/huawei_solar` is a **native Home Assistant integration**, while this is a **Home Assistant add-on**. Both use the same `huawei-solar` library but target different use cases:
+The `wlcrs/huawei_solar` is a **native Home Assistant integration**, while this is a **Home Assistant App**. Both use the same `huawei-solar` library but target different use cases:
 
-| Feature                 | wlcrs/huawei_solar<br>(Integration) | This Add-on<br>(MQTT Bridge) |
+| Feature                 | wlcrs/huawei_solar<br>(Integration) | This App<br>(MQTT Bridge) |
 | ----------------------- | ----------------------------------- | ---------------------------- |
-| Installation            | Via HACS or manual                  | Via Add-on Store             |
+| Installation            | Via HACS or manual                  | Via App Store             |
 | Battery control         | ✅                                  | ❌ (read-only)               |
 | MQTT-native             | ❌                                  | ✅                           |
 | total_increasing filter | ❌                                  | ✅                           |
 | External integrations   | Limited                             | ✅ (EVCC, Node-RED, Grafana) |
 | Cycle time              | Variable                            | 2-5s                         |
 | Error tracking          | Basic                               | Advanced                     |
-| Configuration           | UI or YAML                          | Add-on UI                    |
+| Configuration           | UI or YAML                          | App UI                    |
 
 **Important:** Both share the same limitation - only **ONE Modbus connection**. To use both simultaneously, you need a Modbus Proxy.
 
 **When to use which?**
 
 - **wlcrs (Integration):** Battery control + native HA integration + direct entity access
-- **This add-on (MQTT Bridge):** MQTT monitoring + external system integration + better error tracking
+- **This App (MQTT Bridge):** MQTT monitoring + external system integration + better error tracking
 
 ## Screenshots
 
@@ -189,7 +189,7 @@ See [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) for detailed release n
 | **Performance Warnings** | Increase poll_interval if cycle time > 80% of interval                     |
 | **Filter Activity**      | Occasional filtering (1-2/hour) is normal; frequent = connection issues    |
 
-**Logs:** Add-ons → Huawei Solar Modbus to MQTT → Log Tab
+**Logs:** Apps → Huawei Solar Modbus to MQTT → Log Tab
 
 ## Support & Issues
 
