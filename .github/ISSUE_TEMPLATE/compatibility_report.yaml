@@ -1,0 +1,142 @@
+name: 🔌 Compatibility Report
+description: Report compatibility with your Huawei inverter model
+title: '[Compatibility] '
+labels: ['compatibility', 'enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Thanks for testing huABus with your inverter!
+
+        This report helps us expand compatibility to SUN3000, SUN5000, and other models.
+
+  - type: input
+    id: model
+    attributes:
+      label: Inverter Model
+      description: Full model name from device label or FusionSolar app
+      placeholder: 'e.g., SUN2000-10KTL-M2, SUN3000-20KTL, SUN5000-60KTL'
+    validations:
+      required: true
+
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware Version
+      description: Found in FusionSolar app or inverter display
+      placeholder: 'e.g., V100R001C00SPC200'
+    validations:
+      required: true
+
+  - type: input
+    id: dongle
+    attributes:
+      label: Dongle Type
+      description: Communication module used
+      placeholder: 'e.g., Smart Dongle WLAN-FE, SDongle A-05'
+    validations:
+      required: false
+
+  - type: input
+    id: battery
+    attributes:
+      label: Battery (if applicable)
+      description: Battery model and capacity
+      placeholder: 'e.g., LUNA2000-10kWh, None'
+    validations:
+      required: false
+
+  - type: input
+    id: addon_version
+    attributes:
+      label: huABus Version
+      description: Add-on version from Home Assistant
+      placeholder: 'e.g., v1.7.4'
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: test_results
+    attributes:
+      label: Test Results
+      description: Which features are working?
+      options:
+        - label: Add-on starts successfully
+        - label: Modbus connection established (no timeout)
+        - label: MQTT entities created in Home Assistant
+        - label: Power values updating correctly
+        - label: Energy counters incrementing (daily/total yield)
+        - label: Battery data available (if applicable)
+        - label: Grid/Meter data available (if applicable)
+        - label: No errors in add-on logs
+
+  - type: textarea
+    id: missing_sensors
+    attributes:
+      label: Missing or Non-Working Sensors
+      description: List any expected sensors that are NOT working
+      placeholder: |
+        - battery_power (always shows 0)
+        - meter_power_active (missing)
+      render: markdown
+    validations:
+      required: false
+
+  - type: dropdown
+    id: slave_id
+    attributes:
+      label: Working Slave ID
+      description: Which Slave ID worked for your inverter?
+      options:
+        - '1 (default)'
+        - '0'
+        - '16'
+        - 'Other (specify in logs)'
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Add-on Logs
+      description: |
+        Paste last 50 lines from add-on log (set log_level: DEBUG first)
+
+        **How to get logs:**
+        1. Set `log_level: DEBUG` in add-on configuration
+        2. Restart add-on
+        3. Wait for 2-3 successful cycles
+        4. Go to Add-ons → huABus → Log tab
+        5. Copy last 50 lines
+      placeholder: |
+        2026-02-05 12:00:00 - huawei.main - INFO - Connected Slave ID 1
+        2026-02-05 12:00:02 - huawei.main - INFO - Published - PV 4500W | AC Out 4200W
+        ...
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other relevant information about your setup
+      placeholder: |
+        - Grid type (single-phase / 3-phase)
+        - Special configuration
+        - Issues encountered
+      render: markdown
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I have removed all other Huawei integrations (only ONE Modbus connection allowed)
+          required: true
+        - label: I have set log_level to DEBUG and restarted the add-on
+          required: true
+        - label: I have included logs from a successful connection (if working)
+          required: false

@@ -30,6 +30,37 @@
 **58 Essenzielle Registers, 69+ Entitäten, ~2–5s Laufzeit**
 **Changelog:** [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md)
 
+## 🔌 Kompatible Wechselrichter
+
+### ✅ Vollständig unterstützt
+
+| Serie             | Modelle                               | Status                      |
+| ----------------- | ------------------------------------- | --------------------------- |
+| **SUN2000**       | 2KTL - 100KTL (alle Leistungsklassen) | ✅ **Getestet & bestätigt** |
+| **SUN2000-L0/L1** | Hybrid-Serie (2-10kW)                 | ✅ Bestätigt                |
+| **SUN3000**       | Alle Modelle                          | ⚠️ Kompatibel (ungetestet)  |
+| **SUN5000**       | Kommerzielle Serie                    | ⚠️ Kompatibel (ungetestet)  |
+
+### 📋 Voraussetzungen
+
+- **Firmware:** V100R001C00SPC200+ (≈2023 oder neuer)
+- **Schnittstelle:** Modbus TCP aktiviert (Port 502 oder 6607)
+- **Dongle:** Smart Dongle-WLAN-FE oder SDongle A-05
+
+### 🧪 Kompatibilitäts-Status
+
+Hast du einen **SUN3000** oder **SUN5000** Wechselrichter? [Hilf uns beim Testen!](https://github.com/arboeh/huABus/issues/new?template=compatibility-report.md)
+
+**Community-Reports:**
+
+| Modell           | Firmware          | Status             | Melder  |
+| ---------------- | ----------------- | ------------------ | ------- |
+| SUN2000-10KTL-M2 | V100R001C00SPC124 | ✅ Funktioniert    | @arboeh |
+| SUN2000-5KTL-L1  | V100R001C00SPC200 | ⚠️ Test ausstehend | -       |
+| SUN3000-20KTL    | -                 | ❓ Ungetestet      | -       |
+
+_Fehlende Register (Batterie/Zähler) werden automatisch behandelt - dein Wechselrichter funktioniert auch ohne alle Sensoren._
+
 ## Features
 
 - **Modbus TCP → MQTT:** 69+ Entitäten mit Auto-Discovery
@@ -60,16 +91,16 @@ Perfekt für Einsteiger! Erfahrene Nutzer: springe zu [Konfiguration](#konfigura
 
 Die `wlcrs/huawei_solar` ist eine **native Home Assistant Integration**, während dies eine **Home Assistant App** ist. Beide nutzen die gleiche `huawei-solar` Library, haben aber unterschiedliche Anwendungsfälle:
 
-| Feature                 | wlcrs/huawei_solar<br>(Integration) | Diese App<br>(MQTT-Bridge) |
-| ----------------------- | ----------------------------------- | ------------------------------ |
-| Installation            | Via HACS oder manuell               | Via App Store               |
-| Batterie-Steuerung      | ✅                                  | ❌ (read-only)                 |
-| MQTT-nativ              | ❌                                  | ✅                             |
-| total_increasing Filter | ❌                                  | ✅                             |
-| Externe Integrationen   | Begrenzt                            | ✅ (EVCC, Node-RED, Grafana)   |
-| Zykluszeit              | Variabel                            | 2-5s                           |
-| Error Tracking          | Basis                               | Advanced                       |
-| Konfiguration           | UI oder YAML                        | App UI                      |
+| Feature                 | wlcrs/huawei_solar<br>(Integration) | Diese App<br>(MQTT-Bridge)   |
+| ----------------------- | ----------------------------------- | ---------------------------- |
+| Installation            | Via HACS oder manuell               | Via App Store                |
+| Batterie-Steuerung      | ✅                                  | ❌ (read-only)               |
+| MQTT-nativ              | ❌                                  | ✅                           |
+| total_increasing Filter | ❌                                  | ✅                           |
+| Externe Integrationen   | Begrenzt                            | ✅ (EVCC, Node-RED, Grafana) |
+| Zykluszeit              | Variabel                            | 2-5s                         |
+| Error Tracking          | Basis                               | Advanced                     |
+| Konfiguration           | UI oder YAML                        | App UI                       |
 
 **Wichtig:** Beide teilen die gleiche Limitierung - nur **EINE Modbus-Verbindung**. Für gleichzeitige Nutzung wird ein Modbus Proxy benötigt.
 
@@ -186,12 +217,15 @@ Siehe [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) für detaillierte Re
 | **MQTT Fehler**           | Broker auf `core-mosquitto` setzen, Credentials leer lassen                          |
 | **Performance-Warnungen** | Poll-Interval erhöhen wenn Cycle-Zeit > 80% des Intervalls                           |
 | **Filter-Aktivität**      | Gelegentliches Filtern (1-2/Stunde) ist normal; häufig = Verbindungsprobleme         |
+| **Fehlende Sensoren**     | Normal bei Non-Hybrid oder Wechselrichtern ohne Batterie/Zähler                      |
 
 **Logs:** Apps → Huawei Solar Modbus to MQTT → Log-Tab
 
 ## Support & Issues
 
 Bug gefunden oder Feature-Wunsch? Nutze unsere [GitHub Issue Templates](https://github.com/arboeh/huABus/issues/new/choose).
+
+**Andere Wechselrichter-Modelle testen?** Bitte melde Kompatibilität via [Compatibility Report Template](https://github.com/arboeh/huABus/issues/new?template=compatibility-report.md).
 
 ## Dokumentation
 

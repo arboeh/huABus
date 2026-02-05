@@ -1,6 +1,6 @@
 # huABus | Huawei Solar Modbus to MQTT
 
-Reads data from your Huawei SUN2000 inverter via Modbus TCP and publishes it via MQTT with automatic Home Assistant discovery.
+Reads data from your Huawei inverter via Modbus TCP and publishes it via MQTT with automatic Home Assistant discovery.
 
 > **⚠️ CRITICAL: Only ONE Modbus Connection Allowed!**
 >

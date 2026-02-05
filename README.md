@@ -30,6 +30,37 @@
 **58 Essential Registers, 69+ entities, ~2–5s cycle time**
 **Changelog:** [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md)
 
+## 🔌 Compatible Inverters
+
+### ✅ Fully Supported
+
+| Series            | Models                            | Status                    |
+| ----------------- | --------------------------------- | ------------------------- |
+| **SUN2000**       | 2KTL - 100KTL (all power classes) | ✅ **Tested & Confirmed** |
+| **SUN2000-L0/L1** | Hybrid series (2-10kW)            | ✅ Confirmed              |
+| **SUN3000**       | All models                        | ⚠️ Compatible (untested)  |
+| **SUN5000**       | Commercial series                 | ⚠️ Compatible (untested)  |
+
+### 📋 Requirements
+
+- **Firmware:** V100R001C00SPC200+ (≈2023 or later)
+- **Interface:** Modbus TCP enabled (Port 502 or 6607)
+- **Dongle:** Smart Dongle-WLAN-FE or SDongle A-05
+
+### 🧪 Compatibility Status
+
+Have a **SUN3000** or **SUN5000** inverter? [Help us test!](https://github.com/arboeh/huABus/issues/new?template=compatibility-report.md)
+
+**Community reports:**
+
+| Model            | Firmware          | Status           | Reporter |
+| ---------------- | ----------------- | ---------------- | -------- |
+| SUN2000-10KTL-M2 | V100R001C00SPC124 | ✅ Working       | @arboeh  |
+| SUN2000-5KTL-L1  | V100R001C00SPC200 | ⚠️ Needs testing | -        |
+| SUN3000-20KTL    | -                 | ❓ Untested      | -        |
+
+_Missing registers (battery/meter) are handled gracefully - your inverter will work even without all sensors._
+
 ## Features
 
 - **Modbus TCP → MQTT:** 69+ entities with Auto-Discovery
@@ -60,16 +91,16 @@ Perfect for beginners! Experienced users: jump to [Configuration](#configuration
 
 The `wlcrs/huawei_solar` is a **native Home Assistant integration**, while this is a **Home Assistant App**. Both use the same `huawei-solar` library but target different use cases:
 
-| Feature                 | wlcrs/huawei_solar<br>(Integration) | This App<br>(MQTT Bridge) |
+| Feature                 | wlcrs/huawei_solar<br>(Integration) | This App<br>(MQTT Bridge)    |
 | ----------------------- | ----------------------------------- | ---------------------------- |
-| Installation            | Via HACS or manual                  | Via App Store             |
+| Installation            | Via HACS or manual                  | Via App Store                |
 | Battery control         | ✅                                  | ❌ (read-only)               |
 | MQTT-native             | ❌                                  | ✅                           |
 | total_increasing filter | ❌                                  | ✅                           |
 | External integrations   | Limited                             | ✅ (EVCC, Node-RED, Grafana) |
 | Cycle time              | Variable                            | 2-5s                         |
 | Error tracking          | Basic                               | Advanced                     |
-| Configuration           | UI or YAML                          | App UI                    |
+| Configuration           | UI or YAML                          | App UI                       |
 
 **Important:** Both share the same limitation - only **ONE Modbus connection**. To use both simultaneously, you need a Modbus Proxy.
 
@@ -188,12 +219,15 @@ See [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) for detailed release n
 | **MQTT Errors**          | Set broker to `core-mosquitto`, leave credentials empty                    |
 | **Performance Warnings** | Increase poll_interval if cycle time > 80% of interval                     |
 | **Filter Activity**      | Occasional filtering (1-2/hour) is normal; frequent = connection issues    |
+| **Missing Sensors**      | Normal for non-hybrid or inverters without battery/meter                   |
 
-**Logs:** Apps → Huawei Solar Modbus to MQTT → Log Tab
+**Logs:** huABus | Apps → Huawei Solar Modbus to MQTT → Log Tab
 
 ## Support & Issues
 
 Found a bug or have a feature request? Use our [GitHub Issue Templates](https://github.com/arboeh/huABus/issues/new/choose).
+
+**Testing other inverter models?** Please report compatibility via [Compatibility Report Template](https://github.com/arboeh/huABus/issues/new?template=compatibility-report.md).
 
 ## Documentation
 

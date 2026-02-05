@@ -1,0 +1,96 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior
+title: '[Bug] '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Before submitting
+
+        - Check [Troubleshooting](https://github.com/arboeh/huABus#troubleshooting) section
+        - Search [existing issues](https://github.com/arboeh/huABus/issues)
+        - Verify only ONE Modbus connection is active
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Clear description of the bug
+      placeholder: 'When I restart the add-on, energy counters reset to zero...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen instead?
+      placeholder: 'Energy counters should preserve values after restart...'
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: huABus Version
+      placeholder: 'v1.7.4'
+    validations:
+      required: true
+
+  - type: input
+    id: inverter_model
+    attributes:
+      label: Inverter Model
+      placeholder: 'SUN2000-10KTL-M2'
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Numbered steps to reproduce the issue
+      placeholder: |
+        1. Set poll_interval to 10s
+        2. Restart add-on
+        3. Check logs after 1 minute
+        4. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Add-on Logs
+      description: Paste relevant logs (set log_level DEBUG first)
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Add-on Configuration
+      description: Your config (redact passwords!)
+      placeholder: |
+        modbus_host: 192.168.1.100
+        modbus_port: 502
+        slave_id: 1
+        log_level: DEBUG
+        poll_interval: 30
+      render: yaml
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues
+          required: true
+        - label: I have set log_level to DEBUG
+          required: true
+        - label: Only ONE Modbus connection is active
+          required: true

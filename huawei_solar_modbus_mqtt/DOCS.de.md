@@ -1,6 +1,6 @@
 # huABus | Huawei Solar Modbus to MQTT
 
-Liest Daten deines Huawei SUN2000 Wechselrichters per Modbus TCP aus und veröffentlicht sie über MQTT mit automatischer Home Assistant Discovery.
+Liest Daten deines Huawei Wechselrichters per Modbus TCP aus und veröffentlicht sie über MQTT mit automatischer Home Assistant Discovery.
 
 > **⚠️ KRITISCH: Nur EINE Modbus-Verbindung erlaubt!**
 >
