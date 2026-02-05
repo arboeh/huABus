@@ -3,7 +3,7 @@
 """
 Hauptmodul des Huawei Solar Modbus-to-MQTT Add-ons.
 
-Dieser Service liest zyklisch Daten vom Huawei SUN2000 Inverter per Modbus TCP,
+Dieser Service liest zyklisch Daten vom Huawei Inverter per Modbus TCP,
 transformiert sie in MQTT-Format und publiziert sie inklusive Home Assistant
 Discovery-Konfiguration.
 

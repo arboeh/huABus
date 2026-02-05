@@ -1,7 +1,7 @@
 configuration:
   modbus_host:
     name: Inverter IP-Adresse
-    description: IP-Adresse des Huawei SUN2000 Wechselrichters (z.B. 192.168.1.100)
+    description: IP-Adresse des Huawei Wechselrichters (z.B. 192.168.1.100)
 
   modbus_port:
     name: Modbus Port
