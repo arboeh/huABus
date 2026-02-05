@@ -31,6 +31,9 @@ htmlcov/
 .env
 .env.local
 
+# Notes
+notes/
+
 # OS
 .DS_Store
 Thumbs.db

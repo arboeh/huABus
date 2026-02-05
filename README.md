@@ -82,13 +82,13 @@ The `wlcrs/huawei_solar` is a **native Home Assistant integration**, while this 
 
 ### Home Assistant Integration
 
-![Diagnostic Entities](images/diagnostics.png)
+![Diagnostic Entities](images/diagnostics.png)  
 _Diagnostic entities showing inverter status, temperature, and battery information_
 
-![Sensor Overview](images/sensors.png)
+![Sensor Overview](images/sensors.png)  
 _Complete sensor overview with real-time power, energy, and grid data_
 
-![MQTT Device Info](images/mqtt_info.png)
+![MQTT Device Info](images/mqtt_info.png)  
 _MQTT device integration details_
 
 ## Installation
@@ -202,6 +202,6 @@ Found a bug or have a feature request? Use our [GitHub Issue Templates](https://
 
 ## Credits
 
-**Based on:** [mjaschen/huawei-solar-modbus-to-mqtt](https://github.com/mjaschen/huawei-solar-modbus-to-mqtt)
-**Uses library:** [wlcrs/huawei-solar-lib](https://github.com/wlcrs/huawei-solar-lib)
+**Based on:** [mjaschen/huawei-solar-modbus-to-mqtt](https://github.com/mjaschen/huawei-solar-modbus-to-mqtt)  
+**Uses library:** [wlcrs/huawei-solar-lib](https://github.com/wlcrs/huawei-solar-lib)  
 **Developed by:** [arboeh](https://github.com/arboeh) | **License:** MIT

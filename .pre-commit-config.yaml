@@ -1,15 +1,13 @@
 repos:
-  # Ruff - Linter & Formatter
+  # Ruff - Linter & Formatter (NUR Python)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.14
     hooks:
-      # Linter (mit Auto-Fix)
       - id: ruff-check
         args: [--fix]
-        files: ^(huawei_solar_modbus_mqtt/bridge|tests)/
-      # Formatter
+        files: ^(huawei_solar_modbus_mqtt/bridge|tests)/.*\.py$
       - id: ruff-format
-        files: ^(huawei_solar_modbus_mqtt/bridge|tests)/
+        files: ^(huawei_solar_modbus_mqtt/bridge|tests)/.*\.py$
 
   # MyPy - Type Checking
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -18,17 +16,18 @@ repos:
       - id: mypy
         args: [--ignore-missing-imports, --check-untyped-defs]
         additional_dependencies: [types-paho-mqtt]
-        files: ^huawei_solar_modbus_mqtt/bridge/
+        files: ^huawei_solar_modbus_mqtt/bridge/.*\.py$
 
   # Pre-Commit Hooks - Standard Checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
+        exclude: '\.md$'  # Markdown behalten Trailing Spaces (für Line Breaks)
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files
-        args: ["--maxkb=1000"]
+        args: ['--maxkb=1000']
       - id: check-merge-conflict
       - id: check-toml
       - id: mixed-line-ending
@@ -36,7 +35,6 @@ repos:
   # Local Hooks
   - repo: local
     hooks:
-      # Version Consistency Check (läuft ZUERST)
       - id: check-version-sync
         name: Check version synchronization
         entry: python scripts/check_version_sync.py
@@ -45,7 +43,6 @@ repos:
         always_run: true
         stages: [pre-commit]
 
-      # Version Sync (nur bei Manual-Run)
       - id: sync-version
         name: Sync version from config.yaml
         entry: python scripts/update_version.py

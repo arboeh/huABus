@@ -1,5 +1,5 @@
 name: huABus | Huawei Solar Modbus to MQTT
-version: "1.7.4"
+version: '1.7.4'
 slug: huawei_solar_modbus_mqtt
 description: Huawei Solar Modbus → MQTT + Auto-Discovery
 url: https://github.com/arboeh/huABus
@@ -22,15 +22,15 @@ services:
   - mqtt:need
 apparmor: true
 options:
-  modbus_host: "192.168.1.100"
+  modbus_host: '192.168.1.100'
   modbus_port: 502
   slave_id: 1
-  mqtt_host: "core-mosquitto"
+  mqtt_host: 'core-mosquitto'
   mqtt_port: 1883
-  mqtt_user: ""
-  mqtt_password: ""
-  mqtt_topic: "huawei-solar"
-  log_level: "INFO"
+  mqtt_user: ''
+  mqtt_password: ''
+  mqtt_topic: 'huawei-solar'
+  log_level: 'INFO'
   status_timeout: 180
   poll_interval: 30
 schema:
