@@ -1,8 +1,10 @@
 name: CI
+permissions:
+  contents: read
 
 on:
   push:
-    branches: [main, dev, "feature/*"]
+    branches: [main, dev, 'feature/*']
   pull_request:
     branches: [main, dev]
 
@@ -13,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
       - name: Install ruff
         run: pip install ruff
@@ -28,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ['3.11', '3.12']
       fail-fast: false
 
     steps:
@@ -58,7 +60,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
@@ -75,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
       - name: Validate config.yaml
         run: |
