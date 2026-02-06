@@ -89,4 +89,4 @@ Monitored via Dependabot:
 - `pymodbus` (3.11.4)
 - `paho-mqtt` (2.1.0)
 
-See [requirements.txt](requirements.txt) for full list.
+See [requirements.txt](huawei_solar_modbus_mqtt/requirements.txt) for full list.
