@@ -227,7 +227,6 @@ See [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) for detailed release n
 
 ### Get Help
 
-- 💬 **[GitHub Discussions](https://github.com/arboeh/huABus/discussions)** - Ask questions, share experiences, get community support
 - 🐛 **[GitHub Issues](https://github.com/arboeh/huABus/issues/new/choose)** - Report bugs or request features
 - 🧪 **[Compatibility Report](https://github.com/arboeh/huABus/issues/new?template=compatibility_report.yaml)** - Help test SUN3000/5000 models
 
