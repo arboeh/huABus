@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "huabus"
 dynamic = ["version"]
-description = "Huawei Solar Modbus → MQTT + Auto-Discovery"
+description = "Huawei Solar Modbus via MQTT and Auto-Discovery"
 authors = [{ name = "arboeh", email = "arend.boehmer@web.de" }]
 readme = "README.md"
 license = { file = "LICENSE" }
