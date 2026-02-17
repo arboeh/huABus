@@ -1,8 +1,8 @@
+[🇬🇧 English](README.md) | 🇩🇪 **Deutsch**
+
 <img src="images/logo.svg" alt="huABus" height="40"/>
 
 ### Huawei Solar Modbus zu Home Assistant via MQTT + Auto-Discovery
-
-[🇬🇧 English](README.md) | 🇩🇪 **Deutsch**
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Add--on-41BDF5?logo=home-assistant)](https://www.home-assistant.io/)
 [![release](https://img.shields.io/github/v/release/arboeh/huABus?display_name=tag)](https://github.com/arboeh/huABus/releases/latest)
