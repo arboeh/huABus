@@ -1,6 +1,6 @@
-🇬🇧 **English** | [🇩🇪 Deutsch](README.de.md)
-
 <img src="images/logo.svg" alt="huABus" height="40"/>
+
+🇬🇧 **English** | [🇩🇪 Deutsch](README.de.md)
 
 ### Huawei Solar Modbus to Home Assistant via MQTT + Auto-Discovery
 
