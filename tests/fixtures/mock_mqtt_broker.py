@@ -3,6 +3,7 @@
 """Mock MQTT-Broker für End-to-End-Tests"""
 
 import json
+from typing import Any
 
 
 class MockMQTTMessage:
@@ -14,7 +15,7 @@ class MockMQTTMessage:
         self.qos = qos
         self.retain = retain
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, Any]:
         try:
             return {
                 "topic": self.topic,
@@ -66,7 +67,7 @@ class MockMQTTBroker:
             return [m for m in self.messages if m.topic == topic]
         return self.messages
 
-    def get_latest(self, topic: str) -> dict | None:
+    def get_latest(self, topic: str) -> dict[str, Any] | None:
         """Hole letzte Message für Topic als Dict"""
         messages = self.get_messages(topic)
         if messages:

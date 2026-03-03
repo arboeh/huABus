@@ -30,24 +30,24 @@ def get_version_from_config():
 
 
 def update_version_py(version):
-    """Update __version__.py"""
-    version_file = Path("huawei_solar_modbus_mqtt/bridge/__version__.py")
+    """Update version.py"""
+    version_file = Path("huawei_solar_modbus_mqtt/bridge/version.py")
     if not version_file.exists():
-        print("⚠️ WARNING: __version__.py not found, skipping")
+        print("⚠️ WARNING: version.py not found, skipping")
         return
 
     content = version_file.read_text(encoding="utf-8")
     new_content = re.sub(
-        r'(__version__\s*=\s*")[^"]+(")',
+        r'(version\s*=\s*")[^"]+(")',
         rf"\g<1>{version}\g<2>",
         content,
     )
 
     if content != new_content:
         version_file.write_text(new_content, encoding="utf-8")
-        print(f"✅ UPDATED: __version__.py to version {version}")
+        print(f"✅ UPDATED: version.py to version {version}")
     else:
-        print(f"ℹ️  INFO: __version__.py already at version {version}")
+        print(f"ℹ️ INFO: version.py already at version {version}")
 
 
 def update_requirements():

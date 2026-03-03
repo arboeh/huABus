@@ -33,6 +33,7 @@ Thumbs.db
 # Local development
 .env
 *.log
+/uv.lock
 
 # Git
 .git/

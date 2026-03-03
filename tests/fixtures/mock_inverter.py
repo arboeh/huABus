@@ -3,6 +3,7 @@
 """Mock für AsyncHuaweiSolar mit Test-Szenarien"""
 
 from pathlib import Path
+from typing import Any, cast
 
 import yaml
 
@@ -33,10 +34,10 @@ class MockHuaweiSolar:
         self.scenarios = self._load_scenarios()
         self.current_scenario = None
 
-    def _load_scenarios(self) -> dict:
+    def _load_scenarios(self) -> dict[str, Any]:
         """Lädt Test-Szenarien aus YAML"""
         with open(self.scenario_file, encoding="utf-8") as f:
-            return yaml.safe_load(f)
+            return cast(dict[str, Any], yaml.safe_load(f))
 
     def load_scenario(self, name: str):
         """Aktiviert ein Test-Szenario"""

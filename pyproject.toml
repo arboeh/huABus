@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "huabus"
@@ -19,27 +19,27 @@ classifiers = [
     "Topic :: Home Automation",
 ]
 dependencies = [
-    "huawei-solar>=2.1.5",
-    "pymodbus>=3.8.3,<4.0.0",
-    "paho-mqtt>=2.0.0"
+    "huawei-solar>=2.5,<2.6",
+    "pymodbus>=3.12,<3.13",
+    "paho-mqtt>=2.1,<2.2",
 ]
 
-[tool.setuptools.dynamic]
-version = { attr = "bridge.__version__.__version__" }
+[tool.hatch.version]
+path = "huawei_solar_modbus_mqtt/bridge/version.py"
+pattern = 'version = "(?P<version>[^"]+)"'
 
-[tool.setuptools.packages.find]
-where = ["huawei_solar_modbus_mqtt"]
-include = ["bridge*"]
+[tool.hatch.build.targets.wheel]
+packages = ["huawei_solar_modbus_mqtt"]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=9.0.0",
-    "pytest-asyncio>=0.25.0",
-    "pytest-cov>=6.0.0",
-    "pytest-mock>=3.14.0",
-    "mypy>=1.14.0",
-    "ruff>=0.9.0",
-    "pre-commit>=4.0.0",
+    "pytest>=9,<10",
+    "pytest-asyncio>=1.3,<2",
+    "pytest-cov>=7,<8",
+    "pytest-mock>=3.15,<4",
+    "mypy>=1.14,<2",
+    "ruff>=0.9,<1",
+    "pre-commit>=4,<5",
 ]
 
 [project.urls]

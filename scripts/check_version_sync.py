@@ -27,13 +27,13 @@ def get_version_from_config():
 
 
 def get_version_from_version_py():
-    """Read version from __version__.py"""
-    version_file = Path("../huawei_solar_modbus_mqtt/bridge/__version__.py")
+    """Read version from version.py"""
+    version_file = Path("../huawei_solar_modbus_mqtt/bridge/version.py")
     if not version_file.exists():
         return None
 
     content = version_file.read_text(encoding="utf-8")
-    match = re.search(r'__version__\s*=\s*"([^"]+)"', content)
+    match = re.search(r'version\s*=\s*"([^"]+)"', content)
     return match.group(1) if match else None
 
 
@@ -42,8 +42,8 @@ def main():
     version_py = get_version_from_version_py()
 
     print("Checking version consistency...")
-    print(f"   config.yaml:     {config_version or 'NOT FOUND'}")
-    print(f"   __version__.py:  {version_py or 'NOT FOUND'}")
+    print(f"   config.yaml: {config_version or 'NOT FOUND'}")
+    print(f"    version.py: {version_py or 'NOT FOUND'}")
 
     versions = [v for v in [config_version, version_py] if v]
 

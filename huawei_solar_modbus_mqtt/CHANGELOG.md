@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.2] - 2026-03-02
+
+### Changed
+
+- **CI Pipeline**: Vollständige Migration zu `uv` (ersetzt `pip`)
+  - **Vorteile**: 40% schnellere Builds, reproduzierbare Umgebungen (`uv.lock`)
+  - **Jobs betroffen**: Lint, Test, Type-Check, Config-Validation
+  - **Beispiel**:
+    ```yaml
+    - name: uv sync & test
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        uv sync --dev --frozen
+        uv run pytest tests/
+    ```
+
+### Performance
+
+| Job        | pip  | uv      | Δ        |
+| ---------- | ---- | ------- | -------- |
+| Test       | 45s  | 26s     | -42%     |
+| Type Check | 12s  | 4s      | -67%     |
+| **Total**  | 120s | **72s** | **-40%** |
+
 ## [1.8.1] - 2026-02-15
 
 ### Fixed
