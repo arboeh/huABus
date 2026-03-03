@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **CI Pipeline**: Vollständige Migration zu `uv` (ersetzt `pip`)
-  - **Vorteile**: 40% schnellere Builds, reproduzierbare Umgebungen (`uv.lock`)
-  - **Jobs betroffen**: Lint, Test, Type-Check, Config-Validation
-  - **Beispiel**:
+- **CI Pipeline**: Full migration to `uv` (replaces `pip`)
+  - **Benefits**: 40% faster builds, reproducible environments (`uv.lock`)
+  - **Jobs affected**: Lint, Test, Type-Check, Config-Validation
+  - **Example**:
     ```yaml
     - name: uv sync & test
       run: |
