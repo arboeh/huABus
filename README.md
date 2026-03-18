@@ -83,6 +83,8 @@ _Missing registers (battery/meter) are handled gracefully - your inverter will w
 
 huABus publishes all data to a single MQTT topic (`huawei-solar`), enabling **direct EVCC integration** without Modbus proxy or conflicts.
 
+**Requirement:** Activated MQTT in [evcc HA Addon](https://github.com/evcc-io/hassio-addon) (evcc UI → Settings → MQTT)
+
 **User-defined EVCC devices** (validated config):
 
 **Grid Meter:**
@@ -119,15 +121,13 @@ capacity: 10
 
 ### EVCC Configuration (Screenshots)
 
-**Requirement:** Activated MQTT in [evcc HA Addon](https://github.com/evcc-io/hassio-addon) (evcc UI → Settings → MQTT)
-
 **Grid Meter:**  
 <img src="images/evcc_grid.png" alt="EVCC Grid Meter Config" width="400">
 
 **Solar Meter:**  
 <img src="images/evcc_solar.png" alt="EVCC Solar Meter Config" width="400">
 
-**Battery:**  
+**Battery (Optional):**  
 <img src="images/evcc_battery.png" alt="EVCC Battery Config" width="400">
 
 ## 🚀 Quick Start

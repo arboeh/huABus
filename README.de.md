@@ -79,9 +79,47 @@ _Fehlende Register (Batterie/Zähler) werden automatisch behandelt - dein Wechse
 - **MQTT-Stabilität:** Connection Wait-Loop und Retry-Logik
 - **Plattformübergreifend:** Alle gängigen Architekturen (aarch64, amd64, armhf, armv7, i386)
 
-### EVCC Konfiguration (Screenshots)
+### EVCC Integration (Kein Modbus Proxy!)
+
+huABus stellt alle Daten in einem einzigen MQTT-Topic (`huawei-solar`) bereit, für **direkte EVCC-Integration** ohne Modbus-Proxy oder Konflikte.
 
 **Voraussetzung:** MQTT im [evcc HA Addon](https://github.com/evcc-io/hassio-addon) aktivieren (evcc UI → Settings → MQTT).
+
+**EVCC benutzerdefinierte Geräte** (validierte Konfiguration):
+
+**Netzzähler:**
+
+```yaml
+power:
+  source: mqtt
+  topic: huawei-solar
+  jq: "(.meter_power_active * -1)"
+```
+
+**PV-Zähler:**
+
+```yaml
+power:
+  source: mqtt
+  topic: huawei-solar
+  jq: ".power_input"
+```
+
+**Batterie (optional):**
+
+```yaml
+power:
+  source: mqtt
+  topic: huawei-solar
+  jq: "(.battery_power * -1)"
+soc:
+  source: mqtt
+  topic: huawei-solar
+  jq: ".battery_soc"
+capacity: 10
+```
+
+### EVCC Konfiguration (Screenshots)
 
 **Netzzähler:**  
 <img src="images/evcc_grid.png" alt="EVCC Grid Meter Config" width="400">
@@ -89,7 +127,7 @@ _Fehlende Register (Batterie/Zähler) werden automatisch behandelt - dein Wechse
 **PV-Zähler:**  
 <img src="images/evcc_solar.png" alt="EVCC Solar Meter Config" width="400">
 
-**Speicher:**  
+**Speicher (Optional):**  
 <img src="images/evcc_battery.png" alt="EVCC Battery Config" width="400">
 
 ## 🚀 Schnellstart
