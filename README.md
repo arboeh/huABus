@@ -79,7 +79,7 @@ _Missing registers (battery/meter) are handled gracefully - your inverter will w
 - **MQTT Stability:** Connection wait loop and retry logic
 - **Cross-Platform:** All major architectures (aarch64, amd64, armhf, armv7, i386)
 
-## EVCC Integration (No Modbus Proxy!)
+### EVCC Integration (No Modbus Proxy!)
 
 huABus publishes all data to a single MQTT topic (`huawei-solar`), enabling **direct EVCC integration** without Modbus proxy or conflicts.
 
