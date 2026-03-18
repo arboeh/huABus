@@ -79,6 +79,19 @@ _Fehlende Register (Batterie/Zähler) werden automatisch behandelt - dein Wechse
 - **MQTT-Stabilität:** Connection Wait-Loop und Retry-Logik
 - **Plattformübergreifend:** Alle gängigen Architekturen (aarch64, amd64, armhf, armv7, i386)
 
+### EVCC Konfiguration (Screenshots)
+
+**Voraussetzung:** MQTT im [evcc HA Addon](https://github.com/evcc-io/hassio-addon) aktivieren (evcc UI → Settings → MQTT).
+
+**Netzzähler:**  
+<img src="images/evcc_grid.png" alt="EVCC Grid Meter Config" width="400">
+
+**PV-Zähler:**  
+<img src="images/evcc_solar.png" alt="EVCC Solar Meter Config" width="400">
+
+**Speicher:**  
+<img src="images/evcc_battery.png" alt="EVCC Battery Config" width="400">
+
 ## 🚀 Schnellstart
 
 **Neu bei huABus?** Installation ist jetzt einfacher denn je:

@@ -79,6 +79,57 @@ _Missing registers (battery/meter) are handled gracefully - your inverter will w
 - **MQTT Stability:** Connection wait loop and retry logic
 - **Cross-Platform:** All major architectures (aarch64, amd64, armhf, armv7, i386)
 
+## EVCC Integration (No Modbus Proxy!)
+
+huABus publishes all data to a single MQTT topic (`huawei-solar`), enabling **direct EVCC integration** without Modbus proxy or conflicts.
+
+**User-defined EVCC devices** (validated config):
+
+**Grid Meter:**
+
+```yaml
+power:
+  source: mqtt
+  topic: huawei-solar
+  jq: "(.meter_power_active * -1)"
+```
+
+**Solar Meter:**
+
+```yaml
+power:
+  source: mqtt
+  topic: huawei-solar
+  jq: ".power_input"
+```
+
+**Battery (optional):**
+
+```yaml
+power:
+  source: mqtt
+  topic: huawei-solar
+  jq: "(.battery_power * -1)"
+soc:
+  source: mqtt
+  topic: huawei-solar
+  jq: ".battery_soc"
+capacity: 10
+```
+
+### EVCC Configuration (Screenshots)
+
+**Requirement:** Activated MQTT in [evcc HA Addon](https://github.com/evcc-io/hassio-addon) (evcc UI → Settings → MQTT)
+
+**Grid Meter:**  
+<img src="images/evcc_grid.png" alt="EVCC Grid Meter Config" width="400">
+
+**Solar Meter:**  
+<img src="images/evcc_solar.png" alt="EVCC Solar Meter Config" width="400">
+
+**Battery:**  
+<img src="images/evcc_battery.png" alt="EVCC Battery Config" width="400">
+
 ## 🚀 Quick Start
 
 **New to huABus?** Installation is now easier than ever:
