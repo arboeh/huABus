@@ -47,12 +47,8 @@ try:
     from pymodbus.pdu import ExceptionResponse
 
     MODBUS_EXCEPTIONS = (ModbusException, ExceptionResponse)
-except ImportError:
+except ImportError:  # pragma: no cover
     MODBUS_EXCEPTIONS = ()  # type: ignore[assignment]
-
-# Error Tracker instanziieren - aggregiert Fehler über 60s Intervall
-# Verhindert Log-Spam bei längeren Verbindungsausfällen
-error_tracker = ConnectionErrorTracker(log_interval=60)
 
 # Globaler Timestamp des letzten erfolgreichen Reads
 # Wird von main_once() gesetzt und von heartbeat() geprüft
@@ -456,11 +452,19 @@ async def main() -> None:
         while True:
             cycle_count += 1
             logger.debug(f"Cycle #{cycle_count}")
+            cycle_start = time.time()
 
             try:
                 await main_once(client, config, cycle_count)
                 error_tracker.mark_success()
                 publish_status("online", config.mqtt_topic)
+
+                # Restliche Zeit bis zum nächsten Poll-Intervall warten
+                elapsed = time.time() - cycle_start
+                wait = max(0.0, config.poll_interval - elapsed)
+                if wait > 0:
+                    logger.debug(f"Waiting {wait:.1f}s until next cycle")
+                    await asyncio.sleep(wait)
 
             except TimeoutError as e:
                 error_tracker.track_error("timeout", str(e))

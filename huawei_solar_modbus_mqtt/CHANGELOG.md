@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.4] - 2026-03-24
+
+### Fixed
+
+- **Poll interval not respected**: Inverter data was published as fast as the
+  Modbus read completed (~5-8s) instead of respecting the configured poll interval
+  - Root cause: `poll_interval` was read from config but never applied in the main loop —
+    the previous ~20-30s cycle time was an accidental side effect of broken TCP teardown
+    in v1.8.3 (now fixed), which unintentionally throttled the loop
+  - Added `cycle_start` timestamp and `asyncio.sleep(remaining)` after each
+    successful cycle to wait out the configured interval
+  - Duplicate `error_tracker` instantiation removed (dead code)
+  - `ImportError` fallback for pymodbus marked with `# pragma: no cover`
+
+### Tests
+
+- Fixed `auto_detect_slave_id` → `modbus_auto_detect_slave_id` attribute name
+  mismatch in 7 test locations
+- Added `test_main_loop_waits_poll_interval` to verify poll interval sleep behavior
+
 ## [1.8.3] - 2026-03-23
 
 ### Fixed

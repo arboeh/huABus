@@ -126,7 +126,7 @@ async def test_main_graceful_shutdown():
         mock_config = Mock()
         mock_config.modbus_host = "192.168.0.246"
         mock_config.modbus_port = 502
-        mock_config.auto_detect_slave_id = False
+        mock_config.modbus_auto_detect_slave_id = False
         mock_config.slave_id = 1
         mock_config.mqtt_broker = "192.168.0.140"
         mock_config.mqtt_port = 1883
@@ -173,7 +173,7 @@ async def test_main_timeout_exception_triggers_reconnect():
         mock_config = Mock()
         mock_config.modbus_host = "192.168.0.246"
         mock_config.modbus_port = 502
-        mock_config.auto_detect_slave_id = False
+        mock_config.modbus_auto_detect_slave_id = False
         mock_config.slave_id = 1
         mock_config.mqtt_broker = "192.168.0.140"
         mock_config.mqtt_port = 1883
@@ -228,7 +228,7 @@ async def test_main_modbus_exception_handling():
         mock_config = Mock()
         mock_config.modbus_host = "192.168.0.246"
         mock_config.modbus_port = 502
-        mock_config.auto_detect_slave_id = False
+        mock_config.modbus_auto_detect_slave_id = False
         mock_config.slave_id = 1
         mock_config.mqtt_broker = "192.168.0.140"
         mock_config.mqtt_port = 1883
@@ -262,6 +262,48 @@ async def test_main_modbus_exception_handling():
 
 
 @pytest.mark.asyncio
+async def test_main_loop_waits_poll_interval():
+    """Test that main loop waits remaining poll interval after successful cycle."""
+    with (
+        patch("bridge.main.ConfigManager") as mock_config_class,
+        patch("bridge.main.AsyncHuaweiSolar.create") as mock_create,
+        patch("bridge.main.connect_mqtt"),
+        patch("bridge.main.disconnect_mqtt"),
+        patch("bridge.main.publish_status"),
+        patch("bridge.main.publish_discovery_configs"),
+        patch("bridge.main.error_tracker"),
+        patch("bridge.main.main_once") as mock_once,
+        patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+    ):
+        mock_config = Mock()
+        mock_config.modbus_host = "192.168.0.246"
+        mock_config.modbus_port = 502
+        mock_config.modbus_auto_detect_slave_id = False
+        mock_config.slave_id = 1
+        mock_config.mqtt_topic = "test-topic"
+        mock_config.log_level = "INFO"
+        mock_config.status_timeout = 180
+        mock_config.poll_interval = 30
+        mock_config.log_config = Mock()
+        mock_config_class.return_value = mock_config
+
+        mock_create.return_value = AsyncMock()
+
+        # Erster Cycle erfolgreich, zweiter stoppt
+        mock_once.side_effect = [None, KeyboardInterrupt()]
+
+        try:
+            await main()
+        except KeyboardInterrupt:
+            pass
+
+        # Poll-Interval-Sleep muss aufgerufen worden sein
+        sleep_args = [call[0][0] for call in mock_sleep.call_args_list]
+        # Mindestens ein Sleep > 0 (der Poll-Interval-Wait)
+        assert any(arg > 0 for arg in sleep_args), f"Expected poll interval sleep, got: {sleep_args}"
+
+
+@pytest.mark.asyncio
 async def test_main_mqtt_connection_failure():
     """Test main() handles MQTT connection failure."""
     with (
@@ -274,7 +316,7 @@ async def test_main_mqtt_connection_failure():
         mock_config.log_level = "INFO"
         mock_config.modbus_host = "192.168.0.246"
         mock_config.modbus_port = 502
-        mock_config.auto_detect_slave_id = False
+        mock_config.modbus_auto_detect_slave_id = False
         mock_config.slave_id = 1
         mock_config.mqtt_broker = "192.168.0.140"
         mock_config.mqtt_port = 1883
@@ -470,7 +512,7 @@ def test_init_logging_trace_level():
 async def test_determine_slave_id_auto_detect_success():
     """Should auto-detect Slave ID successfully."""
     mock_config = Mock()
-    mock_config.auto_detect_slave_id = True
+    mock_config.modbus_auto_detect_slave_id = True
     mock_config.modbus_host = "192.168.1.100"
     mock_config.modbus_port = 502
 
@@ -487,7 +529,7 @@ async def test_determine_slave_id_auto_detect_success():
 async def test_determine_slave_id_auto_detect_fails_exits():
     """Should exit when auto-detection fails."""
     mock_config = Mock()
-    mock_config.auto_detect_slave_id = True
+    mock_config.modbus_auto_detect_slave_id = True
     mock_config.modbus_host = "192.168.1.100"
     mock_config.modbus_port = 502
 
@@ -503,7 +545,7 @@ async def test_determine_slave_id_auto_detect_fails_exits():
 async def test_determine_slave_id_manual_mode_none_exits():
     """Should exit when manual mode but slave_id is None."""
     mock_config = Mock()
-    mock_config.auto_detect_slave_id = False
+    mock_config.modbus_auto_detect_slave_id = False
     mock_config.slave_id = None
 
     with pytest.raises(SystemExit):

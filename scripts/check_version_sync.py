@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# scripts/check_version_sync.py
 
 """
 Pre-commit hook to verify version consistency across files.
@@ -7,6 +7,8 @@ Pre-commit hook to verify version consistency across files.
 import re
 import sys
 from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).parent
 
 # Fix encoding for Windows
 if sys.platform == "win32":
@@ -17,7 +19,7 @@ if sys.platform == "win32":
 
 def get_version_from_config():
     """Read version from config.yaml"""
-    config_path = Path("../huawei_solar_modbus_mqtt/config.yaml")
+    config_path = SCRIPT_DIR / "../huawei_solar_modbus_mqtt/config.yaml"
     if not config_path.exists():
         return None
 
@@ -28,7 +30,7 @@ def get_version_from_config():
 
 def get_version_from_version_py():
     """Read version from version.py"""
-    version_file = Path("../huawei_solar_modbus_mqtt/bridge/version.py")
+    version_file = SCRIPT_DIR / "../huawei_solar_modbus_mqtt/bridge/version.py"
     if not version_file.exists():
         return None
 

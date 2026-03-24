@@ -141,6 +141,7 @@ Beide teilen die gleiche Limitierung - nur **EINE Modbus-Verbindung**. Für glei
 
 Siehe [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) für detaillierte Release-Notes.
 
+- ✅ **v1.8.4:** Fix: Poll-Intervall wurde im Main Loop nicht eingehalten
 - ✅ **v1.8.3:** Fix für intermittierenden Slave ID Auto-Detection Fehler (`Request cancelled outside library`)
 - ✅ **v1.8.2:** CI-Migration zu `uv` (40% schnellere Builds)
 - ✅ **v1.8.1:** Fix für Home Assistant 2025.1 Modbus Slave ID Handling

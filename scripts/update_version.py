@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# scripts/update_version.py
 
 """
 Update version across all project files.
@@ -9,6 +9,8 @@ import re
 import sys
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).parent
+
 # Fix encoding for Windows
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
@@ -16,7 +18,7 @@ if sys.platform == "win32":
 
 def get_version_from_config():
     """Read version from config.yaml"""
-    config_path = Path("huawei_solar_modbus_mqtt/config.yaml")
+    config_path = SCRIPT_DIR / "../huawei_solar_modbus_mqtt/config.yaml"
     if not config_path.exists():
         raise FileNotFoundError(f"Could not find {config_path}")
 
@@ -31,7 +33,7 @@ def get_version_from_config():
 
 def update_version_py(version):
     """Update version.py"""
-    version_file = Path("huawei_solar_modbus_mqtt/bridge/version.py")
+    version_file = SCRIPT_DIR / "../huawei_solar_modbus_mqtt/bridge/version.py"
     if not version_file.exists():
         print("⚠️ WARNING: version.py not found, skipping")
         return
