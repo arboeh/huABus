@@ -1,4 +1,4 @@
-# huawei_solar_modbus_mqtt\bridge\slave_detector.py
+# huawei_solar_modbus_mqtt/bridge/slave_detector.py
 
 """Auto-detection of Modbus Slave ID for Huawei inverters."""
 
@@ -19,6 +19,9 @@ TEST_REGISTER = "model_name"
 
 DETECTION_TIMEOUT = 5
 """Timeout per Slave ID attempt in seconds."""
+
+INTER_ATTEMPT_DELAY = 2.0
+"""Seconds to wait between Slave ID attempts to allow TCP teardown."""
 
 
 async def detect_slave_id(host: str, port: int = 502, timeout: int = DETECTION_TIMEOUT) -> int | None:
@@ -42,7 +45,15 @@ async def detect_slave_id(host: str, port: int = 502, timeout: int = DETECTION_T
     """
     logger.info(f"🔍 Auto-detecting Slave ID for {host}:{port}...")
 
-    for slave_id in KNOWN_SLAVE_IDS:
+    for i, slave_id in enumerate(KNOWN_SLAVE_IDS):
+        # Wait between attempts (not before the first one) to allow
+        # the inverter and OS to fully close the previous TCP connection.
+        # Without this delay, the next attempt sees a half-open socket
+        # and the huawei_solar library cancels the request immediately.
+        if i > 0:
+            logger.debug(f"Waiting {INTER_ATTEMPT_DELAY}s before next attempt...")
+            await asyncio.sleep(INTER_ATTEMPT_DELAY)
+
         logger.debug(f"Trying Slave ID {slave_id}...")
 
         if await _test_slave_id(host, port, slave_id, timeout):
@@ -91,13 +102,20 @@ async def _test_slave_id(host: str, port: int, slave_id: int, timeout: int) -> b
 
     except TimeoutError:
         logger.debug(f"Slave ID {slave_id} timed out")
+    except asyncio.CancelledError:
+        # Re-raise CancelledError - this is a signal to stop the task entirely,
+        # not just a failed attempt. If swallowed here, the outer coroutine
+        # never learns it was cancelled.
+        logger.debug(f"Slave ID {slave_id} attempt cancelled")
+        raise
     except Exception as e:
         logger.debug(f"Slave ID {slave_id} error: {e}")
     finally:
-        # Always cleanup
+        # Always cleanup - give stop() its own small timeout so a broken
+        # client never blocks the next attempt indefinitely.
         if client:
             try:
-                await client.stop()
+                await asyncio.wait_for(client.stop(), timeout=2.0)
             except Exception:
                 pass
 

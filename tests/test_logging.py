@@ -1,4 +1,4 @@
-# tests/test_logging.py (neu oder erweitern)
+# tests/test_logging.py
 
 """Tests for logging setup and behavior."""
 

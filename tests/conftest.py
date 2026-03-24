@@ -1,4 +1,4 @@
-# tests\conftest.py
+# tests/conftest.py
 
 """Pytest Configuration"""
 

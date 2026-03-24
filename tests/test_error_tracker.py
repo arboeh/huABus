@@ -1,4 +1,4 @@
-# tests\test_error_tracker.py
+# tests/test_error_tracker.py
 
 """
 Tests für Connection Error Tracker - Korrigierte Version

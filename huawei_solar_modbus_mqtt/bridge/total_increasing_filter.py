@@ -1,4 +1,4 @@
-# bridge/total_increasing_filter.py
+# huawei_solar_modbus_mqtt/bridge/total_increasing_filter.py
 
 """
 Vereinfachter Filter für total_increasing Sensoren.

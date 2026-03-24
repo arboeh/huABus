@@ -1,3 +1,5 @@
+# tests/test_config_manager.py
+
 """Tests for ConfigManager."""
 
 import json
@@ -393,20 +395,23 @@ class TestConfigManagerLogConfig:
 
         config.log_config()
 
+        # Präzise: Nur die Nachrichten der Records
+        messages = [record.message for record in caplog.records]
+
         # Modbus section
-        assert "192.168.1.100" in caplog.text
-        assert "502" in caplog.text
-        assert "Slave ID: 2" in caplog.text
+        assert "192.168.1.100" in " ".join(messages)
+        assert "502" in " ".join(messages)
+        assert "Slave ID: 2" in " ".join(messages)
 
         # MQTT section
-        assert "mqtt.test" in caplog.text
-        assert "1883" in caplog.text
-        assert "huawei" in caplog.text
+        assert "mqtt.test" in " ".join(messages)
+        assert "1883" in " ".join(messages)
+        assert "huawei" in " ".join(messages)
 
         # Advanced section
-        assert "DEBUG" in caplog.text
-        assert "120" in caplog.text
-        assert "25" in caplog.text
+        assert "DEBUG" in " ".join(messages)
+        assert "120" in " ".join(messages)
+        assert "25" in " ".join(messages)
 
     def test_log_config_shows_auth_none_when_no_credentials(self, tmp_path, caplog):
         """Should show 'Auth: None' when no username/password."""

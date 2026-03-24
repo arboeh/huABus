@@ -1,4 +1,4 @@
-# huawei_solar_modbus_mqtt\bridge\logging_utils.py
+# huawei_solar_modbus_mqtt/bridge/logging_utils.py
 
 """Logging utilities with TRACE support."""
 

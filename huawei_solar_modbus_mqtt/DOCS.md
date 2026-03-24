@@ -32,9 +32,9 @@ Reads data from your Huawei inverter via Modbus TCP and publishes it via MQTT wi
 ### 2. Minimal Configuration
 
 ```yaml
-modbus_host: '192.168.1.100' # Your inverter IP
+modbus_host: "192.168.1.100" # Your inverter IP
 modbus_auto_detect_slave_id: true # Auto-detect (default)
-log_level: 'INFO'
+log_level: "INFO"
 ```
 
 **Optional:** Set manual Slave ID if auto-detection fails:
@@ -115,8 +115,8 @@ INFO - 📊 Published - PV: 4500W | AC Out: 4200W | ...
   - `INFO`: Important events, filter summaries every 20 cycles (recommended)
   - `WARNING/ERROR`: Problems only
 - **status_timeout** (default: `180s`, range: 30-600): Offline timeout
-- **poll_interval** (default: `30s`, range: 10-300): Query interval
-  - Recommended: 30-60s for optimal balance
+- **poll_interval** (default: `30s`, range: 10-300): Modbus query interval  
+  Recommended: **30-60s** for optimal stability
 
 ## MQTT Topics
 

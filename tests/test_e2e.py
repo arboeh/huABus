@@ -1,4 +1,4 @@
-# tests\test_e2e.py
+# tests/test_e2e.py
 
 """End-to-End Tests - Kompletter Workflow: Modbus → Transform → Filter → MQTT"""
 

@@ -1,4 +1,4 @@
-# tests\test_mqtt_client.py
+# tests/test_mqtt_client.py
 
 """Tests für MQTT Client Manager."""
 

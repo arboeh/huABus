@@ -1,4 +1,4 @@
-# tests\test_integration.py
+# tests/test_integration.py
 
 """Integration-Tests mit Mock-Inverter"""
 

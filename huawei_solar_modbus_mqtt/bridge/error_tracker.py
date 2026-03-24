@@ -1,4 +1,4 @@
-# bridge/error_tracker.py
+# huawei_solar_modbus_mqtt/bridge/error_tracker.py
 
 """
 Connection Error Tracker für intelligentes Fehler-Logging.

@@ -1,5 +1,7 @@
 # tests/test_main.py
 
+"""Tests for Main."""
+
 import asyncio
 import time
 from unittest.mock import AsyncMock, Mock, patch

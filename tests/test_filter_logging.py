@@ -1,4 +1,4 @@
-# tests/test_filter_logging.py (NEU)
+# tests/test_filter_logging.py
 
 """Tests for logging behavior of TotalIncreasingFilter."""
 

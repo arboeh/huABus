@@ -1,4 +1,4 @@
-# bridge/config/mappings.py
+# huawei_solar_modbus_mqtt/bridge/config/mappings.py
 
 """Register mappings from huawei_solar library to MQTT keys.
 

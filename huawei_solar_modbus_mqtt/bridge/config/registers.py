@@ -1,4 +1,4 @@
-# bridge/config/registers.py
+# huawei_solar_modbus_mqtt/bridge/config/registers.py
 
 """Essential Modbus registers for Huawei SUN2000 inverters.
 

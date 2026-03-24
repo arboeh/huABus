@@ -3,6 +3,7 @@
 # tests/test_run.bats - Tests für run.sh
 
 setup() {
+
     # ===== TEST MODE MUSS GANZ OBEN STEHEN =====
     export BATS_TEST_MODE=true
     # ===========================================

@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="260" viewBox="0 0 720 260">
+<style>
+.box { fill:#f6f8fa; stroke:#444; stroke-width:1.5; rx:8; ry:8; }
+.text { font-family:Arial, Helvetica, sans-serif; font-size:14px; fill:#222; text-anchor:middle; dominant-baseline:middle; }
+.small { font-size:12px; fill:#555; }
+.arrow { stroke:#444; stroke-width:2; marker-end:url(#arrowhead); }
+.dashed { stroke-dasharray:6 4; }
+</style>
+
+<defs>
+<marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+<polygon points="0 0, 10 3.5, 0 7" fill="#444"/>
+</marker>
+</defs>
+
+<!-- Boxes -->
+<rect class="box" x="40" y="90" width="130" height="60"/>
+<text class="text" x="105" y="115">Huawei</text>
+<text class="text small" x="105" y="135">Inverter</text>
+
+<rect class="box" x="210" y="90" width="150" height="60"/>
+<text class="text" x="285" y="115">Modbus Poll</text>
+<text class="text small" x="285" y="135">(30–60s)</text>
+
+<rect class="box" x="400" y="90" width="150" height="60"/>
+<text class="text" x="475" y="110">Transform</text>
+<text class="text small" x="475" y="130">+ Filters</text>
+
+<rect class="box" x="590" y="90" width="110" height="60"/>
+<text class="text" x="645" y="115">MQTT</text>
+<text class="text small" x="645" y="135">Publish</text>
+
+<rect class="box" x="400" y="180" width="150" height="60"/>
+<text class="text" x="475" y="205">Cache Layer</text>
+<text class="text small" x="475" y="225">(Heartbeat)</text>
+
+<!-- Arrows -->
+<line class="arrow" x1="170" y1="120" x2="210" y2="120"/>
+<line class="arrow" x1="360" y1="120" x2="400" y2="120"/>
+<line class="arrow" x1="550" y1="120" x2="590" y2="120"/>
+
+<!-- Cache flow -->
+<line class="arrow dashed" x1="475" y1="150" x2="475" y2="180"/>
+<line class="arrow dashed" x1="550" y1="210" x2="590" y2="140"/>
+
+<!-- Labels -->
+<text class="text small" x="520" y="170">store last values</text>
+<text class="text small" x="620" y="190">republish every second</text>
+
+</svg>

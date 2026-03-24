@@ -1,4 +1,4 @@
-# bridge/config/sensors_mqtt.py
+# huawei_solar_modbus_mqtt/bridge/config/sensors_mqtt.py
 
 """
 MQTT Sensor Definitions für Home Assistant Discovery.

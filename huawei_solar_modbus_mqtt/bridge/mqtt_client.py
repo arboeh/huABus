@@ -1,4 +1,4 @@
-# bridge/mqtt_client.py
+# huawei_solar_modbus_mqtt/bridge/mqtt_client.py
 
 """
 MQTT Client Manager für Home Assistant Integration.

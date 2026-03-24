@@ -1,4 +1,4 @@
-# bridge/main.py
+# huawei_solar_modbus_mqtt/bridge/main.py
 
 """
 Hauptmodul des Huawei Solar Modbus-to-MQTT Add-ons.
@@ -274,9 +274,9 @@ async def main_once(client: AsyncHuaweiSolar, config: ConfigManager, cycle_num: 
     Führt einen kompletten Read-Transform-Filter-Publish Cycle aus.
 
     Args:
-        client: AsyncHuaweiSolar Client
-        config: ConfigManager instance
-        cycle_num: Aktuelle Cycle-Nummer
+        client:     AsyncHuaweiSolar Client
+        config:     ConfigManager instance
+        cycle_num:  Aktuelle Cycle-Nummer
     """
     global LAST_SUCCESS
 
@@ -338,7 +338,7 @@ async def main_once(client: AsyncHuaweiSolar, config: ConfigManager, cycle_num: 
         mqtt_duration,
     )
 
-    # === PHASE 6: Performance-Check ===
+    # === PHASE 7: Performance-Check ===
     if cycle_duration > config.poll_interval * 0.8:
         logger.warning("⚠️ Cycle %.1fs > 80%% poll_interval (%ds)", cycle_duration, config.poll_interval)
 
@@ -491,7 +491,6 @@ async def main() -> None:
                 await asyncio.sleep(10)
 
             heartbeat(config)
-            await asyncio.sleep(config.poll_interval)
 
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("🛑 Shutdown")

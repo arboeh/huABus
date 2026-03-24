@@ -1,11 +1,14 @@
-"""Configuration Manager for Huawei Solar Modbus MQTT Bridge.
+# huawei_solar_modbus_mqtt/bridge/config_manager.py
 
-Handles configuration loading from:
-- Environment variables (Docker/Add-on runtime)
-- /data/options.json (Home Assistant Add-on)
-- Default values (development)
+"""
+Konfigurationsmanager für Huawei Solar Modbus MQTT Bridge.
 
-Uses flat configuration structure (no nesting) for Home Assistant compatibility.
+Verwaltet das Laden der Konfiguration von:
+  - Umgebungsvariablen (Docker/Add-on-Laufzeit)
+  - /data/options.json (Home Assistant-Add-on)
+  - Standardwerte (Entwicklung)
+
+Verwendet eine flache Konfigurationsstruktur (keine Verschachtelung) für Home Assistant-Kompatibilität.
 """
 
 import json
@@ -21,7 +24,8 @@ class ConfigManager:
     """Manage add-on configuration with validation."""
 
     def __init__(self, config_path: Path | None = None):
-        """Initialize ConfigManager.
+        """
+        Initialize ConfigManager.
 
         Args:
             config_path: Path to options.json (default: /data/options.json)
@@ -31,7 +35,9 @@ class ConfigManager:
         self._load_config()
 
     def _load_config(self) -> None:
-        """Load configuration from file or environment variables."""
+        """
+        Load configuration from file or environment variables.
+        """
         if self.config_path.exists():
             logger.info(f"🚀 Loading configuration from {self.config_path}")
             with open(self.config_path) as f:
@@ -42,7 +48,8 @@ class ConfigManager:
             self._config = self._load_from_env()
 
     def _load_from_env(self) -> dict[str, Any]:
-        """Load configuration from environment variables.
+        """
+        Load configuration from environment variables.
 
         Returns:
             Configuration dictionary with flat structure
@@ -67,7 +74,8 @@ class ConfigManager:
 
     @staticmethod
     def _parse_bool_env(key: str, default: bool = False) -> bool:
-        """Parse boolean environment variable.
+        """
+        Parse boolean environment variable.
 
         Args:
             key: Environment variable name
@@ -83,7 +91,8 @@ class ConfigManager:
 
     @staticmethod
     def _parse_int_env(key: str, default: int = 0) -> int:
-        """Parse integer environment variable.
+        """
+        Parse integer environment variable.
 
         Args:
             key: Environment variable name

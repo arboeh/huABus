@@ -1,3 +1,5 @@
+# huawei_solar_modbus_mqtt/translations/de.yaml
+
 configuration:
   # === MODBUS Einstellungen ===
   modbus_host:
@@ -45,7 +47,7 @@ configuration:
   # === Erweiterte Einstellungen ===
   log_level:
     name: Log-Level
-    description: 'TRACE: Alles inkl. Modbus-Bytes | DEBUG: Detaillierte Performance-Metriken | INFO: Wichtige Ereignisse (empfohlen) | WARNING/ERROR: Nur Probleme'
+    description: "TRACE: Alles inkl. Modbus-Bytes | DEBUG: Detaillierte Performance-Metriken | INFO: Wichtige Ereignisse (empfohlen) | WARNING/ERROR: Nur Probleme"
 
   status_timeout:
     name: Status Timeout
