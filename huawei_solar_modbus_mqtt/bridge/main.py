@@ -28,6 +28,7 @@ from typing import Any
 from huawei_solar import AsyncHuaweiSolar
 
 from .config.registers import ESSENTIAL_REGISTERS
+from huawei_solar.registers import REGISTERS
 from .config_manager import ConfigManager
 from .error_tracker import ConnectionErrorTracker
 from .logging_utils import get_logger
@@ -57,7 +58,6 @@ LAST_SUCCESS: float = 0
 
 TRACE = 5  # DEBUG ist 10, INFO ist 20, WARNING ist 30
 logging.addLevelName(TRACE, "TRACE")
-
 
 def trace(self, message, *args, **kwargs):
     if self.isEnabledFor(TRACE):
@@ -230,31 +230,94 @@ def log_cycle_summary(cycle_num: float, timings: dict[str, float], data: dict[st
 
     elif filter_stats and logger.isEnabledFor(logging.DEBUG):
         logger.debug(f"🔍 Filter details: {dict(filter_stats)}")
+        
+READ_BATCHES: list[list[str]] | None = None
+
+def build_read_batches() -> list[list[str]]:
+    regs: list[tuple[str, int, int]] = []
+    for name in ESSENTIAL_REGISTERS:
+        reg = REGISTERS.get(name)
+        if reg is not None:
+            regs.append((name, reg.register, reg.length))
+        else:
+            logger.debug("Register metadata not found for '%s'", name)
+
+    regs.sort(key=lambda x: x[1])
+
+    batches: list[list[str]] = []
+    current: list[str] = []
+    last_end: int | None = None
+
+    max_gap = 4
+
+    for name, addr, length in regs:
+        if not current:
+            current = [name]
+            last_end = addr + length
+            continue
+
+        assert last_end is not None
+        gap = addr - last_end
+
+        if gap < 0 or gap > max_gap:
+            batches.append(current)
+            current = [name]
+        else:
+            current.append(name)
+
+        last_end = addr + length
+
+    if current:
+        batches.append(current)
+
+    logger.info(
+        "Built %d read batches for %d essential registers",
+        len(batches),
+        len(regs),
+    )
+    return batches
+
+
+async def read_batch_with_fallback(client, batch: list[str]) -> dict[str, Any]:
+    try:
+        values = await client.get_multiple(batch)
+        return dict(zip(batch, values))
+    except Exception as e:
+        logger.debug("Batch failed for %s: %r", batch, e)
+
+    if len(batch) == 1:
+        name = batch[0]
+        try:
+            return {name: await client.get(name)}
+        except Exception as e:
+            logger.debug("Skipping '%s': %r", name, e)
+            return {}
+
+    data: dict[str, Any] = {}
+    for name in batch:
+        try:
+            data[name] = await client.get(name)
+        except Exception as e:
+            logger.debug("Skipping '%s': %r", name, e)
+    return data
 
 
 async def read_registers(client: AsyncHuaweiSolar) -> dict[str, Any]:
-    """Liest Essential Registers sequentiell vom Inverter."""
-    logger.debug(f"Reading {len(ESSENTIAL_REGISTERS)} essential registers")
+    global READ_BATCHES
 
+    if READ_BATCHES is None:
+        READ_BATCHES = build_read_batches()
+
+    logger.debug("Reading essential registers in batches")
     start = time.time()
-    data = {}
-    successful = 0
+    data: dict[str, Any] = {}
 
-    for name in ESSENTIAL_REGISTERS:
-        try:
-            data[name] = await client.get(name)
-            successful += 1
-        except Exception:
-            logger.debug(f"Skipping '{name}' (not available)")
+    for batch in READ_BATCHES:
+        batch_data = await read_batch_with_fallback(client, batch)
+        data.update(batch_data)
 
     duration = time.time() - start
-    logger.info(
-        "📖 Essential read: %.1fs (%d/%d)",
-        duration,
-        successful,
-        len(ESSENTIAL_REGISTERS),
-    )
-
+    logger.info("Essential read: %.1fs (%d values)", duration, len(data))
     return data
 
 
