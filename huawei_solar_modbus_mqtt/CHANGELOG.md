@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.5] - 2026-04-28
+
+### Added
+
+- Added `build.yaml` with explicit base images for `aarch64`, `amd64`, `armhf`, `armv7`, and `i386` to improve multi-architecture Home Assistant add-on builds.
+
+### Changed
+
+- Simplified the Dockerfile by removing manual installation of `python3` and `py3-pip`, as these are already provided by the Home Assistant base image.
+- Relaxed the `pre-commit` development dependency from `>=4.5.1,<5` to `>=4,<5`.
+
+### Maintenance
+
+- Added `.tools` and `.history` to `.gitignore`.
+
 ## [1.8.4] - 2026-03-24
 
 ### Fixed

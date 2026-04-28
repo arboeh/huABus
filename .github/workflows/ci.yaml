@@ -131,14 +131,16 @@ jobs:
         with:
           context: ./huawei_solar_modbus_mqtt
           push: false
+          load: true
           tags: huabus-test:latest
+          build-args: |
+            BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Test Docker image structure
         run: |
-          docker build -t huabus-test:latest ./huawei_solar_modbus_mqtt
-          docker run --rm huabus-test:latest python --version
+          docker run --rm huabus-test:latest python3 --version
           echo "✅ Docker image builds successfully"
 
   # ===== Status Check =====

@@ -17,7 +17,7 @@
 [![armv7](https://img.shields.io/badge/armv7-yes-green.svg)](https://github.com/arboeh/huABus)
 [![i386](https://img.shields.io/badge/i386-yes-green.svg)](https://github.com/arboeh/huABus)
 
-**67 essenzielle Register • 69+ Entitäten • optionaler MQTT-Heartbeat • 30s Polling**  
+**67 essenzielle Register • 68 Entitäten • optionaler MQTT-Heartbeat • 30s Polling**  
 **Changelog:** [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md)
 
 > **⚠️ WICHTIG: Nur EINE Modbus-Verbindung möglich**
@@ -30,7 +30,7 @@
 ## Features
 
 - **Automatische Slave ID-Erkennung:** Probiert automatisch gängige Werte (1, 2, 100)
-- **Modbus TCP → MQTT:** 69+ Entitäten mit Auto-Discovery
+- **Modbus TCP → MQTT:** 68 Entitäten mit Auto-Discovery
 - **Vollständiges Monitoring:** Batterie, PV (1-4), Netz (3-Phasen), Energie-Counter
 - **Total Increasing Filter:** Verhindert falsche Counter-Resets in Energie-Statistiken
 - **Auto MQTT-Konfiguration:** Nutzt automatisch Home Assistant MQTT-Zugangsdaten
@@ -38,6 +38,7 @@
 - **Umfassende Test-Suite:** 89% Code-Coverage
 - **Performance:** ~2-5s Lesezyklus, konfigurierbares Poll-Intervall (30-60s empfohlen)
 - **Plattformübergreifend:** Alle gängigen Architekturen (aarch64, amd64, armhf, armv7, i386)
+- **Multi-Architektur:** Home-Assistant-Add-ons werden über eine explizite `build.yaml`-Basisabbildzuordnung erstellt
 
 ## 🚀 Schnellstart
 
@@ -141,6 +142,7 @@ Beide teilen die gleiche Limitierung - nur **EINE Modbus-Verbindung**. Für glei
 
 Siehe [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) für detaillierte Release-Notes.
 
+- ✅ **v1.8.5:** Multi-Arch-Build-Konfiguration ergänzt und Dockerfile vereinfacht
 - ✅ **v1.8.4:** Fix: Poll-Intervall wurde im Main Loop nicht eingehalten
 - ✅ **v1.8.3:** Fix für intermittierenden Slave ID Auto-Detection Fehler (`Request cancelled outside library`)
 - ✅ **v1.8.2:** CI-Migration zu `uv` (40% schnellere Builds)

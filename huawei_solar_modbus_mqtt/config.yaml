@@ -1,5 +1,5 @@
 name: huABus
-version: "1.8.4"
+version: "1.8.5"
 slug: huawei_solar_modbus_mqtt
 description: Huawei Solar Modbus via MQTT and Auto-Discovery
 url: https://github.com/arboeh/huABus
