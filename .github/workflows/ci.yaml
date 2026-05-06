@@ -45,12 +45,31 @@ jobs:
       - name: Run tests
         run: uv run pytest tests/ -v --cov=bridge --cov-report=xml --cov-report=term -p no:socket # Socket-Fix
 
-      - name: Upload coverage (Python 3.12 only)
+      - name: Check for Python changes
+        id: python_changes
         if: matrix.python-version == '3.12'
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # PR: Check changed files
+            git fetch origin ${{ github.base_ref }}
+            if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.(py)$'; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Push: Always upload
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload coverage (Python 3.12 only)
+        if: matrix.python-version == '3.12' && steps.python_changes.outputs.changed == 'true'
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+          flags: unittests
+          disable_search: true
 
   type-check:
     runs-on: ubuntu-latest

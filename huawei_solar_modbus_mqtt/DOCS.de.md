@@ -266,13 +266,49 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
 
 ### Performance-Probleme
 
-**Symptom:** `WARNING - Cycle 52.1s > 80% poll_interval`
+**Symptom:** `WARNING - Cycle 52.1s > 80% poll_interval` oder sehr langsame Zykluszeiten (>30s für 64 Register)
+
+**Root Cause:** Register werden sequentiell gelesen. Hohe Netzwerk-Latenz oder langsame Inverter-Antworten werden 67× multipliziert (einmal pro Register).
+
+**Schnelle Diagnose:**
+
+1. Detaillierte Timing-Logs aktivieren:
+
+   ```yaml
+   log_level: DEBUG
+   poll_interval: 120 # Während Diagnose temporär erhöhen
+   ```
+
+2. Logs auf Timing-Statistiken prüfen:
+
+   ```
+   📊 Register timing stats: avg=1.327s, min=0.234s, max=2.156s, median=1.312s
+   🐌 Slowest registers:
+      • grid_voltage: 2.156s
+      • input_power: 1.891s
+   ```
+
+3. Netzwerk-Latenz testen:
+   ```bash
+   ping <inverter_ip> -n 100
+   ```
+
+   - Erwartet: <10ms Durchschnitt, 0% Paket-Verlust
+   - Problem: >50ms Durchschnitt, >0% Paket-Verlust
 
 **Lösungen:**
 
-- `poll_interval` erhöhen (z.B. von 30s auf 60s)
-- Netzwerk-Latenz prüfen
-- Zeitmessungen in DEBUG-Logs analysieren
+- **Kurzfristig:** `poll_interval` auf 120-180s erhöhen
+- **Netzwerk:** LAN statt WiFi nutzen (reduziert Latenz um 30-50%)
+- **Hardware:** CPU-Last auf HA-Host während Cycles prüfen
+- **Firmware:** SDongle-Firmware-Updates testen (manche Versionen sind schneller, manche langsamer - vorher/nachher messen!)
+
+**Erwartete Performance:**
+
+- Schnelles Setup: 2-5s für 64 Register (~30-75ms pro Register)
+- Langsames Setup: 30-90s für 64 Register (~500-1400ms pro Register)
+
+Wenn Sie konstant >1s pro Register sehen, deutet dies auf Netzwerk- oder Hardware-Probleme hin und nicht auf Add-on-Limitierungen.
 
 ### Filter-Aktivität
 

@@ -233,21 +233,61 @@ def log_cycle_summary(cycle_num: float, timings: dict[str, float], data: dict[st
 
 
 async def read_registers(client: AsyncHuaweiSolar) -> dict[str, Any]:
-    """Liest Essential Registers sequentiell vom Inverter."""
+    """Liest Essential Registers sequentiell vom Inverter.
+
+    Bei DEBUG-Level werden detaillierte Timing-Informationen pro Register ausgegeben,
+    um Performance-Probleme zu diagnostizieren.
+    """
     logger.debug(f"Reading {len(ESSENTIAL_REGISTERS)} essential registers")
 
     start = time.time()
     data = {}
     successful = 0
 
+    # Performance-Tracking für Diagnose
+    register_timings: list[tuple[str, float]] = []
+    slow_register_threshold = 0.2  # Sekunden - Register die länger brauchen werden gewarnt
+
     for name in ESSENTIAL_REGISTERS:
+        register_start = time.time()
         try:
             data[name] = await client.get(name)
+            register_duration = time.time() - register_start
+            register_timings.append((name, register_duration))
             successful += 1
+
+            # Warnung bei sehr langsamen einzelnen Registern
+            if register_duration > slow_register_threshold:
+                logger.debug(f"⏱️  Slow register '{name}': {register_duration:.3f}s")
+
         except Exception:
-            logger.debug(f"Skipping '{name}' (not available)")
+            register_duration = time.time() - register_start
+            register_timings.append((name, register_duration))
+            logger.debug(f"Skipping '{name}' (not available, took {register_duration:.3f}s)")
 
     duration = time.time() - start
+
+    # Detaillierte Statistiken bei DEBUG-Level
+    if logger.isEnabledFor(logging.DEBUG) and register_timings:
+        timings_only = [t for _, t in register_timings]
+        avg_time = sum(timings_only) / len(timings_only)
+        min_time = min(timings_only)
+        max_time = max(timings_only)
+        sorted_timings = sorted(timings_only)
+        median_time = sorted_timings[len(sorted_timings) // 2]
+
+        logger.debug(
+            f"📊 Register timing stats: avg={avg_time:.3f}s, "
+            f"min={min_time:.3f}s, max={max_time:.3f}s, median={median_time:.3f}s"
+        )
+
+        # Top 5 langsamste Register anzeigen
+        slowest = sorted(register_timings, key=lambda x: x[1], reverse=True)[:5]
+        if slowest and slowest[0][1] > 0.1:  # Nur wenn wirklich langsam
+            logger.debug("🐌 Slowest registers:")
+            for reg_name, reg_time in slowest:
+                logger.debug(f"   • {reg_name}: {reg_time:.3f}s")
+
     logger.info(
         "📖 Essential read: %.1fs (%d/%d)",
         duration,
@@ -429,12 +469,20 @@ async def main() -> None:
 
     # === Modbus Client erstellen ===
     try:
+        connection_start = time.time()
         client = await AsyncHuaweiSolar.create(
             config.modbus_host,
             config.modbus_port,
             slave_id,
         )
-        logger.info(f"🔌 Connected (Slave ID: {slave_id})")
+        connection_time = time.time() - connection_start
+        logger.info(
+            f"🔌 Connected to {config.modbus_host}:{config.modbus_port} "
+            f"(Slave ID: {slave_id}, took {connection_time:.3f}s)"
+        )
+        logger.debug(
+            f"📡 Modbus connection details: host={config.modbus_host}, port={config.modbus_port}, slave={slave_id}"
+        )
         publish_status("online", config.mqtt_topic)
     except Exception as e:
         logger.error(f"❌ Connection failed: {e}")

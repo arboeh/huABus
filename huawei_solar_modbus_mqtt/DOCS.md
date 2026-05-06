@@ -263,13 +263,49 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
 
 ### Performance Issues
 
-**Symptom:** `WARNING - Cycle 52.1s > 80% poll_interval`
+**Symptom:** `WARNING - Cycle 52.1s > 80% poll_interval` or very slow cycle times (>30s for 64 registers)
+
+**Root Cause:** Registers are read sequentially. High network latency or slow inverter responses are multiplied 67× (one per register).
+
+**Quick Diagnosis:**
+
+1. Enable detailed timing logs:
+
+   ```yaml
+   log_level: DEBUG
+   poll_interval: 120 # Temporarily increase during diagnosis
+   ```
+
+2. Check logs for timing statistics:
+
+   ```
+   📊 Register timing stats: avg=1.327s, min=0.234s, max=2.156s, median=1.312s
+   🐌 Slowest registers:
+      • grid_voltage: 2.156s
+      • input_power: 1.891s
+   ```
+
+3. Test network latency:
+   ```bash
+   ping <inverter_ip> -n 100
+   ```
+
+   - Expected: <10ms average, 0% packet loss
+   - Problem: >50ms average, >0% packet loss
 
 **Solutions:**
 
-- Increase `poll_interval` (e.g., from 30s to 60s)
-- Check network latency
-- Analyze timing in DEBUG logs
+- **Short-term:** Increase `poll_interval` to 120-180s
+- **Network:** Use LAN instead of WiFi if possible (reduces latency 30-50%)
+- **Hardware:** Check CPU load on HA host during cycles
+- **Firmware:** Test SDongle firmware updates (some versions are faster, some slower - measure before/after!)
+
+**Expected Performance:**
+
+- Fast setup: 2-5s for 64 registers (~30-75ms per register)
+- Slow setup: 30-90s for 64 registers (~500-1400ms per register)
+
+If you consistently see >1s per register, this indicates network or hardware issues rather than add-on limitations.
 
 ### Filter Activity
 

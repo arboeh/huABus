@@ -34,6 +34,7 @@
 - **Vollständiges Monitoring:** Batterie, PV (1-4), Netz (3-Phasen), Energie-Counter
 - **Total Increasing Filter:** Verhindert falsche Counter-Resets in Energie-Statistiken
 - **Auto MQTT-Konfiguration:** Nutzt automatisch Home Assistant MQTT-Zugangsdaten
+- **Performance-Diagnostik:** Per-Register-Timing-Analyse im DEBUG-Modus zur Engpass-Identifikation
 - **TRACE Log Level:** Ultra-detailliertes Debugging mit Modbus-Byte-Arrays
 - **Umfassende Test-Suite:** 89% Code-Coverage
 - **Performance:** ~2-5s Lesezyklus, konfigurierbares Poll-Intervall (30-60s empfohlen)
@@ -142,6 +143,7 @@ Beide teilen die gleiche Limitierung - nur **EINE Modbus-Verbindung**. Für glei
 
 Siehe [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) für detaillierte Release-Notes.
 
+- ✅ **v1.9.0:** Performance-Diagnostik mit Per-Register-Timing-Analyse im DEBUG-Modus
 - ✅ **v1.8.5:** Multi-Arch-Build-Konfiguration ergänzt und Dockerfile vereinfacht
 - ✅ **v1.8.4:** Fix: Poll-Intervall wurde im Main Loop nicht eingehalten
 - ✅ **v1.8.3:** Fix für intermittierenden Slave ID Auto-Detection Fehler (`Request cancelled outside library`)
