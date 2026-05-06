@@ -15,6 +15,7 @@ from bridge.main import (
     is_modbus_exception,
     main,
     main_once,
+    read_registers,
 )
 from bridge.total_increasing_filter import reset_filter
 
@@ -550,3 +551,95 @@ async def test_determine_slave_id_manual_mode_none_exits():
 
     with pytest.raises(SystemExit):
         await determine_slave_id(mock_config)
+
+
+@pytest.mark.asyncio
+async def test_read_registers_timing_and_statistics(caplog):
+    """Test that read_registers measures and logs per-register timing."""
+    import logging
+
+    # Create mock client
+    mock_client = AsyncMock()
+
+    # Simulate different response times for different registers
+    async def mock_get(register_name):
+        if register_name == "slow_register":
+            await asyncio.sleep(0.25)  # Slow: 250ms > threshold
+            return 100
+        elif register_name == "medium_register":
+            await asyncio.sleep(0.15)  # Medium: 150ms
+            return 200
+        elif register_name == "fast_register":
+            await asyncio.sleep(0.05)  # Fast: 50ms
+            return 300
+        elif register_name == "unavailable_register":
+            raise Exception("Register not available")
+        else:
+            await asyncio.sleep(0.01)  # Default: 10ms
+            return 50
+
+    mock_client.get = mock_get
+
+    # Mock ESSENTIAL_REGISTERS with test registers
+    test_registers = [
+        "slow_register",
+        "medium_register",
+        "fast_register",
+        "unavailable_register",
+    ]
+
+    with (
+        patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
+        caplog.at_level(logging.DEBUG),
+    ):
+        # Call read_registers
+        result = await read_registers(mock_client)
+
+        # Verify data returned correctly
+        assert result["slow_register"] == 100
+        assert result["medium_register"] == 200
+        assert result["fast_register"] == 300
+        assert "unavailable_register" not in result  # Should be skipped
+
+        # Verify slow register warning was logged
+        assert any("Slow register 'slow_register'" in record.message for record in caplog.records)
+
+        # Verify statistics were logged
+        assert any("Register timing stats" in record.message for record in caplog.records)
+        assert any("Slowest registers" in record.message for record in caplog.records)
+
+        # Verify essential read summary was logged (INFO level)
+        assert any("Essential read:" in record.message and "3/4" in record.message for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_read_registers_no_slow_register_warning_when_fast(caplog):
+    """Test that no slow register warnings appear when all registers are fast."""
+    import logging
+
+    mock_client = AsyncMock()
+
+    # All registers fast (under 200ms threshold)
+    async def mock_get(register_name):
+        await asyncio.sleep(0.05)  # 50ms - fast
+        return 42
+
+    mock_client.get = mock_get
+
+    test_registers = ["reg1", "reg2", "reg3"]
+
+    with (
+        patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
+        caplog.at_level(logging.DEBUG),
+    ):
+        result = await read_registers(mock_client)
+
+        # Verify all registers read successfully
+        assert len(result) == 3
+
+        # Verify NO slow register warnings
+        assert not any("Slow register" in record.message for record in caplog.records)
+
+        # Verify NO "Slowest registers" section (because none are slow enough)
+        # The threshold for showing slowest is >0.1s, our registers are 0.05s
+        assert not any("Slowest registers" in record.message for record in caplog.records)

@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-05-03
+
+### Added
+
+- **Performance Diagnostics**: Detailed per-register timing measurements when `log_level: DEBUG` is enabled
+  - Individual register read times with warnings for slow registers (>200ms)
+  - Statistical analysis: average, min, max, and median timing across all registers
+  - Top 5 slowest registers listed in logs to identify performance bottlenecks
+  - Connection establishment time logging with detailed host/port/slave information
+  - Helps diagnose network latency issues and SDongle firmware performance variations
+- **Documentation**: Expanded Performance Troubleshooting section in DOCS.md with:
+  - Step-by-step diagnosis guide for slow cycle times
+  - Network latency testing instructions (ping, traceroute)
+  - Expected vs. problematic performance metrics
+  - Firmware update recommendations and caveats
+
+### Tests
+
+- Added `test_read_registers_timing_and_statistics` to verify timing measurement functionality
+- Added `test_read_registers_no_slow_register_warning_when_fast` to ensure no false warnings
+
 ## [1.8.5] - 2026-04-28
 
 ### Added
