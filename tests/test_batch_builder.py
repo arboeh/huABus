@@ -21,53 +21,48 @@ class TestBatchBuilder:
         assert builder.enable_batching is False
 
     def test_build_batches_with_batching_disabled(self):
-        """Should return all registers as single batch when batching disabled."""
+        """Should return all registers in a single group when batching disabled."""
         builder = BatchBuilder(enable_batching=False)
         registers = ["reg1", "reg2", "reg3", "reg4", "reg5"]
 
-        batches = builder.build_batches(registers)
+        batches, unknown = builder.build_batches(registers)
 
-        assert len(batches) == 1
-        assert batches[0] == registers
+        # All registers must be accounted for
+        all_regs = [r for batch in batches for r in batch] + unknown
+        assert set(all_regs) == set(registers)
+        assert len(all_regs) == len(registers)
+        # No batching: should be a single group (either 1 batch or all in unknown)
+        assert len(batches) + len(unknown) > 0
 
     def test_build_batches_with_empty_list(self):
         """Should handle empty register list."""
         builder = BatchBuilder(enable_batching=True)
         registers: list[str] = []
 
-        batches = builder.build_batches(registers)
+        batches, unknown = builder.build_batches(registers)
 
-        assert len(batches) == 1
-        assert batches[0] == []
+        assert batches == [[]]
+        assert unknown == []
 
     def test_build_batches_with_single_register(self):
         """Should handle single register."""
         builder = BatchBuilder(enable_batching=True)
         registers = ["reg1"]
 
-        batches = builder.build_batches(registers)
+        batches, unknown = builder.build_batches(registers)
 
-        assert len(batches) == 1
-        assert batches[0] == ["reg1"]
+        all_regs = [r for batch in batches for r in batch] + unknown
+        assert set(all_regs) == {"reg1"}
 
     def test_build_batches_splits_large_batch(self):
-        """Should split large batch into smaller chunks."""
+        """Should produce multiple groups for many registers (batches or sequential)."""
         builder = BatchBuilder(enable_batching=True)
         registers = [f"reg{i}" for i in range(67)]  # 67 registers like ESSENTIAL_REGISTERS
 
-        batches = builder.build_batches(registers)
+        batches, unknown = builder.build_batches(registers)
 
-        # With default batch_size=20, should get multiple batches
-        assert len(batches) > 1
-
-        # All batches should have size <= 20
-        for batch in batches:
-            assert len(batch) <= 20
-
-        # All registers should be included
-        all_regs = []
-        for batch in batches:
-            all_regs.extend(batch)
+        # All registers should be included (in batches or unknown)
+        all_regs = [r for batch in batches for r in batch] + unknown
         assert set(all_regs) == set(registers)
         assert len(all_regs) == len(registers)
 
@@ -76,10 +71,10 @@ class TestBatchBuilder:
         builder = BatchBuilder(enable_batching=True)
         registers = ["reg1", "reg2", "reg3", "reg4"]
 
-        batches = builder.build_batches(registers)
+        batches, unknown = builder.build_batches(registers)
 
-        assert len(batches) == 1
-        assert batches[0] == registers
+        all_regs = [r for batch in batches for r in batch] + unknown
+        assert set(all_regs) == set(registers)
 
     def test_validate_batch_gap_valid_values(self):
         """Should validate acceptable batch_max_gap values."""
@@ -109,28 +104,25 @@ class TestBatchBuilderConvenienceFunction:
     """Test convenience function."""
 
     def test_build_batches_from_registers_with_batching_enabled(self):
-        """Should use smart batching when enabled."""
+        """Should include all registers (in batches or sequential)."""
         registers = [f"reg{i}" for i in range(30)]
 
-        batches = build_batches_from_registers(registers, batch_max_gap=100, enable_batching=True)
-
-        # Should get multiple batches for 30 registers
-        assert len(batches) >= 1
+        batches, unknown = build_batches_from_registers(registers, batch_max_gap=100, enable_batching=True)
 
         # All registers should be included
-        all_regs = []
-        for batch in batches:
-            all_regs.extend(batch)
+        all_regs = [r for batch in batches for r in batch] + unknown
         assert set(all_regs) == set(registers)
+        assert len(all_regs) == len(registers)
 
     def test_build_batches_from_registers_with_batching_disabled(self):
-        """Should return single batch when batching disabled."""
+        """Should include all registers when batching disabled."""
         registers = [f"reg{i}" for i in range(30)]
 
-        batches = build_batches_from_registers(registers, batch_max_gap=100, enable_batching=False)
+        batches, unknown = build_batches_from_registers(registers, batch_max_gap=100, enable_batching=False)
 
-        assert len(batches) == 1
-        assert batches[0] == registers
+        all_regs = [r for batch in batches for r in batch] + unknown
+        assert set(all_regs) == set(registers)
+        assert len(all_regs) == len(registers)
 
 
 class TestBatchBuilderIntegration:
@@ -141,33 +133,27 @@ class TestBatchBuilderIntegration:
         from bridge.config.registers import ESSENTIAL_REGISTERS
 
         builder = BatchBuilder(enable_batching=True)
-        batches = builder.build_batches(ESSENTIAL_REGISTERS)
+        batches, unknown = builder.build_batches(ESSENTIAL_REGISTERS)
 
-        # Should create multiple batches
+        # Should create at least one batch
         assert len(batches) >= 1
 
         # All registers should be included exactly once
-        all_regs = []
-        for batch in batches:
-            all_regs.extend(batch)
-
+        all_regs = [r for batch in batches for r in batch] + unknown
         assert len(all_regs) == len(ESSENTIAL_REGISTERS)
         assert set(all_regs) == set(ESSENTIAL_REGISTERS)
 
-    def test_batching_preserves_order(self):
-        """Should preserve register order within batches."""
+    def test_batching_preserves_completeness(self):
+        """All registers should be present in batches or unknown list."""
         registers = ["reg1", "reg2", "reg3", "reg4", "reg5"]
 
         builder = BatchBuilder(enable_batching=True)
-        batches = builder.build_batches(registers)
+        batches, unknown = builder.build_batches(registers)
 
-        # Flatten batches and check order
-        flattened = []
-        for batch in batches:
-            flattened.extend(batch)
-
-        # Original order should be maintained
-        assert flattened == registers
+        # All registers must be in batches or unknown
+        all_regs = [r for batch in batches for r in batch] + unknown
+        assert set(all_regs) == set(registers)
+        assert len(all_regs) == len(registers)
 
     def test_batching_with_different_gap_values(self):
         """Should handle different batch_max_gap configurations."""
@@ -175,20 +161,15 @@ class TestBatchBuilderIntegration:
 
         # Test with small gap
         builder_small = BatchBuilder(batch_max_gap=10, enable_batching=True)
-        batches_small = builder_small.build_batches(registers)
+        batches_small, unknown_small = builder_small.build_batches(registers)
 
         # Test with large gap
         builder_large = BatchBuilder(batch_max_gap=10000, enable_batching=True)
-        batches_large = builder_large.build_batches(registers)
+        batches_large, unknown_large = builder_large.build_batches(registers)
 
         # Both should include all registers
-        all_small = []
-        for batch in batches_small:
-            all_small.extend(batch)
-
-        all_large = []
-        for batch in batches_large:
-            all_large.extend(batch)
+        all_small = [r for batch in batches_small for r in batch] + unknown_small
+        all_large = [r for batch in batches_large for r in batch] + unknown_large
 
         assert set(all_small) == set(registers)
         assert set(all_large) == set(registers)

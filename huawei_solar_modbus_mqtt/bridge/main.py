@@ -267,14 +267,16 @@ async def read_registers(
     data = {}
 
     # === SMART BATCHING MODE (v1.10.0+) ===
-    # Group registers intelligently to reduce TCP calls
+    # Sort registers by Modbus address and group by proximity to reduce TCP calls
     if enable_batching and len(ESSENTIAL_REGISTERS) > 1:
         try:
             builder = BatchBuilder(batch_max_gap=batch_max_gap, enable_batching=True)
-            batches = builder.build_batches(ESSENTIAL_REGISTERS)
+            batches, unknown_registers = builder.build_batches(ESSENTIAL_REGISTERS)
 
-            if len(batches) > 1:
-                logger.debug(f"📦 Using smart batching: {len(batches)} batches")
+            logger.debug(
+                f"📦 Using smart batching: {len(batches)} batches"
+                + (f", {len(unknown_registers)} sequential" if unknown_registers else "")
+            )
 
             batch_start = time.time()
             batch_timings: list[tuple[int, float]] = []  # batch_num, duration
@@ -301,6 +303,13 @@ async def read_registers(
                             data[name] = await client.get(name)
                         except Exception:
                             logger.debug(f"Skipping '{name}' (not available)")
+
+            # Unknown registers (not in library) are always read sequentially
+            for name in unknown_registers:
+                try:
+                    data[name] = await client.get(name)
+                except Exception:
+                    logger.debug(f"Skipping '{name}' (not available)")
 
             total_batch_duration = time.time() - batch_start
             successful = len([v for v in data.values() if v is not None])

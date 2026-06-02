@@ -566,6 +566,7 @@ async def test_read_registers_timing_and_statistics(caplog):
 
     with (
         patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
+        patch("bridge.batch_builder._get_huawei_registers", return_value=None),
         caplog.at_level(logging.DEBUG),
     ):
         # Call read_registers with smart batching
@@ -592,6 +593,7 @@ async def test_read_registers_no_slow_register_warning_when_fast(caplog):
 
     with (
         patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
+        patch("bridge.batch_builder._get_huawei_registers", return_value=None),
         caplog.at_level(logging.DEBUG),
     ):
         result = await read_registers(mock_client, enable_batching=True)
@@ -615,6 +617,7 @@ async def test_read_registers_batch_mode_success(caplog):
 
     with (
         patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
+        patch("bridge.batch_builder._get_huawei_registers", return_value=None),
         caplog.at_level(logging.INFO),
     ):
         result = await read_registers(mock_client)
@@ -646,6 +649,7 @@ async def test_read_registers_batch_mode_fallback(caplog):
 
     with (
         patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
+        patch("bridge.batch_builder._get_huawei_registers", return_value=None),
         caplog.at_level(logging.INFO),
     ):
         result = await read_registers(mock_client)
@@ -680,6 +684,7 @@ async def test_read_registers_batch_mode_skip_after_failure(caplog):
 
     with (
         patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
+        patch("bridge.batch_builder._get_huawei_registers", return_value=None),
         caplog.at_level(logging.INFO),
     ):
         # First call - should try smart batching
@@ -714,6 +719,7 @@ async def test_read_registers_smart_batching_enabled(caplog):
 
     with (
         patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
+        patch("bridge.batch_builder._get_huawei_registers", return_value=None),
         caplog.at_level(logging.INFO),
     ):
         result = await read_registers(
