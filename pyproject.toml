@@ -14,12 +14,13 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Home Automation",
 ]
 dependencies = [
-    "huawei-solar>=2.5,<2.6",
+    "huawei-solar>=2.5,<2.6", # Note: 3.0+ has breaking changes (AsyncHuaweiSolar → AsyncHuaweiSolarClient)
     "pymodbus>=3.13.0,<3.14",
     "paho-mqtt>=2.1,<2.2",
 ]
@@ -72,7 +73,7 @@ exclude_lines = [
 
 [tool.mypy]
 python_version = "3.11"
-explicit_package_bases = true   # ← NEU
+explicit_package_bases = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false

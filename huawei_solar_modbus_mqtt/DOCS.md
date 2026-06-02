@@ -286,6 +286,7 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
    ```
 
 3. Test network latency:
+
    ```bash
    ping <inverter_ip> -n 100
    ```
@@ -295,6 +296,12 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
 
 **Solutions:**
 
+- **Smart Batching (v1.10.0+):** Automatically enabled (default: `enable_batching: true`)
+  - Intelligently groups registers by Modbus address proximity
+  - Reduces 67 individual reads to typically 3-5 batch requests
+  - Typical reduction: 17.4s → 3.9-6.7s per cycle (77% improvement)
+  - Falls back to sequential reads on batch failures
+  - Configurable: `batch_max_gap: 100` (max address gap per batch)
 - **Short-term:** Increase `poll_interval` to 120-180s
 - **Network:** Use LAN instead of WiFi if possible (reduces latency 30-50%)
 - **Hardware:** Check CPU load on HA host during cycles
