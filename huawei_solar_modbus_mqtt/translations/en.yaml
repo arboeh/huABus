@@ -55,11 +55,11 @@ configuration:
 
   poll_interval:
     name: Poll Interval
-    description: Interval in seconds between Modbus queries from the inverter. Recommended 30-60s for optimal balance between freshness and network load
+    description: Interval in seconds between Modbus queries from the inverter. Recommended 30-60s for optimal balance between freshness and network load (default 30s)
 
   enable_batching:
     name: Smart Batch Reading
-    description: "Groups registers by Modbus address proximity and reads them in multiple batch requests. Dramatically reduces cycle times (76s → 5-10s) and improves data consistency. Recommended for all setups. Falls back to sequential reading if batching fails."
+    description: "Groups registers by Modbus address proximity and reads them in multiple batch requests. Dramatically reduces cycle times (60s → 5-10s) and improves data consistency. Recommended for all setups. Falls back to sequential reading if batching fails."
 
   batch_max_gap:
     name: Maximum Address Gap

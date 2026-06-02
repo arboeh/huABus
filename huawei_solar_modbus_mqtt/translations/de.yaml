@@ -55,11 +55,11 @@ configuration:
 
   poll_interval:
     name: Abfrageintervall
-    description: Intervall in Sekunden zwischen Modbus-Abfragen vom Wechselrichter. Empfohlen 30-60s für optimale Balance zwischen Aktualität und Netzwerklast
+    description: Intervall in Sekunden zwischen Modbus-Abfragen vom Wechselrichter. Empfohlen 30-60s für optimale Balance zwischen Aktualität und Netzwerklast (Standard 30s)
 
   enable_batching:
     name: Intelligentes Batch-Lesen
-    description: "Gruppiert Register nach Modbus-Adress-Nähe und liest sie in mehreren Batch-Anfragen. Reduziert Zykluszeiten drastisch (76s → 5-10s) und verbessert Datenkonsistenz. Empfohlen für alle Setups. Fällt auf sequentielles Lesen zurück, wenn Batching fehlschlägt."
+    description: "Gruppiert Register nach Modbus-Adress-Nähe und liest sie in mehreren Batch-Anfragen. Reduziert Zykluszeiten drastisch (60s → 5-10s) und verbessert Datenkonsistenz. Empfohlen für alle Setups. Fällt auf sequentielles Lesen zurück, wenn Batching fehlschlägt."
 
   batch_max_gap:
     name: Maximaler Adress-Abstand
