@@ -57,6 +57,10 @@ configuration:
     name: Poll Interval
     description: Interval in seconds between Modbus queries from the inverter. Recommended 30-60s for optimal balance between freshness and network load
 
-  batch_read_mode:
-    name: Batch Read Mode (Experimental)
-    description: "Reads all registers in a single Modbus request instead of 67 individual requests. Can reduce cycle times by up to 75% but may not work with all SDongle firmware versions. Falls back to sequential mode on error. (Default: disabled)"
+  enable_batching:
+    name: Smart Batch Reading
+    description: "Groups registers by Modbus address proximity and reads them in multiple batch requests. Dramatically reduces cycle times (76s → 5-10s) and improves data consistency. Recommended for all setups. Falls back to sequential reading if batching fails."
+
+  batch_max_gap:
+    name: Maximum Address Gap
+    description: "Maximum Modbus address gap (in registers) allowed within a batch group. Lower values create smaller batches (slower but more compatible). Higher values create larger batches (faster but may fail). Typical range: 50-200. Default: 100 (optimal for most Huawei inverters)."

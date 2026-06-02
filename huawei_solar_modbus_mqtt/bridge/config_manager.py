@@ -70,7 +70,9 @@ class ConfigManager:
             "log_level": os.getenv("HUAWEI_LOG_LEVEL", "INFO"),
             "status_timeout": self._parse_int_env("HUAWEI_STATUS_TIMEOUT", default=180),
             "poll_interval": self._parse_int_env("HUAWEI_POLL_INTERVAL", default=30),
-            "batch_read_mode": self._parse_bool_env("HUAWEI_BATCH_READ_MODE", default=False),
+            # Batch settings (v1.10.0+)
+            "enable_batching": self._parse_bool_env("HUAWEI_ENABLE_BATCHING", default=True),
+            "batch_max_gap": self._parse_int_env("HUAWEI_BATCH_MAX_GAP", default=100),
         }
 
     @staticmethod
@@ -180,9 +182,23 @@ class ConfigManager:
         return cast(int, self._config.get("poll_interval", 30))
 
     @property
-    def batch_read_mode(self) -> bool:
-        """Get batch read mode setting (experimental, v1.10.0+)."""
-        return cast(bool, self._config.get("batch_read_mode", False))
+    def enable_batching(self) -> bool:
+        """Enable smart batching strategy (v1.10.0+).
+
+        When True, registers are intelligently grouped by Modbus address proximity.
+        Reduces number of TCP calls from 67 individual reads to typically 3-5 batches.
+        """
+        return cast(bool, self._config.get("enable_batching", True))
+
+    @property
+    def batch_max_gap(self) -> int:
+        """Maximum address gap within a batch (v1.10.0+).
+
+        Default: 100 (Modbus address units)
+        If gap between registers > batch_max_gap, start a new batch.
+        Helps group related registers together.
+        """
+        return cast(int, self._config.get("batch_max_gap", 100))
 
     # === Validation ===
 

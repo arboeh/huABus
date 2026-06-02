@@ -35,7 +35,8 @@ options:
   log_level: "INFO"
   status_timeout: 180
   poll_interval: 30
-  batch_read_mode: false
+  enable_batching: true
+  batch_max_gap: 100
 schema:
   modbus_host: str
   modbus_port: port
@@ -49,4 +50,5 @@ schema:
   log_level: list(TRACE|DEBUG|INFO|WARNING|ERROR)
   status_timeout: int(30,600)
   poll_interval: int(10,300)
-  batch_read_mode: bool
+  enable_batching: bool
+  batch_max_gap: int(1,10000)?

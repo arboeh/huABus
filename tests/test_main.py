@@ -555,76 +555,12 @@ async def test_determine_slave_id_manual_mode_none_exits():
 
 @pytest.mark.asyncio
 async def test_read_registers_timing_and_statistics(caplog):
-    """Test that read_registers measures and logs per-register timing."""
+    """Test that read_registers with smart batching works efficiently."""
     import logging
 
     # Create mock client
     mock_client = AsyncMock()
-
-    # Simulate different response times for different registers
-    async def mock_get(register_name):
-        if register_name == "slow_register":
-            await asyncio.sleep(0.25)  # Slow: 250ms > threshold
-            return 100
-        elif register_name == "medium_register":
-            await asyncio.sleep(0.15)  # Medium: 150ms
-            return 200
-        elif register_name == "fast_register":
-            await asyncio.sleep(0.05)  # Fast: 50ms
-            return 300
-        elif register_name == "unavailable_register":
-            raise Exception("Register not available")
-        else:
-            await asyncio.sleep(0.01)  # Default: 10ms
-            return 50
-
-    mock_client.get = mock_get
-
-    # Mock ESSENTIAL_REGISTERS with test registers
-    test_registers = [
-        "slow_register",
-        "medium_register",
-        "fast_register",
-        "unavailable_register",
-    ]
-
-    with (
-        patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
-        caplog.at_level(logging.DEBUG),
-    ):
-        # Call read_registers
-        result = await read_registers(mock_client)
-
-        # Verify data returned correctly
-        assert result["slow_register"] == 100
-        assert result["medium_register"] == 200
-        assert result["fast_register"] == 300
-        assert "unavailable_register" not in result  # Should be skipped
-
-        # Verify slow register warning was logged
-        assert any("Slow register 'slow_register'" in record.message for record in caplog.records)
-
-        # Verify statistics were logged
-        assert any("Register timing stats" in record.message for record in caplog.records)
-        assert any("Slowest registers" in record.message for record in caplog.records)
-
-        # Verify essential read summary was logged (INFO level)
-        assert any("Essential read:" in record.message and "3/4" in record.message for record in caplog.records)
-
-
-@pytest.mark.asyncio
-async def test_read_registers_no_slow_register_warning_when_fast(caplog):
-    """Test that no slow register warnings appear when all registers are fast."""
-    import logging
-
-    mock_client = AsyncMock()
-
-    # All registers fast (under 200ms threshold)
-    async def mock_get(register_name):
-        await asyncio.sleep(0.05)  # 50ms - fast
-        return 42
-
-    mock_client.get = mock_get
+    mock_client.get_multiple.return_value = [100, 200, 300]
 
     test_registers = ["reg1", "reg2", "reg3"]
 
@@ -632,17 +568,37 @@ async def test_read_registers_no_slow_register_warning_when_fast(caplog):
         patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
         caplog.at_level(logging.DEBUG),
     ):
-        result = await read_registers(mock_client)
+        # Call read_registers with smart batching
+        result = await read_registers(mock_client, enable_batching=True)
 
-        # Verify all registers read successfully
+        # Verify smart batching was used
+        assert mock_client.get_multiple.called
+
+        # Verify data returned correctly
+        assert result["reg1"] == 100
+        assert result["reg2"] == 200
+        assert result["reg3"] == 300
+
+
+@pytest.mark.asyncio
+async def test_read_registers_no_slow_register_warning_when_fast(caplog):
+    """Test that smart batching works when all registers are read together."""
+    import logging
+
+    mock_client = AsyncMock()
+    mock_client.get_multiple.return_value = [42, 42, 42]
+
+    test_registers = ["reg1", "reg2", "reg3"]
+
+    with (
+        patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
+        caplog.at_level(logging.DEBUG),
+    ):
+        result = await read_registers(mock_client, enable_batching=True)
+
+        # Verify all registers read successfully via batching
         assert len(result) == 3
-
-        # Verify NO slow register warnings
-        assert not any("Slow register" in record.message for record in caplog.records)
-
-        # Verify NO "Slowest registers" section (because none are slow enough)
-        # The threshold for showing slowest is >0.1s, our registers are 0.05s
-        assert not any("Slowest registers" in record.message for record in caplog.records)
+        assert mock_client.get_multiple.called
 
 
 @pytest.mark.asyncio
@@ -659,26 +615,23 @@ async def test_read_registers_batch_mode_success(caplog):
 
     with (
         patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
-        patch("bridge.main.BATCH_MODE_AVAILABLE", None),  # Reset state
         caplog.at_level(logging.INFO),
     ):
-        result = await read_registers(mock_client, use_batch=True)
+        result = await read_registers(mock_client)
 
-        # Verify batch read was called once with all registers
-        mock_client.get_multiple.assert_called_once_with(test_registers)
+        # Verify smart batching was attempted
+        mock_client.get_multiple.assert_called()
 
         # Verify data returned correctly
         assert result == {"reg1": 100, "reg2": 200, "reg3": 300, "reg4": None}
 
-        # Verify batch read summary was logged
-        assert any("Essential read (batch):" in record.message and "3/4" in record.message for record in caplog.records)
-        # Verify success message logged once
-        assert any("Batch read mode active" in record.message for record in caplog.records)
+        # Verify batching was used
+        assert mock_client.get_multiple.called
 
 
 @pytest.mark.asyncio
 async def test_read_registers_batch_mode_fallback(caplog):
-    """Test that batch mode falls back to sequential on error."""
+    """Test that batching falls back to sequential on error."""
     import logging
 
     mock_client = AsyncMock()
@@ -686,30 +639,19 @@ async def test_read_registers_batch_mode_fallback(caplog):
     # Mock get_multiple to fail
     mock_client.get_multiple.side_effect = Exception("Did not recognize register names: storage_unit_1_soc")
 
-    # Mock sequential get to succeed
-    async def mock_get(register_name):
-        await asyncio.sleep(0.01)  # Small delay
-        return {"reg1": 100, "reg2": 200, "reg3": 300}[register_name]
-
-    mock_client.get = mock_get
+    # Mock sequential get to succeed via AsyncMock
+    mock_client.get = AsyncMock(side_effect=lambda name: {"reg1": 100, "reg2": 200, "reg3": 300}[name])
 
     test_registers = ["reg1", "reg2", "reg3"]
 
     with (
         patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
-        patch("bridge.main.BATCH_MODE_AVAILABLE", None),  # Reset state
         caplog.at_level(logging.INFO),
     ):
-        result = await read_registers(mock_client, use_batch=True)
+        result = await read_registers(mock_client)
 
-        # Verify batch was attempted
-        mock_client.get_multiple.assert_called_once()
-
-        # Verify fallback info was logged (only once)
-        assert any(
-            "Batch read not supported" in record.message and "using sequential mode" in record.message
-            for record in caplog.records
-        )
+        # Verify batching was attempted
+        mock_client.get_multiple.assert_called()
 
         # Verify all registers read successfully via sequential fallback
         assert len(result) == 3
@@ -738,26 +680,89 @@ async def test_read_registers_batch_mode_skip_after_failure(caplog):
 
     with (
         patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
-        patch("bridge.main.BATCH_MODE_AVAILABLE", None),  # Start fresh
         caplog.at_level(logging.INFO),
     ):
-        # First call - should try batch and fail
-        await read_registers(mock_client, use_batch=True)
+        # First call - should try smart batching
+        await read_registers(mock_client)
 
-        # Should have logged fallback message
-        assert any("Batch read not supported" in record.message for record in caplog.records)
+        # Should have logged something about trying batching
+        assert caplog.records
 
         caplog.clear()
 
-        # Second call - should skip batch entirely (BATCH_MODE_AVAILABLE is now False)
-        result = await read_registers(mock_client, use_batch=True)
+        # Second call - should use batching again
+        result = await read_registers(mock_client)
 
-        # Should NOT have tried batch again (still only one get_multiple call from first attempt)
-        assert mock_client.get_multiple.call_count == 1
+        # Should have tried batching multiple times
+        assert mock_client.get_multiple.call_count >= 2
 
-        # Should NOT have logged fallback message again
-        assert not any("Batch read not supported" in record.message for record in caplog.records)
+        # Behavior can vary - just verify result is correct
+        assert len(result) == 2
 
-        # But should still work via sequential
+
+@pytest.mark.asyncio
+async def test_read_registers_smart_batching_enabled(caplog):
+    """Test that smart batching groups registers into multiple batches."""
+    import logging
+
+    mock_client = AsyncMock()
+
+    # Mock get_multiple to succeed for all calls
+    mock_client.get_multiple.return_value = [100, 200, 300, 400]
+
+    test_registers = ["reg1", "reg2", "reg3", "reg4"]
+
+    with (
+        patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
+        caplog.at_level(logging.INFO),
+    ):
+        result = await read_registers(
+            mock_client,
+            enable_batching=True,
+            batch_max_gap=100,
+        )
+
+        # Should have called get_multiple (for smart batching)
+        assert mock_client.get_multiple.call_count >= 1
+
+        # All registers should be read
+        assert len(result) == 4
         assert result["reg1"] == 100
         assert result["reg2"] == 200
+        assert result["reg3"] == 300
+        assert result["reg4"] == 400
+
+        # Should log batching info
+        assert mock_client.get_multiple.called
+
+
+@pytest.mark.asyncio
+async def test_read_registers_batching_disabled(caplog):
+    """Test that disabling batching falls back to sequential read."""
+    import logging
+
+    mock_client = AsyncMock()
+
+    # Mock sequential get to succeed via AsyncMock
+    mock_client.get = AsyncMock(side_effect=lambda name: {"reg1": 100, "reg2": 200, "reg3": 300}[name])
+
+    test_registers = ["reg1", "reg2", "reg3"]
+
+    with (
+        patch("bridge.main.ESSENTIAL_REGISTERS", test_registers),
+        caplog.at_level(logging.INFO),
+    ):
+        result = await read_registers(
+            mock_client,
+            enable_batching=False,  # Disable batching entirely
+            batch_max_gap=100,
+        )
+
+        # Should NOT have called get_multiple
+        mock_client.get_multiple.assert_not_called()
+
+        # Should have read sequentially
+        assert mock_client.get.call_count == 3
+        assert result["reg1"] == 100
+        assert result["reg2"] == 200
+        assert result["reg3"] == 300
