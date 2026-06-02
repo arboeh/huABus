@@ -112,6 +112,7 @@ capacity: 10
 | ----------------------- | ----------------------------------- | ----------------------------- |
 | Batterie-Steuerung      | ✅                                  | ❌ (read-only)                |
 | MQTT-nativ              | ❌                                  | ✅                            |
+| Batch-Modus             | ❌                                  | ✅ (optional, Auto-Fallback)  |
 | Auto Slave ID-Erkennung | ❌                                  | ✅                            |
 | Total Increasing Filter | ❌                                  | ✅                            |
 | Externe Integrationen   | Begrenzt                            | ✅ (EVCC, Node-RED, Grafana)  |
