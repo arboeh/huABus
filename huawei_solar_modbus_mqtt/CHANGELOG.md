@@ -9,14 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Batch Reading Mode**: New `batch_read_mode` configuration option (default: `false`)
-  - Reads all 67 registers in a single Modbus request instead of individual sequential reads
-  - Can reduce cycle times by up to 75% on high-latency networks (e.g., 5s → 1.2s)
-  - Automatic fallback to sequential mode if batch reading fails (e.g., older SDongle firmware)
-  - Opt-in beta feature for users experiencing performance issues
-  - Compatible with existing v1.9.0 timing diagnostics (logs batch/fallback events at DEBUG level)
-
-- **Smart Batch Grouping**: New `enable_batching` and `batch_max_gap` configuration options (v1.10.0+)
+- **Smart Batch Grouping**: New `enable_batching` and `batch_max_gap` configuration options
   - `enable_batching` (default: `true`): Enable intelligent grouping of registers by Modbus address proximity
   - `batch_max_gap` (default: `100`): Maximum address gap (in Modbus units) within a batch
   - Reduces TCP calls from 67 individual reads to typically 3-5 batch requests
@@ -31,19 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 
-- Added `test_read_registers_batch_mode_success` to verify successful batch reading
-- Added `test_read_registers_batch_mode_fallback` to verify sequential fallback on errors
+- Added `test_batch_builder.py` with comprehensive tests for batch building logic (15 tests)
 - Added `test_read_registers_smart_batching_enabled` to verify smart batching groups registers
-- Added `test_read_registers_batching_disabled` to verify disabling batching forces sequential mode
-- Added `test_batch_builder.py` with comprehensive tests for batch building logic
-- Extended `test_advanced_properties` to verify `batch_read_mode`, `enable_batching`, and `batch_max_gap` configuration loading
-- Updated configuration loading tests to include new batch configuration options
+- Extended `test_main.py` to verify batching behavior with new tuple-based API
+- Extended configuration loading tests to include new batch configuration options (`enable_batching`, `batch_max_gap`)
 
 ### Performance Impact
 
-- **Best case** (full batch support + optimal network): 76s → <1s (90%+ reduction)
-- **Good case** (smart batching + typical network): 76s → 5-10s (85%+ reduction)  
-- **Fallback** (on errors): 76s → 60s (if some register groups fail, others still batch)
+- **Typical case** (smart batching + standard network): 17.4s → 3.9-6.7s per cycle (77% reduction)
+- **With optimization**: 15.1s → 4.4s warm-up, then stabilizes at 3.9s (74% reduction)
+- **Fallback** (on batch errors): Still benefits from partial grouping (not all-or-nothing)
 
 ## [1.9.0] - 2026-05-03
 

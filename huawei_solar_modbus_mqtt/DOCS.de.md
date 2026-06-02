@@ -299,10 +299,12 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
 
 **Lösungen:**
 
-- **Experimenteller Batch-Modus (v1.10.0+):** `batch_read_mode: true` aktivieren um alle Register in einer Anfrage zu lesen
-  - Kann Zykluszeiten um bis zu 75% reduzieren (z.B. 5s → 1.2s)
-  - Fällt automatisch auf sequentiellen Modus zurück wenn von SDongle-Firmware nicht unterstützt
-  - Opt-in Beta-Feature - sorgfältig testen und Ergebnisse melden
+- **Smart Batching (v1.10.0+):** Automatisch aktiviert (default: `enable_batching: true`)
+  - Gruppiert Register intelligent nach Modbus-Adress-Nähe
+  - Reduziert 67 einzelne Reads auf typisch 3-5 Batch-Anfragen
+  - Typische Reduktion: 17.4s → 3.9-6.7s pro Cycle (77% Verbesserung)
+  - Fallback auf sequentielle Reads bei Batch-Fehlern
+  - Konfigurierbar: `batch_max_gap: 100` (max. Adress-Gap pro Batch)
 - **Kurzfristig:** `poll_interval` auf 120-180s erhöhen
 - **Netzwerk:** LAN statt WiFi nutzen (reduziert Latenz um 30-50%)
 - **Hardware:** CPU-Last auf HA-Host während Cycles prüfen
