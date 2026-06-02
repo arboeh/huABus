@@ -1,5 +1,5 @@
 name: huABus
-version: "1.9.0"
+version: "1.10.0"
 slug: huawei_solar_modbus_mqtt
 description: Huawei Solar Modbus via MQTT and Auto-Discovery
 url: https://github.com/arboeh/huABus
@@ -35,6 +35,8 @@ options:
   log_level: "INFO"
   status_timeout: 180
   poll_interval: 30
+  enable_batching: true
+  batch_max_gap: 100
 schema:
   modbus_host: str
   modbus_port: port
@@ -48,3 +50,5 @@ schema:
   log_level: list(TRACE|DEBUG|INFO|WARNING|ERROR)
   status_timeout: int(30,600)
   poll_interval: int(10,300)
+  enable_batching: bool
+  batch_max_gap: int(1,10000)?

@@ -27,6 +27,7 @@ from typing import Any
 
 from huawei_solar import AsyncHuaweiSolar
 
+from .batch_builder import BatchBuilder
 from .config.registers import ESSENTIAL_REGISTERS
 from .config_manager import ConfigManager
 from .error_tracker import ConnectionErrorTracker
@@ -54,6 +55,10 @@ except ImportError:  # pragma: no cover
 # Wird von main_once() gesetzt und von heartbeat() geprüft
 # 0 = noch kein erfolgreicher Read (Startup-Phase)
 LAST_SUCCESS: float = 0
+
+# Batch-Mode State: None = nicht getestet, True = funktioniert, False = nicht verfügbar
+# Wird beim ersten Batch-Versuch gesetzt um wiederholte Fehlermeldungen zu vermeiden
+BATCH_MODE_AVAILABLE: bool | None = None
 
 TRACE = 5  # DEBUG ist 10, INFO ist 20, WARNING ist 30
 logging.addLevelName(TRACE, "TRACE")
@@ -232,16 +237,105 @@ def log_cycle_summary(cycle_num: float, timings: dict[str, float], data: dict[st
         logger.debug(f"🔍 Filter details: {dict(filter_stats)}")
 
 
-async def read_registers(client: AsyncHuaweiSolar) -> dict[str, Any]:
-    """Liest Essential Registers sequentiell vom Inverter.
+async def read_registers(
+    client: AsyncHuaweiSolar,
+    batch_max_gap: int = 100,
+    enable_batching: bool = True,
+) -> dict[str, Any]:
+    """Liest Essential Registers vom Inverter mit optimalem Batching.
+
+    Args:
+        client: AsyncHuaweiSolar Client
+        batch_max_gap: Maximum address gap within a batch (for smart batching)
+        enable_batching: Whether to use smart batching strategy
+
+    Strategy:
+        1. Try smart batching: group registers by address proximity
+        2. Fall back to sequential mode if batching fails
 
     Bei DEBUG-Level werden detaillierte Timing-Informationen pro Register ausgegeben,
     um Performance-Probleme zu diagnostizieren.
     """
-    logger.debug(f"Reading {len(ESSENTIAL_REGISTERS)} essential registers")
+    global BATCH_MODE_AVAILABLE
+
+    logger.debug(
+        f"Reading {len(ESSENTIAL_REGISTERS)} essential registers "
+        f"(enable_batching={enable_batching}, batch_max_gap={batch_max_gap})"
+    )
 
     start = time.time()
     data = {}
+
+    # === SMART BATCHING MODE (v1.10.0+) ===
+    # Sort registers by Modbus address and group by proximity to reduce TCP calls
+    if enable_batching and len(ESSENTIAL_REGISTERS) > 1:
+        try:
+            builder = BatchBuilder(batch_max_gap=batch_max_gap, enable_batching=True)
+            batches, unknown_registers = builder.build_batches(ESSENTIAL_REGISTERS)
+
+            logger.debug(
+                f"📦 Using smart batching: {len(batches)} batches"
+                + (f", {len(unknown_registers)} sequential" if unknown_registers else "")
+            )
+
+            batch_start = time.time()
+            batch_timings: list[tuple[int, float]] = []  # batch_num, duration
+
+            for batch_num, batch in enumerate(batches, 1):
+                batch_read_start = time.time()
+                try:
+                    values = await client.get_multiple(batch)
+                    batch_duration = time.time() - batch_read_start
+                    batch_timings.append((batch_num, batch_duration))
+
+                    batch_data = dict(zip(batch, values, strict=True))
+                    data.update(batch_data)
+
+                    logger.debug(
+                        f"📦 Batch {batch_num}/{len(batches)}: {len(batch)} registers in {batch_duration:.2f}s"
+                    )
+
+                except Exception as e:
+                    logger.debug(f"⚠️ Batch {batch_num} failed ({e}), falling back to sequential")
+                    # Fall back to sequential for this batch
+                    for name in batch:
+                        try:
+                            data[name] = await client.get(name)
+                        except Exception:
+                            logger.debug(f"Skipping '{name}' (not available)")
+
+            # Unknown registers (not in library) are always read sequentially
+            for name in unknown_registers:
+                try:
+                    data[name] = await client.get(name)
+                except Exception:
+                    logger.debug(f"Skipping '{name}' (not available)")
+
+            total_batch_duration = time.time() - batch_start
+            successful = len([v for v in data.values() if v is not None])
+
+            logger.info(
+                "📖 Essential read (smart batch): %.1fs (%d/%d, %d batches)",
+                total_batch_duration,
+                successful,
+                len(ESSENTIAL_REGISTERS),
+                len(batches),
+            )
+
+            if logger.isEnabledFor(logging.DEBUG) and batch_timings:
+                batch_times = [t for _, t in batch_timings]
+                logger.debug(
+                    f"📦 Batch timings: avg={sum(batch_times) / len(batch_times):.2f}s, "
+                    f"min={min(batch_times):.2f}s, max={max(batch_times):.2f}s"
+                )
+
+            return data
+
+        except Exception as e:
+            logger.debug(f"⚠️ Smart batching failed ({e}), falling back to sequential mode")
+            data = {}  # Reset data, will retry sequentially
+
+    # === SEQUENTIAL MODE (v1.9.0 behavior) ===
     successful = 0
 
     # Performance-Tracking für Diagnose
@@ -258,7 +352,7 @@ async def read_registers(client: AsyncHuaweiSolar) -> dict[str, Any]:
 
             # Warnung bei sehr langsamen einzelnen Registern
             if register_duration > slow_register_threshold:
-                logger.debug(f"⏱️  Slow register '{name}': {register_duration:.3f}s")
+                logger.debug(f"⏱️ Slow register '{name}': {register_duration:.3f}s")
 
         except Exception:
             register_duration = time.time() - register_start
@@ -322,7 +416,11 @@ async def main_once(client: AsyncHuaweiSolar, config: ConfigManager, cycle_num: 
     # === PHASE 1: Modbus Read ===
     modbus_start: float = time.time()
     try:
-        data = await read_registers(client)
+        data = await read_registers(
+            client,
+            batch_max_gap=config.batch_max_gap,
+            enable_batching=config.enable_batching,
+        )
         modbus_duration: float = time.time() - modbus_start
     except Exception as e:
         if is_modbus_exception(e):
