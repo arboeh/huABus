@@ -72,7 +72,7 @@ class ConfigManager:
             "poll_interval": self._parse_int_env("HUAWEI_POLL_INTERVAL", default=30),
             # Batch settings (v1.10.0+)
             "enable_batching": self._parse_bool_env("HUAWEI_ENABLE_BATCHING", default=True),
-            "batch_max_gap": self._parse_int_env("HUAWEI_BATCH_MAX_GAP", default=100),
+            "batch_max_gap": self._parse_int_env("HUAWEI_BATCH_MAX_GAP", default=50),
         }
 
     @staticmethod
@@ -198,7 +198,7 @@ class ConfigManager:
         If gap between registers > batch_max_gap, start a new batch.
         Helps group related registers together.
         """
-        return cast(int, self._config.get("batch_max_gap", 100))
+        return cast(int, self._config.get("batch_max_gap", 50))
 
     # === Validation ===
 
