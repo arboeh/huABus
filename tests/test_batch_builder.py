@@ -11,13 +11,12 @@ class TestBatchBuilder:
     def test_init_with_defaults(self):
         """Should initialize with default values."""
         builder = BatchBuilder()
-        assert builder.batch_max_gap == 100
+        assert builder.batch_max_gap == 50
         assert builder.enable_batching is True
 
     def test_init_with_custom_values(self):
-        """Should accept custom batch_max_gap and enable_batching."""
-        builder = BatchBuilder(batch_max_gap=50, enable_batching=False)
-        assert builder.batch_max_gap == 50
+        builder = BatchBuilder(batch_max_gap=25, enable_batching=False)
+        assert builder.batch_max_gap == 25
         assert builder.enable_batching is False
 
     def test_build_batches_with_batching_disabled(self):
@@ -173,3 +172,17 @@ class TestBatchBuilderIntegration:
 
         assert set(all_small) == set(registers)
         assert set(all_large) == set(registers)
+
+    def test_default_batch_max_gap_avoids_inverter_limit(self):
+        """Default batch_max_gap of 50 should prevent batches exceeding inverter limit of 125 registers."""
+        from bridge.config.registers import ESSENTIAL_REGISTERS
+
+        builder = BatchBuilder()  # Default gap
+        assert builder.batch_max_gap == 50
+
+        batches, _ = builder.build_batches(ESSENTIAL_REGISTERS)
+
+        # With gap=50, no batch should span more than 125 register addresses
+        # (inverter hard limit that caused the Batch 3 failure)
+        for batch in batches:
+            assert len(batch) <= 125, f"Batch too large: {len(batch)} registers"

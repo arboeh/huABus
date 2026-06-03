@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.1] - 2026-06-03
+
+### Fixed
+- **Default `batch_max_gap` reduced from 100 to 50**: The previous default caused
+  Batch 3 to exceed the inverter's internal register limit (125), triggering a
+  sequential fallback on every cycle. With 50, registers are split into smaller
+  batches that stay within the limit. Users with `batch_max_gap: 100` in their
+  config should update to `50`.
+
+### Improved
+- Clearer log message when a batch exceeds the inverter limit, with a hint to
+  reduce `batch_max_gap`.
+
 ## [1.10.0] - 2026-06-02
 
 ### Added

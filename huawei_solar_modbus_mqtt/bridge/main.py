@@ -296,7 +296,13 @@ async def read_registers(
                     )
 
                 except Exception as e:
-                    logger.debug(f"⚠️ Batch {batch_num} failed ({e}), falling back to sequential")
+                    if "count" in str(e):
+                        logger.debug(
+                            f"⚠️ Batch {batch_num} too large for inverter ({e}), "
+                            f"consider reducing batch_max_gap below current value of {batch_max_gap}"
+                        )
+                    else:
+                        logger.debug(f"⚠️ Batch {batch_num} failed ({e}), falling back to sequential")
                     # Fall back to sequential for this batch
                     for name in batch:
                         try:

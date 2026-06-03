@@ -63,4 +63,4 @@ configuration:
 
   batch_max_gap:
     name: Maximum Address Gap
-    description: "Maximum Modbus address gap (in registers) allowed within a batch group. Lower values create smaller batches (slower but more compatible). Higher values create larger batches (faster but may fail). Typical range: 50-200. Default: 100 (optimal for most Huawei inverters)."
+    description: "Maximum Modbus address gap (in registers) allowed within a batch group. Lower values create smaller batches (slower but more compatible). Higher values create larger batches (faster but may fail). Typical range: 50-200. Default: 50 (optimal for most Huawei inverters)."

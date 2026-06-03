@@ -63,4 +63,4 @@ configuration:
 
   batch_max_gap:
     name: Maximaler Adress-Abstand
-    description: "Maximaler Modbus-Adress-Abstand (in Registern) innerhalb einer Batch-Gruppe. Kleinere Werte erzeugen kleinere Batches (langsamer, aber kompatibler). Größere Werte erzeugen größere Batches (schneller, aber kann fehlschlagen). Typischer Bereich: 50-200. Standard: 100 (optimal für die meisten Huawei-Wechselrichter)."
+    description: "Maximaler Modbus-Adress-Abstand (in Registern) innerhalb einer Batch-Gruppe. Kleinere Werte erzeugen kleinere Batches (langsamer, aber kompatibler). Größere Werte erzeugen größere Batches (schneller, aber kann fehlschlagen). Typischer Bereich: 50-200. Standard: 50 (optimal für die meisten Huawei-Wechselrichter)."
