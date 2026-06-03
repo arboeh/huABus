@@ -30,7 +30,7 @@ class BatchBuilder:
     so each batch can be read with a single get_multiple() call.
     """
 
-    def __init__(self, batch_max_gap: int = 100, enable_batching: bool = True):
+    def __init__(self, batch_max_gap: int = 50, enable_batching: bool = True):
         """Initialize batch builder."""
         self.batch_max_gap = batch_max_gap
         self.enable_batching = enable_batching
