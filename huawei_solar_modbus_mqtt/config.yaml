@@ -36,7 +36,7 @@ options:
   status_timeout: 180
   poll_interval: 30
   enable_batching: true
-  batch_max_gap: 100
+  batch_max_gap: 50
 schema:
   modbus_host: str
   modbus_port: port
