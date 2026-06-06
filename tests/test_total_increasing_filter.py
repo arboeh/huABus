@@ -160,3 +160,23 @@ class TestNonNumericValues:
         assert "device_status" not in stats
         assert "model" not in stats
         assert "energy_total" not in stats
+
+
+class TestResetStats:
+    """Test reset_stats() directly."""
+
+    def test_reset_stats_clears_stats_only(self):
+        """reset_stats() should clear statistics but keep last values."""
+        filter_obj = TotalIncreasingFilter()
+
+        filter_obj.filter({"energy_yield_accumulated": 100.0})
+        filter_obj.filter({"energy_yield_accumulated": 150.0})
+        filter_obj.filter({"energy_yield_accumulated": 120.0})
+
+        assert filter_obj.get_stats()["energy_yield_accumulated"] >= 1
+        assert filter_obj._last_values["energy_yield_accumulated"] == 150.0
+
+        filter_obj.reset_stats()
+
+        assert filter_obj.get_stats() == {}
+        assert filter_obj._last_values["energy_yield_accumulated"] == 150.0
