@@ -397,6 +397,13 @@ def test_is_modbus_exception_false_for_timeout():
     assert not is_modbus_exception(TimeoutError())
 
 
+def test_is_modbus_exception_false_when_modbus_unavailable():
+    """Test is_modbus_exception returns False when MODBUS_EXCEPTIONS is empty."""
+    with patch("huawei_solar_modbus_mqtt.bridge.main.MODBUS_EXCEPTIONS", ()):
+        assert not is_modbus_exception(ValueError("any"))
+        assert not is_modbus_exception(Exception("test"))
+
+
 @pytest.mark.asyncio
 async def test_main_once_successful_cycle():
     """Test main_once executes complete cycle successfully."""

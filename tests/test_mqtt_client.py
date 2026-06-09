@@ -10,6 +10,8 @@ import pytest
 from bridge.mqtt_client import (
     _build_sensor_config,
     _get_mqtt_client,
+    _load_numeric_sensors,
+    _load_text_sensors,
     _on_connect,
     _on_disconnect,
     connect_mqtt,
@@ -378,3 +380,11 @@ class TestDiscovery:
 
         # Sollte nichts publizieren
         mock_mqtt_client.publish.assert_not_called()
+
+
+class TestSensorLoaders:
+    def test_load_numeric_sensors_returns_list(self):
+        assert isinstance(_load_numeric_sensors(), list)
+
+    def test_load_text_sensors_returns_list(self):
+        assert isinstance(_load_text_sensors(), list)

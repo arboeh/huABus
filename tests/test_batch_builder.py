@@ -213,7 +213,7 @@ class TestGetHuaweiRegisters:
         # by checking it has the right try/except pattern. The actual None return
         # requires the module to be truly unimportable.
         # We test the logic by patching the import at the module level
-        import bridge.batch_builder as bb_module
+        import huawei_solar_modbus_mqtt.bridge.batch_builder as bb_module
 
         # Patch the import inside the function
         original_func = bb_module._get_huawei_registers

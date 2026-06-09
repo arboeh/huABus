@@ -1,6 +1,6 @@
 # tests/test_filter.py
 
-from bridge.total_increasing_filter import TotalIncreasingFilter
+from huawei_solar_modbus_mqtt.bridge.total_increasing_filter import TotalIncreasingFilter
 
 
 class TestBasicFiltering:
