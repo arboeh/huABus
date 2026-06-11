@@ -99,7 +99,7 @@ jobs:
 
       - name: Validate config.yaml
         run: |
-          uv sync --dev
+          uv sync --group dev
           uv run python -c "
           import yaml
           with open('huawei_solar_modbus_mqtt/config.yaml') as f:
