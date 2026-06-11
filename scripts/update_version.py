@@ -52,23 +52,6 @@ def update_version_py(version):
         print(f"ℹ️ INFO: version.py already at version {version}")
 
 
-def update_requirements():
-    """Generate requirements.txt from pyproject.toml."""
-    import tomllib
-    from pathlib import Path
-
-    with open("pyproject.toml", "rb") as f:
-        data = tomllib.load(f)
-
-    deps = data["project"]["dependencies"]
-    addon_path = Path("huawei_solar_modbus_mqtt/requirements.txt")
-
-    with open(addon_path, "w") as f:
-        f.write("\n".join(deps) + "\n")
-
-    print(f"✅ Updated requirements.txt with {len(deps)} dependencies")
-
-
 def main():
     print("=" * 60)
     print("📦 Version Synchronization")
@@ -82,7 +65,6 @@ def main():
         print()
 
         update_version_py(version)
-        update_requirements()
 
         print()
         print("=" * 60)

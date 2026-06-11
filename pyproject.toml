@@ -1,6 +1,9 @@
+# pyproject.toml
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
 
 [project]
 name = "huabus"
@@ -20,33 +23,40 @@ classifiers = [
     "Topic :: Home Automation",
 ]
 dependencies = [
-    "huawei-solar>=2.5,<2.6", # Note: 3.0+ has breaking changes (AsyncHuaweiSolar → AsyncHuaweiSolarClient)
-    "pymodbus>=3.13.0,<3.14",
+    "huawei-solar>=2.5,<2.6", # v3.0 noch nicht auf PyPI; breaking change: AsyncHuaweiSolar → AsyncHuaweiSolarClient
+    # Tracker: https://github.com/wlcrs/huawei-solar-lib/releases
+    "pymodbus>=3.9,<4",
     "paho-mqtt>=2.1,<2.2",
 ]
+
 
 [tool.hatch.version]
 path = "huawei_solar_modbus_mqtt/bridge/version.py"
 pattern = 'version = "(?P<version>[^"]+)"'
 
+
 [tool.hatch.build.targets.wheel]
 packages = ["huawei_solar_modbus_mqtt"]
+
 
 [project.optional-dependencies]
 dev = [
     "pytest>=9,<10",
-    "pytest-asyncio>=1.3,<2",
+    "pytest-asyncio>=1.2,<2",
     "pytest-cov>=7,<8",
     "pytest-mock>=3.15,<4",
-    "mypy>=1.20.1,<3",
+    "mypy>=1.20,<3",
+    "pyyaml>=6,<7",
     "ruff>=0.9,<1",
     "pre-commit>=4,<5",
 ]
+
 
 [project.urls]
 Homepage = "https://github.com/arboeh/huABus"
 Repository = "https://github.com/arboeh/huABus"
 Issues = "https://github.com/arboeh/huABus/issues"
+
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -54,9 +64,11 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "-v --strict-markers"
 
+
 [tool.coverage.run]
 source = ["huawei_solar_modbus_mqtt/bridge"]
 omit = ["*/tests/*", "*/venv/*", "*/__version__.py"]
+
 
 [tool.coverage.report]
 fail_under = 70
@@ -71,6 +83,7 @@ exclude_lines = [
     "@overload",
 ]
 
+
 [tool.mypy]
 python_version = "3.11"
 explicit_package_bases = true
@@ -82,22 +95,27 @@ strict_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 
+
 [[tool.mypy.overrides]]
-module = ["pymodbus.*", "huawei_solar.*"]
+module = ["pymodbus.*"]
 ignore_missing_imports = true
+
 
 [tool.ruff]
 line-length = 120
 target-version = "py311"
+
 
 [tool.ruff.format]
 docstring-code-format = true
 docstring-code-line-length = 80
 skip-magic-trailing-comma = false
 
+
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4"]
 ignore = ["N802"]
+
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E501"]
