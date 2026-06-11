@@ -39,7 +39,7 @@ pattern = 'version = "(?P<version>[^"]+)"'
 packages = ["huawei_solar_modbus_mqtt"]
 
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=9,<10",
     "pytest-asyncio>=1.2,<2",

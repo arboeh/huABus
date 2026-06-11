@@ -42,7 +42,7 @@ jobs:
           cache-dependency-glob: "**/pyproject.toml,**/*.lock"
 
       - name: Install project + dev deps
-        run: uv sync --all-extras --dev
+        run: uv sync --dev
 
       - name: Run tests
         run: uv run pytest tests/ -v --cov=bridge --cov-report=xml --cov-report=term -p no:socket
@@ -99,7 +99,7 @@ jobs:
 
       - name: Validate config.yaml
         run: |
-          uv sync --group dev
+          uv sync --dev
           uv run python -c "
           import yaml
           with open('huawei_solar_modbus_mqtt/config.yaml') as f:
