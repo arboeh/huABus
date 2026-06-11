@@ -149,7 +149,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Generate requirements.txt for Docker
-        run: uv export --no-dev --no-hashes -o huawei_solar_modbus_mqtt/requirements.txt
+        run: uv export --no-dev --no-hashes --no-emit-project -o huawei_solar_modbus_mqtt/requirements.txt
 
       - name: Build Docker image
         uses: docker/build-push-action@v6
