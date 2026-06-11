@@ -27,7 +27,6 @@ I:\Development\
 - `notes/` - Persönliche Notizen
 - `en/` - Work-in-Progress Übersetzungen
 - `RELEASE_CHECKLIST.md` - Diese Datei
-- `scripts/test_addon_update.ps1` - Update-Testing Script
 - `scripts/push_to_prod.ps1` - Push-Script selbst
 - `README.md` - Dev-README (wird durch README-PRODUCTION.md ersetzt)
 - IDE Config (`.vscode/`, `.idea/`, `.pre-commit-config.yaml`, etc.)
@@ -36,9 +35,10 @@ I:\Development\
 
 ## Voraussetzungen
 
-- [ ] Virtual Environment vorhanden (`venv` oder `.venv`)
+- [ ] Virtual Environment vorhanden (`.venv`)
 - [ ] Pre-commit Hooks installiert (`pre-commit install`) - **nur im Dev-Repo**
 - [ ] Python 3.11+
+- [ ] `uv` installiert
 - [ ] Remote `prod` konfiguriert im dev-repo
 - [ ] Alle Änderungen committed
 
@@ -63,13 +63,13 @@ git remote -v
 ### 1. Development abschließen (in huABus-dev)
 
 ```powershell
-cd I:\Development\huABus-dev\scripts
+cd I:\Development\huABus-dev
 
 # Virtual Environment aktivieren
-.\venv\Scripts\Activate.ps1
+.venv\Scripts\Activate.ps1
 ```
 
-**Erwartete Ausgabe:** Prompt zeigt `(venv)` Prefix
+**Erwartete Ausgabe:** Prompt zeigt `(.venv)` Prefix
 
 ---
 
@@ -125,14 +125,13 @@ python scripts/update_version.py
 **Aktualisiert automatisch:**
 
 1. `huawei_solar_modbus_mqtt/bridge/version.py` → `version = "1.8.0"`
-2. Dependency-Versionen in `requirements.txt` (falls geändert)
+2. `huawei_solar_modbus_mqtt/requirements.txt` → neu generiert via `uv export`
 
 ---
 
 ### 4. Tests ausführen
 
 ```powershell
-.\scripts\run_local.ps1              # App starten
 .\scripts\test_local.ps1             # pytest
 .\scripts\test_local.ps1 -Shell      # BATS
 .\scripts\test_local.ps1 -Coverage   # pytest + Coverage-Report
@@ -218,11 +217,12 @@ cd I:\Development\huABus-dev
 
 **Das Script macht automatisch:**
 
-1. ✅ Entfernt dev-only Files (`notes/`, `RELEASE_CHECKLIST.md`, etc.)
-2. ✅ Benennt `README-PRODUCTION.md` → `README.md` um
-3. ✅ Benennt `README.de-PRODUCTION.md` → `README.de.md` um
-4. ✅ Behält Tests & Production Code
-5. ✅ Pusht zu `prod/dev` Branch
+1. ✅ Prüft ob `requirements.txt` vorhanden (sonst Abbruch)
+2. ✅ Entfernt dev-only Files (`notes/`, `RELEASE_CHECKLIST.md`, etc.)
+3. ✅ Benennt `README-PRODUCTION.md` → `README.md` um
+4. ✅ Benennt `README.de-PRODUCTION.md` → `README.de.md` um
+5. ✅ Behält Tests & Production Code
+6. ✅ Pusht zu `prod/dev` Branch
 
 **Erwartete Ausgabe:**
 
@@ -232,6 +232,7 @@ cd I:\Development\huABus-dev
 What was pushed to Prod:
    ✓ Production code (huawei_solar_modbus_mqtt/)
    ✓ Tests (for CI/CD)
+   ✓ requirements.txt (generated via uv export)
    ✓ README.md (from README-PRODUCTION.md)
    ✓ README.de.md (from README.de-PRODUCTION.md)
    ...
@@ -239,40 +240,12 @@ What was pushed to Prod:
 What stayed in Dev-only:
    - notes/
    - RELEASE_CHECKLIST.md
-   - scripts/test_addon_update.ps1
    - scripts/push_to_prod.ps1
 ```
 
 ---
 
-### 9. Update-Testing (Realitätsnah)
-
-#### Automatisiertes Testing mit Script
-
-```powershell
-cd I:\Development\huABus-dev\scripts
-.\test_addon_update.ps1
-```
-
-**Das Script:**
-
-1. ✅ Erstellt automatisch Backup vom Dev-Repo
-2. ✅ Pusht alte Version (Prod/main) → Dev/main
-3. ⏸️ Pausiert für Installation in Home Assistant
-4. ✅ Pusht neue Version (Prod/dev) → Dev/main
-5. ⏸️ Pausiert für Update-Test in Home Assistant
-6. ✅ Stellt Dev-Repo automatisch wieder her
-7. ✅ Löscht Backup-Branch
-
-**In Home Assistant prüfen:**
-
-- [ ] Config-Werte erhalten?
-- [ ] Neue Features sichtbar?
-- [ ] Addon startet erfolgreich?
-
----
-
-### 10. CI Testing & Final Checks
+### 9. CI Testing & Final Checks
 
 ```bash
 cd I:\Development\huABus
@@ -288,20 +261,9 @@ git push origin dev
 - [GitHub Actions](https://github.com/arboeh/huABus/actions)
 - Alle Tests müssen grün sein ✅
 
-**Optional: Lokaler Test**
-
-```powershell
-# Im Production Repo auf dev branch
-cd I:\Development\huABus
-git checkout dev
-
-# Test-Run
-.\scripts\run_local.ps1 -Test
-```
-
 ---
 
-### 11. Release erstellen (Production)
+### 10. Release erstellen (Production)
 
 ```bash
 cd I:\Development\huABus
@@ -337,7 +299,7 @@ git push origin dev
 
 ---
 
-### 12. GitHub Release (Automatisch)
+### 11. GitHub Release (Automatisch)
 
 Nach dem Push mit Tag:
 
@@ -355,7 +317,7 @@ Nach dem Push mit Tag:
 
 ---
 
-### 13. Weiterentwicklung (zurück zu dev-repo)
+### 12. Weiterentwicklung (zurück zu dev-repo)
 
 ```bash
 cd I:\Development\huABus-dev
@@ -383,6 +345,20 @@ cd I:\Development\huABus-dev
 
 # Remote hinzufügen
 git remote add prod https://github.com/arboeh/huABus.git
+
+# Erneut versuchen
+.\scripts\push_to_prod.ps1
+```
+
+### Push schlägt fehl: requirements.txt fehlt
+
+**Symptom:** `❌ requirements.txt not found!`
+
+```powershell
+cd I:\Development\huABus-dev
+
+# Synchronisation ausführen (generiert auch requirements.txt)
+python scripts/update_version.py
 
 # Erneut versuchen
 .\scripts\push_to_prod.ps1
@@ -419,36 +395,6 @@ pre-commit run check-version-sync --all-files
 pre-commit clean
 pre-commit install
 pre-commit run --all-files
-```
-
-### Update-Test: Dev-Repo wiederherstellen fehlgeschlagen
-
-```powershell
-cd I:\Development\huABus-dev
-
-# Finde Backup-Branch
-git branch -a | Select-String "backup-updatetest"
-
-# Manuell wiederherstellen
-git checkout backup-updatetest-XXXXXX
-git branch -D main
-git checkout -b main
-git push origin main --force
-```
-
-### Update-Test: Lock-Datei verhindert Checkout
-
-```powershell
-cd I:\Development\huABus-dev
-
-# Git-Prozesse beenden
-Get-Process git* | Stop-Process -Force
-
-# Lock-Datei löschen
-Remove-Item .git\index.lock -Force
-
-# Erneut versuchen
-git checkout backup-updatetest-XXXXXX
 ```
 
 ### Push-Script: Uncommitted changes
@@ -502,10 +448,10 @@ Kopiere diese Liste in GitHub Issue oder PR:
 
 ### Development (huABus-dev)
 
-- [ ] Virtual Environment aktiviert
+- [ ] Virtual Environment aktiviert (.venv)
 - [ ] Pre-commit Hooks erfolgreich (`pre-commit run --all-files`)
 - [ ] Version in `config.yaml` aktualisiert (1.8.0)
-- [ ] `update_version.py` ausgeführt
+- [ ] `update_version.py` ausgeführt (sync + requirements.txt)
 - [ ] Alle Tests bestehen (✅)
 - [ ] Coverage ≥ 85%
 - [ ] CHANGELOG.md aktualisiert
@@ -515,20 +461,10 @@ Kopiere diese Liste in GitHub Issue oder PR:
 - [ ] Push zu GitHub: `git push origin main`
 - [ ] Push zu prod: `.\scripts\push_to_prod.ps1`
 
-### Update Testing
-
-- [ ] Backup erstellt (automatisch via Script)
-- [ ] Alte Version in HA installiert & getestet
-- [ ] Update durchgeführt & getestet
-- [ ] Config-Werte erhalten
-- [ ] Neue Features sichtbar
-- [ ] Dev-Repo wiederhergestellt
-
 ### Testing (huABus/dev)
 
 - [ ] Push zu GitHub: `git push origin dev`
 - [ ] GitHub Actions erfolgreich (alle Tests grün)
-- [ ] Lokaler Test erfolgreich (optional)
 
 ### Release (huABus/main)
 
@@ -592,14 +528,6 @@ cd I:\Development\huABus-dev
 .\scripts\push_to_prod.ps1 -TargetBranch main
 ```
 
-### Update Testing (Automatisch)
-
-```powershell
-cd I:\Development\huABus-dev\scripts
-.\test_addon_update.ps1
-# Script führt durch den kompletten Test-Zyklus
-```
-
 ### Release
 
 ```powershell
@@ -629,6 +557,7 @@ Automatisierter, gefilterter Push vom Dev-Repo zum Prod-Repo.
 
 **Features:**
 
+- ✅ Prüft ob `requirements.txt` vorhanden (Guard)
 - ✅ Automatisches Filtern von dev-only Files
 - ✅ README-Umbenennung (README-PRODUCTION.md → README.md)
 - ✅ Validierung (uncommitted changes, remotes)
@@ -656,10 +585,8 @@ Automatisierter, gefilterter Push vom Dev-Repo zum Prod-Repo.
 
 - `notes/`, `en/` - Persönliche Notizen
 - `RELEASE_CHECKLIST.md` - Interne Doku
-- `scripts/test_addon_update.ps1` - Dev-Script
 - `scripts/push_to_prod.ps1` - Das Script selbst
-- `scripts/run_local.ps1` - Lokaler Testlauf
-- `scripts/test_local.ps1` - Testing
+- `scripts/test_local.ps1` - Lokales Testing
 - `README.md` - Dev-README
 - IDE Config (`.vscode/`, `.pre-commit-config.yaml`, etc.)
 
@@ -671,43 +598,29 @@ Automatisierter, gefilterter Push vom Dev-Repo zum Prod-Repo.
 **Was bleibt:**
 
 - `tests/` - Für CI/CD
+- `huawei_solar_modbus_mqtt/requirements.txt` - Für Docker-Build
 - Production Code
 - GitHub Workflows
 
 ---
 
-### test_addon_update.ps1
+### update_version.py
 
-Automatisiertes Update-Testing für realitätsnahe Simulation des User-Update-Flows.
+Versionssynchronisation und Requirements-Generierung in einem Schritt.
 
-**Location:** `I:\Development\huABus-dev\scripts\test_addon_update.ps1`
+**Location:** `I:\Development\huABus-dev\scripts\update_version.py`
 
 **Features:**
 
-- ✅ Automatisches Backup & Restore
-- ✅ Dynamische Versionserkennung aus `config.yaml`
-- ✅ Interaktive Bestätigung für jeden Schritt
-- ✅ Fehlerbehandlung mit Rollback-Info
-- ✅ Farbiges Output für bessere Übersicht
+- ✅ Liest Version aus `config.yaml` (Single Source of Truth)
+- ✅ Synchronisiert `bridge/version.py`
+- ✅ Generiert `requirements.txt` via `uv export`
 
 **Usage:**
 
 ```powershell
-# Standard (mit Default-Pfaden)
-.\scripts\test_addon_update.ps1
-
-# Mit custom Pfaden
-.\scripts\test_addon_update.ps1 -ProdRepo "C:\Projekte\huABus" -DevRepo "C:\Projekte\huABus-dev"
+python scripts/update_version.py
 ```
-
-**Ablauf:**
-
-1. Validierung (Repos vorhanden, uncommitted changes)
-2. Backup erstellen (automatisch benannter Branch)
-3. Alte Version pushen → HA Installation testen
-4. Neue Version pushen → HA Update testen
-5. Dev-Repo wiederherstellen
-6. Cleanup (Backup-Branch löschen)
 
 ---
 
@@ -716,9 +629,8 @@ Automatisiertes Update-Testing für realitätsnahe Simulation des User-Update-Fl
 1. **Two-Repo-Setup** - Dev für Entwicklung, Prod für Testing & Release
 2. **Automatisches Filtern** - `push_to_prod.ps1` entfernt dev-only Files
 3. **README-Management** - Production-READMEs im Dev-Repo bearbeiten
-4. **Update-Testing** - Immer vor Release mit realem HA-Flow testen
+4. **requirements.txt** - Wird via `update_version.py` generiert, muss vor Push vorhanden sein
 5. **Automatisierung** - Scripts für wiederkehrende Tasks nutzen
-6. **Version Sync** - Immer via `update_version.py` synchronisieren
+6. **Version Sync** - Immer via `update_version.py` synchronisieren (sync + requirements.txt)
 7. **CI-Trigger** - Nur bei Push zu GitHub, nicht lokal
-8. **Backup wichtig** - Vor Update-Tests immer Backup erstellen
-9. **Pre-commit nur in Dev** - Prod-Repo braucht keine Hooks
+8. **Pre-commit nur in Dev** - Prod-Repo braucht keine Hooks
