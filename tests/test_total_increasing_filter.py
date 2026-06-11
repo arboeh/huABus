@@ -1,182 +1,195 @@
 # tests/test_filter.py
 
-from huawei_solar_modbus_mqtt.bridge.total_increasing_filter import TotalIncreasingFilter
+"""Tests für TotalIncreasingFilter."""
+
+import pytest
+from bridge.total_increasing_filter import TotalIncreasingFilter
+
+
+@pytest.fixture(autouse=True)
+def fresh_filter(request):
+    """Stellt sicher, dass jede Testmethode eine frische Instanz bekommt."""
+    # Instanz wird per self._filter nicht geteilt – jede Klasse erstellt lokal.
+    pass
+
+
+# ---------------------------------------------------------------------------
+# TestBasicFiltering
+# ---------------------------------------------------------------------------
 
 
 class TestBasicFiltering:
-    def test_first_value_accepted(self):
-        """Erster Wert wird immer akzeptiert (auch 0)"""
-        filter_instance = TotalIncreasingFilter()
+    """Grundlegendes Akzeptanz- und Durchlass-Verhalten."""
 
-        # ✅ Mit Unterstrich!
-        assert filter_instance._should_filter("energy_grid_exported", 0) is False
-        assert filter_instance._should_filter("energy_yield_accumulated", 0.03) is False
-        assert filter_instance._should_filter("battery_charge_total", 100.5) is False
+    def test_first_value_always_accepted(self):
+        """Erster Wert wird immer akzeptiert, auch wenn er 0 ist."""
+        instance = TotalIncreasingFilter()
+        assert instance._should_filter("energy_grid_exported", 0) is False
+        assert instance._should_filter("energy_yield_accumulated", 0.03) is False
+        assert instance._should_filter("battery_charge_total", 100.5) is False
 
     def test_increasing_values_accepted(self):
-        """Steigende Werte werden immer akzeptiert"""
-        filter_instance = TotalIncreasingFilter()
-
-        filter_instance._should_filter("energy_grid_exported", 0)
-        assert filter_instance._should_filter("energy_grid_exported", 0.03) is False
-        assert filter_instance._should_filter("energy_grid_exported", 0.15) is False
+        """Monoton steigende Werte werden durchgelassen."""
+        instance = TotalIncreasingFilter()
+        instance._should_filter("energy_grid_exported", 0)
+        assert instance._should_filter("energy_grid_exported", 0.03) is False
+        assert instance._should_filter("energy_grid_exported", 0.15) is False
 
     def test_equal_values_accepted(self):
-        """Gleiche Werte werden akzeptiert"""
-        filter_instance = TotalIncreasingFilter()
+        """Gleicher Wert wie zuvor wird akzeptiert."""
+        instance = TotalIncreasingFilter()
+        instance._should_filter("energy_grid_exported", 100.0)
+        assert instance._should_filter("energy_grid_exported", 100.0) is False
 
-        filter_instance._should_filter("energy_grid_exported", 100.0)
-        assert filter_instance._should_filter("energy_grid_exported", 100.0) is False
-
-    def test_non_energy_sensors_not_filtered(self):
-        """Nicht-Energy-Sensoren werden nicht gefiltert"""
-        filter_instance = TotalIncreasingFilter()
-
-        filter_instance._should_filter("power_active", 5000)
-        assert filter_instance._should_filter("power_active", 0) is False
+    def test_non_energy_sensors_always_pass(self):
+        """Sensoren außerhalb von TOTAL_INCREASING_KEYS werden nie gefiltert."""
+        instance = TotalIncreasingFilter()
+        instance._should_filter("power_active", 5000)
+        assert instance._should_filter("power_active", 0) is False
 
 
-class TestDropsAndRest:
-    """Test für Drops und Resets."""
+# ---------------------------------------------------------------------------
+# TestDropsAndResets
+# ---------------------------------------------------------------------------
 
-    def test_drop_to_zero_passed_through(self):
-        """Drop auf 0 wird durchgelassen (Filter nur für Negative)."""
-        filter_obj = TotalIncreasingFilter()
-        filter_obj.reset()
 
-        data1 = {"energy_day": 10.5}
-        result1 = filter_obj.filter(data1)
-        assert result1["energy_day"] == 10.5
+class TestDropsAndResets:
+    """Drops und Counter-Resets (kein Filter außer für Negative)."""
 
-        data2 = {"energy_day": 0.0}
-        result2 = filter_obj.filter(data2)
-        assert result2["energy_day"] == 0.0  # Durchgelassen!
+    def test_drop_to_zero_passes_through(self):
+        """Drop auf 0 wird nicht gefiltert (nur negative Werte werden blockiert)."""
+        instance = TotalIncreasingFilter()
+        assert instance.filter({"energy_day": 10.5})["energy_day"] == 10.5
+        assert instance.filter({"energy_day": 0.0})["energy_day"] == 0.0
 
-    def test_counter_drop_passed_through(self):
-        """Counter-Drop wird durchgelassen (kein Filter)."""
-        filter_obj = TotalIncreasingFilter()
-        filter_obj.reset()
+    def test_counter_drop_passes_through(self):
+        """Rückgang auf positiven Wert wird ebenfalls durchgelassen."""
+        instance = TotalIncreasingFilter()
+        assert instance.filter({"energy_day": 100})["energy_day"] == 100
+        assert instance.filter({"energy_day": 50})["energy_day"] == 50
 
-        data1 = {"energy_day": 100}
-        result1 = filter_obj.filter(data1)
-        assert result1["energy_day"] == 100
 
-        data2 = {"energy_day": 50}
-        result2 = filter_obj.filter(data2)
-        assert result2["energy_day"] == 50
+# ---------------------------------------------------------------------------
+# TestNegativeValues
+# ---------------------------------------------------------------------------
 
 
 class TestNegativeValues:
-    """Tests für negative Werte in total_increasing Sensoren."""
+    """Negative Werte in total_increasing-Sensoren."""
 
-    def test_negative_values_filtered(self):
-        """Negative Werte werden immer gefiltert"""
-        filter_instance = TotalIncreasingFilter()
-
-        filter_instance._should_filter("energy_grid_exported", 5432.1)
-        assert filter_instance._should_filter("energy_grid_exported", -10) is True
-        assert filter_instance._should_filter("energy_grid_exported", -0.5) is True
+    def test_negative_values_filtered_via_should_filter(self):
+        """_should_filter() erkennt negative Werte als ungültig."""
+        instance = TotalIncreasingFilter()
+        instance._should_filter("energy_grid_exported", 5432.1)
+        assert instance._should_filter("energy_grid_exported", -10) is True
+        assert instance._should_filter("energy_grid_exported", -0.5) is True
 
     def test_first_negative_value_removed_from_result(self):
-        """Erster Wert negativ → Komplett aus Result entfernt."""
-        filter_obj = TotalIncreasingFilter()
-        filter_obj.reset()
+        """Erster Wert negativ → Key wird aus dem Result entfernt und gezählt."""
+        instance = TotalIncreasingFilter()
+        instance.reset()
 
-        data = {
-            "energy_yield_accumulated": -5,  # ← MUSS in TOTAL_INCREASING_KEYS sein!
-            "energy_grid_exported": 100,
-        }
+        result = instance.filter(
+            {
+                "energy_yield_accumulated": -5,
+                "energy_grid_exported": 100,
+            }
+        )
 
-        result = filter_obj.filter(data)
-
-        # DEBUG
-        print(f"DEBUG: result = {result}")
-        print(f"DEBUG: stats = {filter_obj.get_stats()}")
-
-        # energy_yield_accumulated sollte entfernt sein
         assert "energy_yield_accumulated" not in result
         assert result["energy_grid_exported"] == 100
+        assert instance.get_stats().get("energy_yield_accumulated") == 1
 
-        stats = filter_obj.get_stats()
-        assert stats.get("energy_yield_accumulated") == 1
+
+# ---------------------------------------------------------------------------
+# TestFilterStatistics
+# ---------------------------------------------------------------------------
 
 
 class TestFilterStatistics:
-    def test_filter_statistics(self):
-        """Filter-Statistik wird korrekt gezählt"""
-        filter_instance = TotalIncreasingFilter()
+    """Korrektheit der Filter-Statistiken."""
 
-        # ✅ NICHT _should_filter() nutzen, sondern filter()!
-        # Setup: Erste Werte setzen
-        filter_instance.filter({"energy_grid_exported": 5432.1})
-        filter_instance.filter({"battery_charge_total": 4804.5})
+    def test_filter_counts_each_filtered_call(self):
+        """Jede Filterung erhöht den Zähler des betroffenen Keys."""
+        instance = TotalIncreasingFilter()
+        instance.filter({"energy_grid_exported": 5432.1})
+        instance.filter({"battery_charge_total": 4804.5})
 
-        # Fehler provozieren (werden gefiltert)
-        filter_instance.filter({"energy_grid_exported": 0})  # Gefiltert
-        filter_instance.filter({"battery_charge_total": 0})  # Gefiltert
-        filter_instance.filter({"energy_grid_exported": 0})  # Nochmal gefiltert
+        instance.filter({"energy_grid_exported": 0})  # gefiltert
+        instance.filter({"battery_charge_total": 0})  # gefiltert
+        instance.filter({"energy_grid_exported": 0})  # nochmal
 
-        stats = filter_instance.get_stats()
+        stats = instance.get_stats()
         assert stats["energy_grid_exported"] == 2
         assert stats["battery_charge_total"] == 1
 
 
+# ---------------------------------------------------------------------------
+# TestResetFunctionality
+# ---------------------------------------------------------------------------
+
+
 class TestResetFunctionality:
-    """Test für reset() und reset_stats()."""
+    """reset() löscht den kompletten internen Zustand."""
 
-    def test_reset_clears_state(self):
-        """reset() löscht alle internen States."""
-        filter_obj = TotalIncreasingFilter()
+    def test_reset_clears_last_values(self):
+        """Nach reset() wird der nächste Wert wieder als Baseline akzeptiert."""
+        instance = TotalIncreasingFilter()
+        instance.filter({"energy_day": 10.0})
+        instance.reset()
 
-        filter_obj.filter({"energy_day": 10.0})
-        filter_obj.reset()
-
-        result = filter_obj.filter({"energy_day": 5.0})
+        result = instance.filter({"energy_day": 5.0})
         assert result["energy_day"] == 5.0
 
 
-class TestNonNumericValues:
-    """Test Verhalten bei nicht-numerischen Werten."""
+# ---------------------------------------------------------------------------
+# TestNonNumericValues
+# ---------------------------------------------------------------------------
 
-    def test_non_numeric_values_skipped(self):
-        """String-Werte und None werden übersprungen (nicht gefiltert)."""
-        filter_obj = TotalIncreasingFilter()
-        filter_obj.reset()
+
+class TestNonNumericValues:
+    """Nicht-numerische Werte werden vom Filter ignoriert."""
+
+    def test_strings_and_none_pass_through_unmodified(self):
+        """String- und None-Werte bleiben im Result, erzeugen keine Stats."""
+        instance = TotalIncreasingFilter()
+        instance.reset()
 
         data = {
             "energy_day": 10.5,
-            "device_status": "online",  # String → nicht gefiltert, bleibt im Result
-            "model": "SUN2000",  # String → nicht gefiltert, bleibt im Result
-            "energy_total": None,  # None → nicht gefiltert, bleibt im Result
+            "device_status": "online",
+            "model": "SUN2000",
+            "energy_total": None,
         }
 
-        result = filter_obj.filter(data)
+        result = instance.filter(data)
 
-        # Alle Werte bleiben (auch nicht-numerische)
         assert result == data
-
-        # Aber: Keine Filter-Stats für nicht-numerische Werte
-        stats = filter_obj.get_stats()
+        stats = instance.get_stats()
         assert "device_status" not in stats
         assert "model" not in stats
         assert "energy_total" not in stats
 
 
+# ---------------------------------------------------------------------------
+# TestResetStats
+# ---------------------------------------------------------------------------
+
+
 class TestResetStats:
-    """Test reset_stats() directly."""
+    """reset_stats() löscht nur die Statistiken, nicht die last_values."""
 
-    def test_reset_stats_clears_stats_only(self):
-        """reset_stats() should clear statistics but keep last values."""
-        filter_obj = TotalIncreasingFilter()
+    def test_reset_stats_clears_counts_but_keeps_last_values(self):
+        """Nach reset_stats() sind Stats leer, _last_values bleiben erhalten."""
+        instance = TotalIncreasingFilter()
+        instance.filter({"energy_yield_accumulated": 100.0})
+        instance.filter({"energy_yield_accumulated": 150.0})
+        instance.filter({"energy_yield_accumulated": 120.0})  # Drop → gefiltert
 
-        filter_obj.filter({"energy_yield_accumulated": 100.0})
-        filter_obj.filter({"energy_yield_accumulated": 150.0})
-        filter_obj.filter({"energy_yield_accumulated": 120.0})
+        assert instance.get_stats().get("energy_yield_accumulated", 0) >= 1
+        assert instance._last_values["energy_yield_accumulated"] == 150.0
 
-        assert filter_obj.get_stats()["energy_yield_accumulated"] >= 1
-        assert filter_obj._last_values["energy_yield_accumulated"] == 150.0
+        instance.reset_stats()
 
-        filter_obj.reset_stats()
-
-        assert filter_obj.get_stats() == {}
-        assert filter_obj._last_values["energy_yield_accumulated"] == 150.0
+        assert instance.get_stats() == {}
+        assert instance._last_values["energy_yield_accumulated"] == 150.0

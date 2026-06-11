@@ -5,7 +5,7 @@
 from pathlib import Path
 from typing import Any, cast
 
-import yaml
+import yaml  # pyright: ignore[reportMissingModuleSource]
 
 
 class MockRegisterValue:
@@ -17,7 +17,8 @@ class MockRegisterValue:
 
 
 class ModbusException(Exception):  # noqa: N818
-    """Mock für Modbus-Exception"""
+    """Mock für Modbus-Exception — NUR für Szenario-Simulation.
+    Für Tests von is_modbus_exception() die echte pymodbus-Exception verwenden."""
 
     pass
 

@@ -107,6 +107,12 @@ export HUAWEI_POLL_INTERVAL
 HUAWEI_LOG_LEVEL=$(get_required_config 'log_level' 'INFO')
 export HUAWEI_LOG_LEVEL
 
+HUAWEI_ENABLE_BATCHING=$(get_required_config 'enable_batching' 'true')
+export HUAWEI_ENABLE_BATCHING
+
+HUAWEI_BATCH_MAX_GAP=$(get_required_config 'batch_max_gap' '50')
+export HUAWEI_BATCH_MAX_GAP
+
 echo "$(date +"%Y-%m-%dT%H:%M:%S") INFO: >> Log level: ${HUAWEI_LOG_LEVEL}"
 
 # Set bashio log level to match
@@ -144,9 +150,9 @@ echo "$(date +"%Y-%m-%dT%H:%M:%S") INFO: ---------------------------------------
 
 # Slave ID Display Logic
 if [ "${HUAWEI_MODBUS_AUTO_DETECT_SLAVE_ID}" = "true" ]; then
-    echo "$(date +"%Y-%m-%dT%H:%M:%S") INFO:  🔌 Inverter: ${HUAWEI_MODBUS_HOST}:${HUAWEI_MODBUS_PORT} (Slave ID: auto-detect)"
+    echo "$(date +"%Y-%m-%dT%H:%M:%S") INFO:  🔌 Inverter: ${HUAWEI_MODBUS_HOST}:${HUAWEI_MODBUS_PORT} | Slave ID: auto-detect"
 else
-    echo "$(date +"%Y-%m-%dT%H:%M:%S") INFO:  🔌 Inverter: ${HUAWEI_MODBUS_HOST}:${HUAWEI_MODBUS_PORT} (Slave ID: ${HUAWEI_SLAVE_ID})"
+    echo "$(date +"%Y-%m-%dT%H:%M:%S") INFO:  🔌 Inverter: ${HUAWEI_MODBUS_HOST}:${HUAWEI_MODBUS_PORT} | Slave ID: ${HUAWEI_SLAVE_ID}"
 fi
 
 echo "$(date +"%Y-%m-%dT%H:%M:%S") INFO:  📡 MQTT: ${HUAWEI_MQTT_HOST}:${HUAWEI_MQTT_PORT} (${MQTT_SOURCE})"
@@ -159,7 +165,9 @@ else
 fi
 
 echo "$(date +"%Y-%m-%dT%H:%M:%S") INFO:  📍 Topic: ${HUAWEI_MQTT_TOPIC}"
-echo "$(date +"%Y-%m-%dT%H:%M:%S") INFO:  ⏱️ Poll: ${HUAWEI_POLL_INTERVAL}s | Timeout: ${HUAWEI_STATUS_TIMEOUT}s"
+echo "$(date +"%Y-%m-%dT%H:%M:%S") INFO:  ⏱️ Poll: ${HUAWEI_POLL_INTERVAL} s | Timeout: ${HUAWEI_STATUS_TIMEOUT} s"
+
+echo "$(date +"%Y-%m-%dT%H:%M:%S") INFO:  📦 Batching: ${HUAWEI_ENABLE_BATCHING} | Max Gap: ${HUAWEI_BATCH_MAX_GAP} ms"
 
 echo "[$(date +'%T')] INFO: ----------------------------------------------------------"
 

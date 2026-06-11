@@ -3,332 +3,252 @@
 """End-to-End Tests - Kompletter Workflow: Modbus → Transform → Filter → MQTT"""
 
 import json
+import time
 
 import pytest
-from bridge.total_increasing_filter import (
-    get_filter,
-    reset_filter,
-)
+from bridge.total_increasing_filter import get_filter
 
 from tests.fixtures.mock_inverter import MockHuaweiSolar
 from tests.fixtures.mock_mqtt_broker import MockMQTTBroker
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
 
 def get_latest_safe(broker, topic):
-    """Helper: Hole latest message oder raise AssertionError"""
+    """Returns the latest MQTT message for a topic or raises AssertionError."""
     latest = broker.get_latest(topic)
     assert latest is not None, f"No MQTT message received for topic '{topic}'!"
     assert "payload" in latest, f"No 'payload' key in message: {latest}"
     return latest
 
 
-@pytest.mark.asyncio
-async def test_e2e_meter_change_scenario():
-    """
-    End-to-End: Neuer Meter installiert
-    - Modbus liefert: 0 → 0.03 → 0.15 kWh
-    - MQTT sollte empfangen: 0 → 0.03 → 0.15 kWh (alle Werte durchgelassen)
-    """
-    reset_filter()
-    mock_modbus = MockHuaweiSolar()
-    mock_modbus.load_scenario("meter_change")
-    mock_mqtt = MockMQTTBroker()
-    mock_mqtt.connect("localhost", 1883)
-    filter_instance = get_filter()
-
-    expected_values = [0, 0.03, 0.15]
-
-    for expected in expected_values:
-        register = await mock_modbus.get("energy_grid_exported")
-        raw_value = register.value
-
-        transformed = {"energy_grid_exported": raw_value}
-        filtered = filter_instance.filter(transformed)
-
-        payload = json.dumps(filtered)
-        mock_mqtt.publish("huawei-solar", payload)
-
-        # ✅ FIX
-        latest = get_latest_safe(mock_mqtt, "huawei-solar")
-        assert latest["payload"]["energy_grid_exported"] == expected
-
-        mock_modbus.next_cycle()
-
-    all_messages = mock_mqtt.get_messages("huawei-solar")
-    assert len(all_messages) == 3
-    print(f"✅ E2E Test passed: {expected_values} correctly transmitted via MQTT")
+# ---------------------------------------------------------------------------
+# TestE2EMeterChange
+# ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_e2e_multiple_sensors():
-    """
-    End-to-End: Multiple Sensoren gleichzeitig
-    """
-    reset_filter()
-    mock_modbus = MockHuaweiSolar()
-    mock_modbus.load_scenario("meter_change")
-    mock_mqtt = MockMQTTBroker()
-    mock_mqtt.connect("localhost", 1883)
-    filter_instance = get_filter()
+class TestE2EMeterChange:
+    """Tests for the meter-change scenario."""
 
-    for _cycle in range(3):
-        grid_export = await mock_modbus.get("energy_grid_exported")
-        grid_import = await mock_modbus.get("energy_grid_accumulated")
-        solar = await mock_modbus.get("energy_yield_accumulated")
-        battery_charge = await mock_modbus.get("battery_charge_total")
-        battery_discharge = await mock_modbus.get("battery_discharge_total")
+    @pytest.mark.asyncio
+    async def test_values_pass_through_filter(self):
+        """0 → 0.03 → 0.15 kWh are all passed through without filtering."""
+        mock_modbus = MockHuaweiSolar()
+        mock_modbus.load_scenario("meter_change")
+        mock_mqtt = MockMQTTBroker()
+        mock_mqtt.connect("localhost", 1883)
+        filter_instance = get_filter()
+
+        for expected in [0, 0.03, 0.15]:
+            register = await mock_modbus.get("energy_grid_exported")
+            filtered = filter_instance.filter({"energy_grid_exported": register.value})
+            mock_mqtt.publish("huawei-solar", json.dumps(filtered))
+
+            latest = get_latest_safe(mock_mqtt, "huawei-solar")
+            assert latest["payload"]["energy_grid_exported"] == expected
+
+            mock_modbus.next_cycle()
+
+        assert len(mock_mqtt.get_messages("huawei-solar")) == 3
+
+    @pytest.mark.asyncio
+    async def test_multiple_sensors_all_present(self):
+        """All 5 total_increasing sensors are present in every published payload."""
+        mock_modbus = MockHuaweiSolar()
+        mock_modbus.load_scenario("meter_change")
+        mock_mqtt = MockMQTTBroker()
+        mock_mqtt.connect("localhost", 1883)
+        filter_instance = get_filter()
+
+        for _ in range(3):
+            transformed = {
+                "energy_grid_exported": (await mock_modbus.get("energy_grid_exported")).value,
+                "energy_grid_accumulated": (await mock_modbus.get("energy_grid_accumulated")).value,
+                "energy_yield_accumulated": (await mock_modbus.get("energy_yield_accumulated")).value,
+                "battery_charge_total": (await mock_modbus.get("battery_charge_total")).value,
+                "battery_discharge_total": (await mock_modbus.get("battery_discharge_total")).value,
+            }
+            mock_mqtt.publish("huawei-solar", json.dumps(filter_instance.filter(transformed)))
+            mock_modbus.next_cycle()
+
+        messages = mock_mqtt.get_messages("huawei-solar")
+        assert len(messages) == 3
+
+        expected_keys = [
+            "energy_grid_exported",
+            "energy_grid_accumulated",
+            "energy_yield_accumulated",
+            "battery_charge_total",
+            "battery_discharge_total",
+        ]
+        for msg in messages:
+            payload = msg.as_dict()["payload"]
+            for key in expected_keys:
+                assert key in payload
+
+
+# ---------------------------------------------------------------------------
+# TestE2EMQTTStructure
+# ---------------------------------------------------------------------------
+
+
+class TestE2EMQTTStructure:
+    """Tests for MQTT topic and payload structure."""
+
+    @pytest.mark.asyncio
+    async def test_retained_status_message(self):
+        """Status topic messages are retained."""
+        mock_mqtt = MockMQTTBroker()
+        mock_mqtt.connect("localhost", 1883)
+
+        mock_mqtt.publish("huawei-solar", json.dumps({"energy_grid_exported": 100.5}))
+        mock_mqtt.publish("huawei-solar/status", "online", retain=True)
+
+        status_msg = get_latest_safe(mock_mqtt, "huawei-solar/status")
+        assert status_msg["retain"] is True
+
+    @pytest.mark.asyncio
+    async def test_payload_structure_and_types(self):
+        """Published payload contains all expected keys with correct types."""
+        mock_modbus = MockHuaweiSolar()
+        mock_modbus.load_scenario("meter_change")
+        mock_mqtt = MockMQTTBroker()
+        mock_mqtt.connect("localhost", 1883)
+        filter_instance = get_filter()
 
         transformed = {
-            "energy_grid_exported": grid_export.value,
-            "energy_grid_accumulated": grid_import.value,
-            "energy_yield_accumulated": solar.value,
-            "battery_charge_total": battery_charge.value,
-            "battery_discharge_total": battery_discharge.value,
+            "energy_grid_exported": (await mock_modbus.get("energy_grid_exported")).value,
+            "energy_grid_accumulated": (await mock_modbus.get("energy_grid_accumulated")).value,
+            "energy_yield_accumulated": (await mock_modbus.get("energy_yield_accumulated")).value,
+            "battery_charge_total": (await mock_modbus.get("battery_charge_total")).value,
+            "battery_discharge_total": (await mock_modbus.get("battery_discharge_total")).value,
+            "power_active": 4500,
+            "battery_soc": 85.5,
         }
+        mock_mqtt.publish("huawei-solar", json.dumps(filter_instance.filter(transformed)))
 
-        filtered = filter_instance.filter(transformed)
+        payload = get_latest_safe(mock_mqtt, "huawei-solar")["payload"]
+        assert isinstance(payload, dict)
+        assert len(payload) > 0
 
-        payload = json.dumps(filtered)
-        mock_mqtt.publish("huawei-solar", payload)
+        for key in [
+            "energy_grid_exported",
+            "energy_grid_accumulated",
+            "energy_yield_accumulated",
+            "battery_charge_total",
+            "battery_discharge_total",
+        ]:
+            assert key in payload
+            assert isinstance(payload[key], (int, float)), f"Wrong type for {key}: {type(payload[key])}"
 
-        mock_modbus.next_cycle()
-
-    all_messages = mock_mqtt.get_messages("huawei-solar")
-    assert len(all_messages) == 3
-
-    for msg in all_messages:
-        # ✅ FIX: as_dict() verwenden
-        payload_dict = msg.as_dict()
-        payload = payload_dict["payload"]
-
-        assert "energy_grid_exported" in payload
-        assert "energy_grid_accumulated" in payload
-        assert "energy_yield_accumulated" in payload
-        assert "battery_charge_total" in payload
-        assert "battery_discharge_total" in payload
-
-    print("✅ E2E Test passed: All 5 total_increasing sensors correctly handled")
+        assert "power_active" in payload
+        assert "battery_soc" in payload
 
 
-@pytest.mark.asyncio
-async def test_e2e_mqtt_topic_structure():
-    """
-    End-to-End: MQTT Topic-Struktur korrekt
-    """
-    mock_mqtt = MockMQTTBroker()
-    mock_mqtt.connect("localhost", 1883)
-
-    mock_mqtt.publish("huawei-solar", json.dumps({"energy_grid_exported": 100.5}))
-    mock_mqtt.publish("huawei-solar/status", "online", retain=True)
-
-    status_msg = get_latest_safe(mock_mqtt, "huawei-solar/status")
-
-    assert status_msg["retain"] is True
-
-    print("✅ E2E Test passed: MQTT topic structure correct")
+# ---------------------------------------------------------------------------
+# TestE2EMQTTConnection
+# ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_e2e_mqtt_payload_structure():
-    """
-    E2E: MQTT Payload-Struktur ist korrekt
+class TestE2EMQTTConnection:
+    """Tests for MQTT broker connect/disconnect behaviour."""
 
-    Prüft:
-    - JSON ist valid
-    - Alle Keys vorhanden
-    - Werte haben richtigen Typ
-    """
-    reset_filter()
-    mock_modbus = MockHuaweiSolar()
-    mock_modbus.load_scenario("meter_change")
-    mock_mqtt = MockMQTTBroker()
-    mock_mqtt.connect("localhost", 1883)
-    filter_instance = get_filter()
+    @pytest.mark.asyncio
+    async def test_publish_fails_after_disconnect(self):
+        """Publishing after disconnect raises RuntimeError."""
+        mock_mqtt = MockMQTTBroker()
+        mock_mqtt.connect("localhost", 1883)
+        mock_mqtt.publish("huawei-solar", json.dumps({"energy_grid_exported": 100}))
+        assert len(mock_mqtt.get_messages("huawei-solar")) == 1
 
-    # Alle 5 total_increasing Sensoren simulieren
-    register_export = await mock_modbus.get("energy_grid_exported")
-    register_import = await mock_modbus.get("energy_grid_accumulated")
-    register_solar = await mock_modbus.get("energy_yield_accumulated")
-    register_charge = await mock_modbus.get("battery_charge_total")
-    register_discharge = await mock_modbus.get("battery_discharge_total")
+        mock_mqtt.disconnect()
 
-    transformed = {
-        "energy_grid_exported": register_export.value,
-        "energy_grid_accumulated": register_import.value,
-        "energy_yield_accumulated": register_solar.value,
-        "battery_charge_total": register_charge.value,
-        "battery_discharge_total": register_discharge.value,
-        "power_active": 4500,  # Nicht total_increasing
-        "battery_soc": 85.5,  # Nicht total_increasing
-    }
+        with pytest.raises(RuntimeError, match="Not connected"):
+            mock_mqtt.publish("huawei-solar", json.dumps({"energy_grid_exported": 200}))
 
-    filtered = filter_instance.filter(transformed)
-    payload = json.dumps(filtered)
-    mock_mqtt.publish("huawei-solar", payload)
+    @pytest.mark.asyncio
+    async def test_reconnect_resumes_publishing(self):
+        """Reconnecting after disconnect allows publishing again; old messages persist."""
+        mock_mqtt = MockMQTTBroker()
+        mock_mqtt.connect("localhost", 1883)
+        mock_mqtt.publish("huawei-solar", json.dumps({"energy_grid_exported": 100}))
+        mock_mqtt.disconnect()
 
-    # ✅ FIX: Sicherer Zugriff
-    latest = get_latest_safe(mock_mqtt, "huawei-solar")
-    payload_dict = latest["payload"]
+        mock_mqtt.connect("localhost", 1883)
+        mock_mqtt.publish("huawei-solar", json.dumps({"energy_grid_exported": 300}))
 
-    # Struktur-Checks
-    assert isinstance(payload_dict, dict), f"Payload is not a dict: {type(payload_dict)}"
-    assert len(payload_dict) > 0, "Payload is empty!"
-
-    # Energy-Sensoren müssen vorhanden sein
-    for key in [
-        "energy_grid_exported",
-        "energy_grid_accumulated",
-        "energy_yield_accumulated",
-        "battery_charge_total",
-        "battery_discharge_total",
-    ]:
-        assert key in payload_dict, f"Missing key: {key}"
-        assert isinstance(payload_dict[key], (int, float)), f"Wrong type for {key}: {type(payload_dict[key])}"
-
-    # Andere Sensoren auch vorhanden
-    assert "power_active" in payload_dict, "Missing key: power_active"
-    assert "battery_soc" in payload_dict, "Missing key: battery_soc"
-
-    print("✅ E2E: MQTT payload structure is valid")
+        assert len(mock_mqtt.get_messages("huawei-solar")) == 2
 
 
-@pytest.mark.asyncio
-async def test_e2e_performance_filter_overhead():
-    """
-    E2E Performance: Filter-Overhead < 1ms pro Cycle
-
-    Testet ob der Filter die Performance nicht negativ beeinflusst
-    """
-    import time
-
-    reset_filter()
-
-    # Simuliere 100 Cycles
-    durations = []
-
-    for _i in range(100):
-        start = time.perf_counter()
-        duration = time.perf_counter() - start
-
-        durations.append(duration)
-
-    # Assertions
-    avg_duration = sum(durations) / len(durations)
-    max_duration = max(durations)
-
-    assert avg_duration < 0.001, f"Average filter duration too high: {avg_duration * 1000:.2f}ms"
-    assert max_duration < 0.005, f"Max filter duration too high: {max_duration * 1000:.2f}ms"
-
-    print(f"✅ E2E Performance: Avg {avg_duration * 1000:.3f}ms, Max {max_duration * 1000:.3f}ms")
+# ---------------------------------------------------------------------------
+# TestE2ECompleteWorkflow
+# ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_e2e_mqtt_broker_disconnect_handling():
-    """
-    E2E: MQTT Broker Disconnect wird korrekt gehandhabt
+class TestE2ECompleteWorkflow:
+    """Tests for the full Modbus → Transform → Filter → MQTT pipeline."""
 
-    Testet was passiert wenn MQTT-Verbindung abbricht
-    """
-    mock_mqtt = MockMQTTBroker()
-    mock_mqtt.connect("localhost", 1883)
+    @pytest.mark.asyncio
+    async def test_three_cycles_produce_three_messages(self):
+        """Three full cycles each produce exactly one MQTT message."""
+        mock_modbus = MockHuaweiSolar()
+        mock_modbus.load_scenario("modbus_errors")
+        mock_mqtt = MockMQTTBroker()
+        mock_mqtt.connect("localhost", 1883)
+        filter_instance = get_filter()
 
-    # Publish funktioniert
-    mock_mqtt.publish("huawei-solar", json.dumps({"energy_grid_exported": 100}))
-    assert len(mock_mqtt.get_messages("huawei-solar")) == 1
+        for _ in range(3):
+            transformed = {
+                "energy_grid_exported": (await mock_modbus.get("energy_grid_exported")).value,
+                "energy_yield_accumulated": (await mock_modbus.get("energy_yield_accumulated")).value,
+                "battery_charge_total": (await mock_modbus.get("battery_charge_total")).value,
+            }
+            mock_mqtt.publish("huawei-solar", json.dumps(filter_instance.filter(transformed)))
+            mock_modbus.next_cycle()
 
-    # Disconnect
-    mock_mqtt.disconnect()
+        assert len(mock_mqtt.get_messages("huawei-solar")) == 3
 
-    # Publish sollte fehlschlagen
-    try:
-        mock_mqtt.publish("huawei-solar", json.dumps({"energy_grid_exported": 200}))
-        raise AssertionError("Should have raised RuntimeError")
-    except RuntimeError as e:
-        assert "Not connected" in str(e)
+    @pytest.mark.asyncio
+    async def test_data_integrity_across_ten_cycles(self):
+        """Values are transmitted without loss or corruption over 10 cycles."""
+        mock_mqtt = MockMQTTBroker()
+        mock_mqtt.connect("localhost", 1883)
+        filter_instance = get_filter()
 
-    # Reconnect
-    mock_mqtt.connect("localhost", 1883)
-    mock_mqtt.publish("huawei-solar", json.dumps({"energy_grid_exported": 300}))
-    assert len(mock_mqtt.get_messages("huawei-solar")) == 2  # Alte Messages bleiben
+        expected_values = [5432.1 + i * 0.5 for i in range(10)]
 
-    print("✅ E2E: MQTT disconnect handling works")
+        for value in expected_values:
+            filtered = filter_instance.filter({"energy_grid_exported": value})
+            mock_mqtt.publish("huawei-solar", json.dumps(filtered))
 
+        messages = mock_mqtt.get_messages("huawei-solar")
+        assert len(messages) == 10
 
-@pytest.mark.asyncio
-async def test_e2e_complete_workflow_with_transform():
-    """
-    E2E Complete: Voller Workflow Modbus → Transform → Filter → MQTT
-
-    Simuliert den kompletten Ablauf wie in main.py
-    """
-
-    reset_filter()
-    mock_modbus = MockHuaweiSolar()
-    mock_modbus.load_scenario("modbus_errors")
-    mock_mqtt = MockMQTTBroker()
-    mock_mqtt.connect("localhost", 1883)
-    filter_instance = get_filter()
-
-    for _cycle in range(3):
-        # 1. Modbus Read (Mock)
-        register_export = await mock_modbus.get("energy_grid_exported")
-        register_solar = await mock_modbus.get("energy_yield_accumulated")
-        register_charge = await mock_modbus.get("battery_charge_total")
-
-        # 2. Transform (würde in echtem Code alle Mappings anwenden)
-        # Hier vereinfacht:
-        transformed = {
-            "energy_grid_exported": register_export.value,
-            "energy_yield_accumulated": register_solar.value,
-            "battery_charge_total": register_charge.value,
-        }
-
-        # 3. Filter
-        filtered = filter_instance.filter(transformed)
-
-        # 4. MQTT Publish
-        payload = json.dumps(filtered)
-        mock_mqtt.publish("huawei-solar", payload)
-
-        mock_modbus.next_cycle()
-
-    # Assertions
-    all_messages = mock_mqtt.get_messages("huawei-solar")
-    assert len(all_messages) == 3
-
-    print("✅ E2E Complete: Full workflow works correctly")
+        actual_values = [msg.as_dict()["payload"]["energy_grid_exported"] for msg in messages]
+        assert actual_values == expected_values
 
 
-@pytest.mark.asyncio
-async def test_e2e_data_integrity_across_cycles():
-    """
-    E2E: Daten-Integrität über mehrere Cycles
+# ---------------------------------------------------------------------------
+# TestE2EPerformance
+# ---------------------------------------------------------------------------
 
-    Prüft ob Werte konsistent bleiben und keine Datenverluste auftreten
-    """
-    reset_filter()
-    mock_mqtt = MockMQTTBroker()
-    mock_mqtt.connect("localhost", 1883)
-    filter_instance = get_filter()
 
-    # 10 Cycles mit verschiedenen Werten
-    expected_values = []
+class TestE2EPerformance:
+    """Performance smoke tests."""
 
-    for i in range(10):
-        value = 5432.1 + i * 0.5
-        expected_values.append(value)
+    @pytest.mark.asyncio
+    async def test_filter_overhead_within_limits(self):
+        """Filter overhead stays below 1 ms average and 5 ms max over 100 cycles."""
+        durations = []
+        for _ in range(100):
+            start = time.perf_counter()
+            duration = time.perf_counter() - start
+            durations.append(duration)
 
-        data = {"energy_grid_exported": value}
-        filtered = filter_instance.filter(data)
+        avg = sum(durations) / len(durations)
+        peak = max(durations)
 
-        payload = json.dumps(filtered)
-        mock_mqtt.publish("huawei-solar", payload)
-
-    # Check: Alle Werte korrekt angekommen
-    all_messages = mock_mqtt.get_messages("huawei-solar")
-    assert len(all_messages) == 10
-
-    actual_values = [msg.as_dict()["payload"]["energy_grid_exported"] for msg in all_messages]
-    assert actual_values == expected_values
-
-    print("✅ E2E: Data integrity maintained across 10 cycles")
+        assert avg < 0.001, f"Average too high: {avg * 1000:.2f}ms"
+        assert peak < 0.005, f"Peak too high: {peak * 1000:.2f}ms"

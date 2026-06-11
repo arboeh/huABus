@@ -37,8 +37,7 @@ Thumbs.db
 
 # Git
 .git/
-/.tools
 
-.history
-
-.kilo\kilo.jsonc
+.tools/
+.history/
+.kilo/

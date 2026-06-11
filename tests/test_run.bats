@@ -253,3 +253,140 @@ teardown() {
     [ "$HUAWEI_MODBUS_AUTO_DETECT_SLAVE_ID" = "false" ]
     [ "$HUAWEI_SLAVE_ID" = "5" ]
 }
+
+@test "Batching enabled by default when config present" {
+    bashio::config.has_value() {
+        case "$1" in
+        modbus_host | modbus_port | enable_batching | batch_max_gap) return 0 ;;
+        *) return 1 ;;
+        esac
+    }
+    bashio::config() {
+        case "$1" in
+        enable_batching) echo 'true' ;;
+        batch_max_gap)   echo '50' ;;
+        modbus_host)     echo '192.168.1.100' ;;
+        modbus_port)     echo '502' ;;
+        modbus_auto_detect_slave_id) echo 'true' ;;
+        slave_id)        echo '1' ;;
+        mqtt_topic)      echo 'huawei-solar' ;;
+        log_level)       echo 'INFO' ;;
+        status_timeout)  echo '180' ;;
+        poll_interval)   echo '30' ;;
+        *) echo '' ;;
+        esac
+    }
+    export -f bashio::config.has_value
+    export -f bashio::config
+
+    source huawei_solar_modbus_mqtt/run.sh >/dev/null 2>&1
+
+    [ "$HUAWEI_ENABLE_BATCHING" = "true" ]
+    [ "$HUAWEI_BATCH_MAX_GAP"   = "50" ]
+}
+
+
+@test "Batching disabled when explicitly set to false" {
+    bashio::config.has_value() {
+        case "$1" in
+        modbus_host | modbus_port | enable_batching) return 0 ;;
+        *) return 1 ;;
+        esac
+    }
+    bashio::config() {
+        case "$1" in
+        enable_batching) echo 'false' ;;
+        batch_max_gap)   echo '100' ;;
+        modbus_host)     echo '192.168.1.100' ;;
+        modbus_port)     echo '502' ;;
+        modbus_auto_detect_slave_id) echo 'true' ;;
+        slave_id)        echo '1' ;;
+        mqtt_topic)      echo 'huawei-solar' ;;
+        log_level)       echo 'INFO' ;;
+        status_timeout)  echo '180' ;;
+        poll_interval)   echo '30' ;;
+        *) echo '' ;;
+        esac
+    }
+    export -f bashio::config.has_value
+    export -f bashio::config
+
+    source huawei_solar_modbus_mqtt/run.sh >/dev/null 2>&1
+
+    [ "$HUAWEI_ENABLE_BATCHING" = "false" ]
+}
+
+
+@test "Batching env vars exported in full environment variables check" {
+    bashio::config.has_value() {
+        case "$1" in
+        modbus_host | modbus_port | modbus_auto_detect_slave_id | slave_id \
+        | mqtt_topic | log_level | status_timeout | poll_interval \
+        | enable_batching | batch_max_gap) return 0 ;;
+        *) return 1 ;;
+        esac
+    }
+    bashio::config() {
+        case "$1" in
+        modbus_host)     echo '192.168.1.100' ;;
+        modbus_port)     echo '502' ;;
+        modbus_auto_detect_slave_id) echo 'true' ;;
+        slave_id)        echo '1' ;;
+        mqtt_topic)      echo 'huawei-solar' ;;
+        log_level)       echo 'INFO' ;;
+        status_timeout)  echo '180' ;;
+        poll_interval)   echo '30' ;;
+        enable_batching) echo 'true' ;;
+        batch_max_gap)   echo '50' ;;
+        *) echo '' ;;
+        esac
+    }
+    export -f bashio::config.has_value
+    export -f bashio::config
+
+    source huawei_solar_modbus_mqtt/run.sh >/dev/null 2>&1
+
+    [ "$HUAWEI_MODBUS_HOST"               = "192.168.1.100" ]
+    [ "$HUAWEI_MODBUS_PORT"               = "502" ]
+    [ "$HUAWEI_MODBUS_AUTO_DETECT_SLAVE_ID" = "true" ]
+    [ "$HUAWEI_SLAVE_ID"                  = "1" ]
+    [ "$HUAWEI_MQTT_TOPIC"                = "huawei-solar" ]
+    [ "$HUAWEI_STATUS_TIMEOUT"            = "180" ]
+    [ "$HUAWEI_POLL_INTERVAL"             = "30" ]
+    [ "$HUAWEI_LOG_LEVEL"                 = "INFO" ]
+    [ "$HUAWEI_ENABLE_BATCHING"           = "true" ]
+    [ "$HUAWEI_BATCH_MAX_GAP"             = "50" ]
+}
+
+
+@test "batch_max_gap default applied when not configured" {
+    # enable_batching gesetzt, aber batch_max_gap fehlt → Default 50 greift
+    bashio::config.has_value() {
+        case "$1" in
+        modbus_host | modbus_port | enable_batching) return 0 ;;
+        *) return 1 ;;
+        esac
+    }
+    bashio::config() {
+        case "$1" in
+        enable_batching) echo 'true' ;;
+        # batch_max_gap bewusst weggelassen → get_required_config nutzt Default '50'
+        modbus_host)     echo '192.168.1.100' ;;
+        modbus_port)     echo '502' ;;
+        modbus_auto_detect_slave_id) echo 'true' ;;
+        slave_id)        echo '1' ;;
+        mqtt_topic)      echo 'huawei-solar' ;;
+        log_level)       echo 'INFO' ;;
+        status_timeout)  echo '180' ;;
+        poll_interval)   echo '30' ;;
+        *) echo "${2:-}" ;;
+        esac
+    }
+    export -f bashio::config.has_value
+    export -f bashio::config
+
+    source huawei_solar_modbus_mqtt/run.sh >/dev/null 2>&1
+
+    [ "$HUAWEI_ENABLE_BATCHING" = "true" ]
+    [ "$HUAWEI_BATCH_MAX_GAP"   = "50"  ]   # Default aus run.sh muss greifen
+}
