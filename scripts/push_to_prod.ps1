@@ -21,9 +21,7 @@ $ColorError = "Red"
 # ===== FILES/FOLDERS TO EXCLUDE FROM PROD =====
 $DevOnlyFiles = @(
     # Development Scripts
-    "scripts/test_addon_update.ps1",
     "scripts/push_to_prod.ps1",
-    "scripts/run_local.ps1",
     "scripts/test_local.ps1",
 
     # Personal Development Content
@@ -56,6 +54,12 @@ $FilesToRename = @{
 }
 
 # ===== VALIDATION =====
+if (-not (Test-Path "huawei_solar_modbus_mqtt/requirements.txt")) {
+    Write-Host "❌ requirements.txt not found!" -ForegroundColor $ColorError
+    Write-Host "   Run: python scripts/update_version.py" -ForegroundColor $ColorWarning
+    exit 1
+}
+
 Write-Host "`n🔍 Validating..." -ForegroundColor $ColorInfo
 
 if (-not (Test-Path ".git")) {
@@ -265,7 +269,7 @@ Write-Host "   ✓ Production code (huawei_solar_modbus_mqtt/)" -ForegroundColor
 Write-Host "   ✓ Tests (for CI/CD)" -ForegroundColor Green
 Write-Host "   ✓ README.md (from README-PRODUCTION.md)" -ForegroundColor Green
 Write-Host "   ✓ README.de.md (from README.de-PRODUCTION.md)" -ForegroundColor Green
-Write-Host "   ✓ Scripts (run_local.ps1, check_version_sync.py)" -ForegroundColor Green
+Write-Host "   ✓ Script (check_version_sync.py)" -ForegroundColor Green
 Write-Host "   ✓ GitHub Workflows (CI/CD pipeline)" -ForegroundColor Green
 
 Write-Host "`nWhat stayed in Dev-only:" -ForegroundColor $ColorWarning
@@ -278,5 +282,6 @@ foreach ($file in $DevOnlyFiles) {
 
 Write-Host "`nNext steps:" -ForegroundColor $ColorInfo
 Write-Host "1. cd ..\huABus && git checkout $TargetBranch && git pull" -ForegroundColor White
-Write-Host "2. .\scripts\run_local.ps1 -Test  # Run tests" -ForegroundColor White
+Write-Host "   ✓ requirements.txt (generated via uv export)" -ForegroundColor Green
+Write-Host "   ✓ requirements.txt (generated via uv export)" -ForegroundColor Green
 Write-Host "3. git push origin $TargetBranch  # Push to GitHub (triggers CI)`n" -ForegroundColor White

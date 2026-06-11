@@ -6,6 +6,7 @@ Single source of truth: huawei_solar_modbus_mqtt/config.yaml
 """
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -49,7 +50,31 @@ def update_version_py(version):
         version_file.write_text(new_content, encoding="utf-8")
         print(f"✅ UPDATED: version.py to version {version}")
     else:
-        print(f"ℹ️ INFO: version.py already at version {version}")
+        print(f"ℹ️  INFO: version.py already at version {version}")
+
+
+def update_requirements():
+    """Generate requirements.txt from pyproject.toml via uv."""
+    output_path = SCRIPT_DIR / "../huawei_solar_modbus_mqtt/requirements.txt"
+    try:
+        subprocess.run(
+            [
+                "uv",
+                "export",
+                "--no-dev",
+                "--no-hashes",
+                "--no-emit-project",
+                "-o",
+                str(output_path),
+            ],
+            check=True,
+            cwd=SCRIPT_DIR / "..",
+        )
+        print("✅ UPDATED: requirements.txt")
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"uv export failed: {e}") from e
+    except FileNotFoundError as e:
+        raise RuntimeError("uv not found - is it installed?") from e
 
 
 def main():
@@ -65,6 +90,7 @@ def main():
         print()
 
         update_version_py(version)
+        update_requirements()
 
         print()
         print("=" * 60)
