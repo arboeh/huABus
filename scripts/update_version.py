@@ -42,7 +42,7 @@ def update_version_py(version):
     content = version_file.read_text(encoding="utf-8")
     new_content = re.sub(
         r'(version\s*=\s*")[^"]+(")',
-        rf"\g<1>{version}\g<2>",
+        rf"\g<1>{re.escape(version)}\g<2>",
         content,
     )
 

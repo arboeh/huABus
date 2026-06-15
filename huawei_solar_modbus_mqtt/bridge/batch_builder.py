@@ -102,7 +102,7 @@ class BatchBuilder:
 
 def build_batches_from_registers(
     registers: list[str],
-    batch_max_gap: int = 100,
+    batch_max_gap: int = 50,
     enable_batching: bool = True,
 ) -> tuple[list[list[str]], list[str]]:
     """Convenience function to build batches without creating a BatchBuilder."""

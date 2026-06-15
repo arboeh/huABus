@@ -10,11 +10,8 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent
 
-# Fix encoding for Windows
 if sys.platform == "win32":
-    import io
-
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
 
 def get_version_from_config():

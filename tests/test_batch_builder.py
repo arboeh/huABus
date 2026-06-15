@@ -20,6 +20,10 @@ def _all_regs(batches, unknown):
     return [r for batch in batches for r in batch] + unknown
 
 
+def _mock_register(address: int, length: int = 1):
+    return type("MockRegister", (), {"register": address, "length": length})()
+
+
 # ---------------------------------------------------------------------------
 # TestBatchBuilder
 # ---------------------------------------------------------------------------
@@ -101,6 +105,18 @@ class TestBatchBuilderConvenienceFunction:
         result = _all_regs(batches, unknown)
         assert set(result) == set(registers)
         assert len(result) == len(registers)
+
+    def test_default_batch_max_gap_matches_batch_builder(self):
+        registers = {
+            "reg_a": _mock_register(10),
+            "reg_b": _mock_register(62),
+        }
+
+        with patch("huawei_solar_modbus_mqtt.bridge.batch_builder._get_huawei_registers", return_value=registers):
+            batches, unknown = build_batches_from_registers(["reg_a", "reg_b"])
+
+        assert unknown == []
+        assert batches == [["reg_a"], ["reg_b"]]
 
 
 # ---------------------------------------------------------------------------

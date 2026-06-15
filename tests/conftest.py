@@ -35,21 +35,19 @@ def reset_singletons():
 
 @pytest.fixture
 def mock_config():
-    """Vollständig gemockter ConfigManager für main()-Tests."""
     config = Mock()
-    config.modbus_host = "192.168.0.246"
+    config.log_level = "INFO"
+    config.modbus_host = "192.168.1.100"
     config.modbus_port = 502
     config.modbus_auto_detect_slave_id = False
     config.slave_id = 1
-    config.mqtt_broker = "192.168.0.140"
+    config.mqtt_host = "localhost"
     config.mqtt_port = 1883
-    config.mqtt_username = None
+    config.mqtt_topic = "huawei-solar"
+    config.mqtt_user = None
     config.mqtt_password = None
-    config.mqtt_topic = "test-topic"
-    config.log_level = "INFO"
-    config.status_timeout = 180
     config.poll_interval = 30
-    config.log_config = Mock()
+    config.status_timeout = 180
     config.enable_batching = True
     config.batch_max_gap = 50
     return config

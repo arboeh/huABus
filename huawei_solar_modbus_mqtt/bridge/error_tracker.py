@@ -50,8 +50,21 @@ Beispiel-Log-Sequenz:
 
 import logging
 import time
+from typing import TypedDict
 
 logger = logging.getLogger("huawei.errors")
+
+# NOTE: This tracker intentionally stays synchronous.
+# It is called from async code, but uses `time.time()` for wall-clock timestamps.
+# For tests, mock `time.time` with `unittest.mock.patch`; do NOT switch to
+# `asyncio.get_event_loop().time()` here — that would couple logging concerns
+# to the event loop and make the tracker harder to test in isolation.
+
+
+class ErrorStatus(TypedDict):
+    active_errors: int
+    total_failures: int
+    last_success: float | None
 
 
 class ConnectionErrorTracker:
@@ -151,7 +164,7 @@ class ConnectionErrorTracker:
                 "details": details,  # Details speichern
             }
             # Erster Fehler ist wichtig → ERROR-Level
-            logger.error(f"❌ Connection error: {error_type} - {details}")
+            logger.error("❌ Connection error: %s - %s", error_type, details)
             return True
 
         # Fehlertyp existiert bereits → Update
@@ -165,7 +178,12 @@ class ConnectionErrorTracker:
             # Interval abgelaufen → Aggregiertes Update loggen
             duration = now - error_info["first_seen"]
             # WARNING statt ERROR (wir wissen bereits dass es ein Problem gibt)
-            logger.warning(f"⚠️ Still failing: {error_type} ({error_info['count']} attempts in {int(duration)}s)")
+            logger.warning(
+                "⚠️ Still failing: %s (%d attempts in %ds)",
+                error_type,
+                error_info["count"],
+                int(duration),
+            )
             error_info["last_logged"] = now  # Timestamp aktualisieren
             return True
 
@@ -211,8 +229,10 @@ class ConnectionErrorTracker:
 
             # INFO-Level, da Recovery eine positive Nachricht ist
             logger.info(
-                f"Connection restored after {int(downtime)}s "
-                f"({total_errors} failed attempts, {len(self.errors)} error types)"
+                "Connection restored after %ds (%d failed attempts, %d error types)",
+                int(downtime),
+                total_errors,
+                len(self.errors),
             )
 
             # Error-State zurücksetzen für nächsten Fehlerfall
@@ -222,7 +242,7 @@ class ConnectionErrorTracker:
         # Erfolgs-Timestamp aktualisieren (für Statistik/Monitoring)
         self.last_success_time = time.time()
 
-    def get_status(self) -> dict:
+    def get_status(self) -> ErrorStatus:
         """
         Gibt aktuellen Error-Status für Diagnostik zurück.
 

@@ -3,13 +3,16 @@
 """Tests for bridge.main."""
 
 import asyncio
+import importlib
 import logging
+import sys
 import time
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import bridge.main as main_module
 import pytest
 from bridge.main import (
+    _run,
     determine_slave_id,
     heartbeat,
     init_logging,
@@ -18,6 +21,7 @@ from bridge.main import (
     main,
     main_once,
     read_registers,
+    reset_state,
 )
 
 # ---------------------------------------------------------------------------
@@ -40,6 +44,13 @@ DATA = {
 }
 
 
+@pytest.fixture(autouse=True)
+def reset_main_state():
+    reset_state()
+    yield
+    reset_state()
+
+
 # ---------------------------------------------------------------------------
 # TestMain
 # ---------------------------------------------------------------------------
@@ -48,10 +59,71 @@ DATA = {
 class TestMain:
     """Tests for the main() entry point."""
 
+    @pytest.fixture(autouse=True)
+    def patch_sigterm_handler(self):
+        with patch("bridge.main._register_sigterm_handler"):
+            yield
+
+    def test_reset_state_recreates_runtime_singletons(self):
+        """reset_state() isolates runtime state between tests."""
+        old_state = main_module._state
+        old_tracker = main_module.error_tracker
+        main_module._state.last_success = 123.0
+        main_module.error_tracker.track_error("test", "error")
+
+        reset_state()
+
+        assert main_module._state is not old_state
+        assert main_module.error_tracker is not old_tracker
+        assert main_module._state.last_success == 0.0
+        assert main_module._state.config is None
+        assert main_module._state.cycle_count == 0
+
+    @pytest.mark.asyncio
+    async def test_registers_sigterm_handler_for_current_task(self, mock_config, mock_client):
+        """main() registers SIGTERM cancellation on the running event loop."""
+        with (
+            patch("bridge.main.ConfigManager", return_value=mock_config),
+            patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
+            patch("bridge.main.connect_mqtt"),
+            patch("bridge.main.disconnect_mqtt"),
+            patch("bridge.main.publish_status"),
+            patch("bridge.main.publish_discovery_configs"),
+            patch("bridge.main.main_once", side_effect=KeyboardInterrupt()),
+            patch("bridge.main._register_sigterm_handler") as mock_register,
+        ):
+            await main()
+
+        loop = asyncio.get_running_loop()
+        current_task = asyncio.current_task()
+        assert current_task is not None
+        mock_register.assert_called_once_with(loop, current_task.cancel)
+
+    @pytest.mark.asyncio
+    async def test_run_wrapper_awaits_main(self):
+        """The direct-entry wrapper delegates exactly to main()."""
+        with patch("bridge.main.main", new_callable=AsyncMock) as mock_main:
+            await _run()
+
+        mock_main.assert_awaited_once()
+
+    def test_bridge_package_entrypoint_uses_run_wrapper(self):
+        """`python -m bridge` delegates to the same _run() wrapper."""
+        module_name = "bridge.__main__"
+        sys.modules.pop(module_name, None)
+
+        with patch("asyncio.run") as mock_run:
+            importlib.import_module(module_name)
+
+        coro = mock_run.call_args.args[0]
+        assert coro.cr_code.co_name == "_run"
+        coro.close()
+
     @pytest.mark.asyncio
     async def test_connection_retry_on_failure(self, mock_config):
-        """main() handles connection failures gracefully."""
-        mock_config.modbus_auto_detect_slave_id = True
+        """main() calls disconnect_mqtt exactly once on Modbus connection failure."""
+        mock_config.modbus_auto_detect_slave_id = True  # override für diesen Test
+
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
             patch("bridge.main.detect_slave_id", return_value=1),
@@ -60,9 +132,11 @@ class TestMain:
             patch("bridge.main.disconnect_mqtt") as mock_disconnect,
             patch("bridge.main.publish_status"),
             patch("bridge.main.publish_discovery_configs"),
+            patch("bridge.main.time.sleep"),  # ← connect_mqtt sleep(1) nicht warten
         ):
             await main()
-            mock_disconnect.assert_called_once()
+
+        mock_disconnect.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_graceful_shutdown(self, mock_config, mock_client):
@@ -83,6 +157,24 @@ class TestMain:
 
             assert mock_disconnect.call_count >= 1
             assert any(call[0][0] == "offline" for call in mock_status.call_args_list)
+
+    @pytest.mark.asyncio
+    async def test_sigterm_triggers_graceful_shutdown(self, mock_config, mock_client):
+        """SIGTERM cancels the main loop and disconnects cleanly."""
+
+        with (
+            patch("bridge.main.ConfigManager", return_value=mock_config),
+            patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
+            patch("bridge.main.connect_mqtt"),
+            patch("bridge.main.disconnect_mqtt") as mock_disconnect,
+            patch("bridge.main.publish_status") as mock_status,
+            patch("bridge.main.publish_discovery_configs"),
+            patch("bridge.main.main_once", side_effect=asyncio.CancelledError()),
+        ):
+            await main()
+
+        assert mock_disconnect.call_count >= 1
+        assert any(call[0][0] == "offline" for call in mock_status.call_args_list)
 
     @pytest.mark.asyncio
     async def test_timeout_triggers_filter_reset(self, mock_config, mock_client):
@@ -152,13 +244,18 @@ class TestMain:
 
     @pytest.mark.asyncio
     async def test_mqtt_connection_failure_exits(self, mock_config):
-        """main() exits with SystemExit on MQTT connection failure."""
+        """main() returns cleanly (no SystemExit) on MQTT connection failure."""
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
+            patch("bridge.main.detect_slave_id", return_value=1),
             patch("bridge.main.connect_mqtt", side_effect=Exception("MQTT failed")),
-            pytest.raises(SystemExit),
+            patch("bridge.main.disconnect_mqtt") as mock_disconnect,
+            patch("bridge.main.publish_status"),
+            patch("asyncio.sleep", new_callable=AsyncMock),
         ):
             await main()
+
+        mock_disconnect.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -210,9 +307,16 @@ class TestDetermineSlaveId:
 class TestHeartbeat:
     """Tests for heartbeat()."""
 
+    @pytest.fixture(autouse=True)
+    def reset_state(self):
+        """Stellt _state nach jedem Test zurück auf Startup-Werte."""
+        main_module._state.last_success = 0.0
+        yield
+        main_module._state.last_success = 0.0
+
     def test_startup_no_check(self):
-        """Does nothing during startup (LAST_SUCCESS == 0)."""
-        main_module.LAST_SUCCESS = 0
+        """Does nothing during startup (_state.last_success == 0)."""
+        main_module._state.last_success = 0.0
         config = Mock(mqtt_topic="test-topic", status_timeout=180)
         with patch("bridge.main.publish_status") as mock_status:
             heartbeat(config)
@@ -220,7 +324,7 @@ class TestHeartbeat:
 
     def test_online_within_timeout(self):
         """Does not publish offline when within timeout."""
-        main_module.LAST_SUCCESS = time.time() - 50
+        main_module._state.last_success = time.time() - 50
         config = Mock(mqtt_topic="test-topic", status_timeout=180)
         with patch("bridge.main.publish_status") as mock_status:
             heartbeat(config)
@@ -228,7 +332,7 @@ class TestHeartbeat:
 
     def test_offline_when_timeout_exceeded(self):
         """Publishes offline when timeout is exceeded."""
-        main_module.LAST_SUCCESS = time.time() - 200
+        main_module._state.last_success = time.time() - 200
         config = Mock(mqtt_topic="test-topic", status_timeout=180)
         with patch("bridge.main.publish_status") as mock_status:
             heartbeat(config)
@@ -301,8 +405,8 @@ class TestMainOnce:
 
     @pytest.mark.asyncio
     async def test_updates_last_success_timestamp(self, mock_client, mock_config):
-        """Updates LAST_SUCCESS timestamp on success."""
-        main_module.LAST_SUCCESS = 0
+        """Updates _state.last_success timestamp on success."""
+        main_module._state.last_success = 0.0
         before = time.time()
         await asyncio.sleep(0.01)
 
@@ -319,8 +423,20 @@ class TestMainOnce:
 
             await main_once(mock_client, mock_config, 1)
 
-            assert main_module.LAST_SUCCESS >= before
-            assert main_module.LAST_SUCCESS <= time.time()
+            assert main_module._state.last_success >= before
+            assert main_module._state.last_success <= time.time()
+
+    @pytest.mark.asyncio
+    async def test_failed_cycle_does_not_update_last_success_timestamp(self, mock_client, mock_config):
+        """Does not refresh heartbeat when a cycle fails before MQTT publish."""
+        previous_success = time.time() - 300
+        main_module._state.last_success = previous_success
+
+        with patch("bridge.main.read_registers", side_effect=TimeoutError("timeout")):
+            with pytest.raises(TimeoutError):
+                await main_once(mock_client, mock_config, 1)
+
+        assert main_module._state.last_success == previous_success
 
 
 # ---------------------------------------------------------------------------

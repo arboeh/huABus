@@ -151,16 +151,18 @@ class TestSingletonBehavior:
         filter2 = get_filter()
         assert filter1 is filter2
 
-    def test_reset_filter_creates_new_instance_on_next_call(self):
-        """Nach reset_filter() liefert get_filter() ein frisches Objekt."""
+    def test_reset_filter_keeps_singleton_instance(self):
+        """Nach reset_filter() bleibt dieselbe Instanz erhalten, aber der State ist leer."""
         filter1 = get_filter()
         filter1.filter({"energy_yield_accumulated": 12345.6})
+        assert filter1.get_stats() == {}
 
         reset_filter()
         filter2 = get_filter()
 
-        assert filter2 is not filter1
+        assert filter2 is filter1
         assert filter2.get_stats() == {}
+        assert filter2.filter({"energy_yield_accumulated": 10000.0})["energy_yield_accumulated"] == 10000.0
 
 
 # ---------------------------------------------------------------------------

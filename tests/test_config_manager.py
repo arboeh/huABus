@@ -227,6 +227,19 @@ class TestConfigManagerValidation:
         )
         assert any("log_level" in err for err in config.validate())
 
+    def test_invalid_batch_max_gap_produces_error(self, tmp_path):
+        for value in [0, 10001]:
+            config = _make_config(
+                tmp_path,
+                {
+                    "modbus_host": "192.168.1.100",
+                    "mqtt_host": "localhost",
+                    "mqtt_topic": "test",
+                    "batch_max_gap": value,
+                },
+            )
+            assert any("batch_max_gap" in err for err in config.validate())
+
 
 # ---------------------------------------------------------------------------
 # TestConfigManagerEnvParsing
@@ -388,6 +401,23 @@ class TestConfigManagerLogConfig:
         )
         config.log_config()
         assert "Auth: None" in caplog.text
+
+    def test_log_config_masks_password(self, tmp_path, caplog):
+        caplog.set_level(logging.DEBUG)
+        config = _make_config(
+            tmp_path,
+            {
+                "modbus_host": "192.168.1.100",
+                "mqtt_host": "localhost",
+                "mqtt_topic": "test",
+                "mqtt_user": "user",
+                "mqtt_password": "secret123",
+            },
+        )
+        config.log_config()
+        messages = " ".join(r.message for r in caplog.records)
+        assert "secret123" not in messages
+        assert "***" in messages
 
 
 # ---------------------------------------------------------------------------
