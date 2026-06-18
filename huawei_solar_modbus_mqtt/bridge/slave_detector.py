@@ -116,8 +116,8 @@ async def _test_slave_id(host: str, port: int, slave_id: int, timeout: int) -> b
         if client:
             try:
                 await asyncio.wait_for(client.stop(), timeout=2.0)
-            except Exception:
-                pass
+            except Exception as cleanup_exc:
+                logger.debug("client.stop() failed during cleanup: %s", cleanup_exc)
 
     return False
 

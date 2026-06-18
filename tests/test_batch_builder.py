@@ -2,14 +2,37 @@
 
 """Tests for BatchBuilder and smart batching functionality."""
 
-from bridge.batch_builder import BatchBuilder, build_batches_from_registers
+import sys
+from unittest.mock import patch
+
+from huawei_solar_modbus_mqtt.bridge.batch_builder import (
+    BatchBuilder,
+    _get_huawei_registers,
+    build_batches_from_registers,
+)
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _all_regs(batches, unknown):
+    return [r for batch in batches for r in batch] + unknown
+
+
+def _mock_register(address: int, length: int = 1):
+    return type("MockRegister", (), {"register": address, "length": length})()
+
+
+# ---------------------------------------------------------------------------
+# TestBatchBuilder
+# ---------------------------------------------------------------------------
 
 
 class TestBatchBuilder:
-    """Test BatchBuilder class."""
+    """Tests for BatchBuilder initialization and build_batches()."""
 
     def test_init_with_defaults(self):
-        """Should initialize with default values."""
         builder = BatchBuilder()
         assert builder.batch_max_gap == 50
         assert builder.enable_batching is True
@@ -19,170 +42,185 @@ class TestBatchBuilder:
         assert builder.batch_max_gap == 25
         assert builder.enable_batching is False
 
-    def test_build_batches_with_batching_disabled(self):
-        """Should return all registers in a single group when batching disabled."""
-        builder = BatchBuilder(enable_batching=False)
+    def test_build_batches_disabled_preserves_all_registers(self):
         registers = ["reg1", "reg2", "reg3", "reg4", "reg5"]
+        batches, unknown = BatchBuilder(enable_batching=False).build_batches(registers)
+        result = _all_regs(batches, unknown)
+        assert set(result) == set(registers)
+        assert len(result) == len(registers)
 
-        batches, unknown = builder.build_batches(registers)
-
-        # All registers must be accounted for
-        all_regs = [r for batch in batches for r in batch] + unknown
-        assert set(all_regs) == set(registers)
-        assert len(all_regs) == len(registers)
-        # No batching: should be a single group (either 1 batch or all in unknown)
-        assert len(batches) + len(unknown) > 0
-
-    def test_build_batches_with_empty_list(self):
-        """Should handle empty register list."""
-        builder = BatchBuilder(enable_batching=True)
-        registers: list[str] = []
-
-        batches, unknown = builder.build_batches(registers)
-
+    def test_build_batches_empty_list(self):
+        batches, unknown = BatchBuilder(enable_batching=True).build_batches([])
         assert batches == [[]]
         assert unknown == []
 
-    def test_build_batches_with_single_register(self):
-        """Should handle single register."""
-        builder = BatchBuilder(enable_batching=True)
-        registers = ["reg1"]
+    def test_build_batches_single_register(self):
+        batches, unknown = BatchBuilder(enable_batching=True).build_batches(["reg1"])
+        assert set(_all_regs(batches, unknown)) == {"reg1"}
 
-        batches, unknown = builder.build_batches(registers)
-
-        all_regs = [r for batch in batches for r in batch] + unknown
-        assert set(all_regs) == {"reg1"}
-
-    def test_build_batches_splits_large_batch(self):
-        """Should produce multiple groups for many registers (batches or sequential)."""
-        builder = BatchBuilder(enable_batching=True)
-        registers = [f"reg{i}" for i in range(67)]  # 67 registers like ESSENTIAL_REGISTERS
-
-        batches, unknown = builder.build_batches(registers)
-
-        # All registers should be included (in batches or unknown)
-        all_regs = [r for batch in batches for r in batch] + unknown
-        assert set(all_regs) == set(registers)
-        assert len(all_regs) == len(registers)
-
-    def test_build_batches_with_small_register_count(self):
-        """Should return single batch for small register count."""
-        builder = BatchBuilder(enable_batching=True)
+    def test_build_batches_small_register_count(self):
         registers = ["reg1", "reg2", "reg3", "reg4"]
+        batches, unknown = BatchBuilder(enable_batching=True).build_batches(registers)
+        assert set(_all_regs(batches, unknown)) == set(registers)
 
-        batches, unknown = builder.build_batches(registers)
-
-        all_regs = [r for batch in batches for r in batch] + unknown
-        assert set(all_regs) == set(registers)
+    def test_build_batches_large_register_count_preserves_all(self):
+        registers = [f"reg{i}" for i in range(67)]
+        batches, unknown = BatchBuilder(enable_batching=True).build_batches(registers)
+        result = _all_regs(batches, unknown)
+        assert set(result) == set(registers)
+        assert len(result) == len(registers)
 
     def test_validate_batch_gap_valid_values(self):
-        """Should validate acceptable batch_max_gap values."""
         builder = BatchBuilder()
-
-        assert builder.validate_batch_gap(1) is True
-        assert builder.validate_batch_gap(50) is True
-        assert builder.validate_batch_gap(100) is True
-        assert builder.validate_batch_gap(1000) is True
+        for value in [1, 50, 100, 1000]:
+            assert builder.validate_batch_gap(value) is True
 
     def test_validate_batch_gap_invalid_values(self):
-        """Should reject invalid batch_max_gap values."""
         builder = BatchBuilder()
-
-        assert builder.validate_batch_gap(0) is False
-        assert builder.validate_batch_gap(-1) is False
+        for value in [0, -1]:
+            assert builder.validate_batch_gap(value) is False
 
     def test_validate_batch_gap_too_large(self):
-        """Should warn about unreasonably large batch_max_gap values."""
-        builder = BatchBuilder()
+        assert BatchBuilder().validate_batch_gap(10001) is False
 
-        # 10001 is > 10000, should trigger warning but still return False
-        assert builder.validate_batch_gap(10001) is False
+
+# ---------------------------------------------------------------------------
+# TestBatchBuilderConvenienceFunction
+# ---------------------------------------------------------------------------
 
 
 class TestBatchBuilderConvenienceFunction:
-    """Test convenience function."""
+    """Tests for build_batches_from_registers()."""
 
-    def test_build_batches_from_registers_with_batching_enabled(self):
-        """Should include all registers (in batches or sequential)."""
+    def test_with_batching_enabled(self):
         registers = [f"reg{i}" for i in range(30)]
-
         batches, unknown = build_batches_from_registers(registers, batch_max_gap=100, enable_batching=True)
+        result = _all_regs(batches, unknown)
+        assert set(result) == set(registers)
+        assert len(result) == len(registers)
 
-        # All registers should be included
-        all_regs = [r for batch in batches for r in batch] + unknown
-        assert set(all_regs) == set(registers)
-        assert len(all_regs) == len(registers)
-
-    def test_build_batches_from_registers_with_batching_disabled(self):
-        """Should include all registers when batching disabled."""
+    def test_with_batching_disabled(self):
         registers = [f"reg{i}" for i in range(30)]
-
         batches, unknown = build_batches_from_registers(registers, batch_max_gap=100, enable_batching=False)
+        result = _all_regs(batches, unknown)
+        assert set(result) == set(registers)
+        assert len(result) == len(registers)
 
-        all_regs = [r for batch in batches for r in batch] + unknown
-        assert set(all_regs) == set(registers)
-        assert len(all_regs) == len(registers)
+    def test_default_batch_max_gap_matches_batch_builder(self):
+        registers = {
+            "reg_a": _mock_register(10),
+            "reg_b": _mock_register(62),
+        }
+
+        with patch("huawei_solar_modbus_mqtt.bridge.batch_builder._get_huawei_registers", return_value=registers):
+            batches, unknown = build_batches_from_registers(["reg_a", "reg_b"])
+
+        assert unknown == []
+        assert batches == [["reg_a"], ["reg_b"]]
+
+
+# ---------------------------------------------------------------------------
+# TestBatchBuilderIntegration
+# ---------------------------------------------------------------------------
 
 
 class TestBatchBuilderIntegration:
-    """Integration tests for batch building with realistic scenarios."""
+    """Integration tests with realistic register sets."""
 
-    def test_essential_registers_batching(self):
-        """Should properly batch 67 essential registers."""
-        from bridge.config.registers import ESSENTIAL_REGISTERS
+    def test_essential_registers_produces_at_least_one_batch(self):
+        from huawei_solar_modbus_mqtt.bridge.config.registers import ESSENTIAL_REGISTERS
 
-        builder = BatchBuilder(enable_batching=True)
-        batches, unknown = builder.build_batches(ESSENTIAL_REGISTERS)
-
-        # Should create at least one batch
+        batches, unknown = BatchBuilder(enable_batching=True).build_batches(ESSENTIAL_REGISTERS)
         assert len(batches) >= 1
+        result = _all_regs(batches, unknown)
+        assert len(result) == len(ESSENTIAL_REGISTERS)
+        assert set(result) == set(ESSENTIAL_REGISTERS)
 
-        # All registers should be included exactly once
-        all_regs = [r for batch in batches for r in batch] + unknown
-        assert len(all_regs) == len(ESSENTIAL_REGISTERS)
-        assert set(all_regs) == set(ESSENTIAL_REGISTERS)
-
-    def test_batching_preserves_completeness(self):
-        """All registers should be present in batches or unknown list."""
+    def test_completeness_with_small_register_set(self):
         registers = ["reg1", "reg2", "reg3", "reg4", "reg5"]
+        batches, unknown = BatchBuilder(enable_batching=True).build_batches(registers)
+        result = _all_regs(batches, unknown)
+        assert set(result) == set(registers)
+        assert len(result) == len(registers)
 
-        builder = BatchBuilder(enable_batching=True)
-        batches, unknown = builder.build_batches(registers)
-
-        # All registers must be in batches or unknown
-        all_regs = [r for batch in batches for r in batch] + unknown
-        assert set(all_regs) == set(registers)
-        assert len(all_regs) == len(registers)
-
-    def test_batching_with_different_gap_values(self):
-        """Should handle different batch_max_gap configurations."""
+    def test_different_gap_values_preserve_all_registers(self):
         registers = [f"reg{i}" for i in range(67)]
+        for gap in [10, 10000]:
+            batches, unknown = BatchBuilder(batch_max_gap=gap, enable_batching=True).build_batches(registers)
+            assert set(_all_regs(batches, unknown)) == set(registers)
 
-        # Test with small gap
-        builder_small = BatchBuilder(batch_max_gap=10, enable_batching=True)
-        batches_small, unknown_small = builder_small.build_batches(registers)
+    def test_default_gap_stays_within_inverter_limit(self):
+        from huawei_solar_modbus_mqtt.bridge.config.registers import ESSENTIAL_REGISTERS
 
-        # Test with large gap
-        builder_large = BatchBuilder(batch_max_gap=10000, enable_batching=True)
-        batches_large, unknown_large = builder_large.build_batches(registers)
-
-        # Both should include all registers
-        all_small = [r for batch in batches_small for r in batch] + unknown_small
-        all_large = [r for batch in batches_large for r in batch] + unknown_large
-
-        assert set(all_small) == set(registers)
-        assert set(all_large) == set(registers)
-
-    def test_default_batch_max_gap_avoids_inverter_limit(self):
-        """Default batch_max_gap of 50 should prevent batches exceeding inverter limit of 125 registers."""
-        from bridge.config.registers import ESSENTIAL_REGISTERS
-
-        builder = BatchBuilder()  # Default gap
+        builder = BatchBuilder()
         assert builder.batch_max_gap == 50
-
         batches, _ = builder.build_batches(ESSENTIAL_REGISTERS)
-
-        # With gap=50, no batch should span more than 125 register addresses
-        # (inverter hard limit that caused the Batch 3 failure)
         for batch in batches:
             assert len(batch) <= 125, f"Batch too large: {len(batch)} registers"
+
+
+# ---------------------------------------------------------------------------
+# TestGetHuaweiRegisters
+# ---------------------------------------------------------------------------
+
+
+class TestGetHuaweiRegisters:
+    """Tests for the _get_huawei_registers() helper."""
+
+    def test_returns_registers_dict_when_available(self):
+        mock_module = type(sys)("huawei_solar.registers")
+        mock_module.REGISTERS = {"test_reg": "dummy"}  # type: ignore[attr-defined]  # dynamisches Mock-Modul, keine statische Typ-Info
+        with patch.dict(sys.modules, {"huawei_solar.registers": mock_module}):
+            assert _get_huawei_registers() == {"test_reg": "dummy"}
+
+    def test_returns_none_when_import_fails(self):
+        with patch.dict(sys.modules, {"huawei_solar.registers": None}):
+            result = _get_huawei_registers()
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# TestBatchBuilderEdgeCases
+# ---------------------------------------------------------------------------
+
+
+class TestBatchBuilderEdgeCases:
+    """Edge cases when huawei_solar registers are unavailable or partially known."""
+
+    def test_fallback_to_position_batching_when_huawei_unavailable(self):
+        with patch("huawei_solar_modbus_mqtt.bridge.batch_builder._get_huawei_registers", return_value=None):
+            registers = [f"reg{i}" for i in range(25)]
+            batches, unknown = BatchBuilder(batch_max_gap=50, enable_batching=True).build_batches(registers)
+            assert set(_all_regs(batches, unknown)) == set(registers)
+            assert len(batches) == 2
+            assert len(batches[0]) == 20
+            assert len(batches[1]) == 5
+
+    def test_batching_disabled_with_huawei_unavailable(self):
+        with patch("huawei_solar_modbus_mqtt.bridge.batch_builder._get_huawei_registers", return_value=None):
+            registers = ["reg1", "reg2", "reg3"]
+            batches, unknown = BatchBuilder(enable_batching=False).build_batches(registers)
+            assert set(_all_regs(batches, unknown)) == set(registers)
+            assert len(batches) == 1
+            assert len(batches[0]) == 3
+
+    def test_all_unknown_registers_go_to_unknown_list(self):
+        mock_reg = type("R", (), {"register": 100, "length": 2})()
+        with patch(
+            "huawei_solar_modbus_mqtt.bridge.batch_builder._get_huawei_registers",
+            return_value={"known_reg": mock_reg},
+        ):
+            batches, unknown = BatchBuilder(enable_batching=True).build_batches(["unknown_reg1", "unknown_reg2"])
+            assert batches == []
+            assert unknown == ["unknown_reg1", "unknown_reg2"]
+
+    def test_known_and_unknown_registers_separated_correctly(self):
+        mock_reg = type("R", (), {"register": 100, "length": 2})()
+        with patch(
+            "huawei_solar_modbus_mqtt.bridge.batch_builder._get_huawei_registers",
+            return_value={"known_reg": mock_reg},
+        ):
+            registers = ["known_reg", "unknown_reg1", "unknown_reg2"]
+            batches, unknown = BatchBuilder(enable_batching=True).build_batches(registers)
+            assert "known_reg" in [r for batch in batches for r in batch]
+            assert unknown == ["unknown_reg1", "unknown_reg2"]

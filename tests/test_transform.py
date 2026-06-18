@@ -3,155 +3,150 @@
 """Tests for transform.py - Data transformation functions."""
 
 import time
+from datetime import datetime
 from unittest.mock import Mock
 
 import pytest
 from bridge.transform import _cleanup_result, get_value, transform_data
 
+# ---------------------------------------------------------------------------
+# TestGetValue
+# ---------------------------------------------------------------------------
+
 
 class TestGetValue:
-    """Test value extraction and filtering."""
+    """Wertextraktion und Filterung ungültiger Modbus-Werte."""
 
-    def test_none_passthrough(self):
-        """None should pass through unchanged."""
+    def test_none_passes_through(self):
+        """None bleibt unverändert."""
         assert get_value(None) is None
 
-    def test_register_value_extraction(self):
-        """Extract .value from RegisterValue objects."""
+    def test_register_value_extracted(self):
+        """Gibt .value eines RegisterValue-Objekts zurück."""
         mock_register = Mock()
         mock_register.value = 4500
         assert get_value(mock_register) == 4500
 
     @pytest.mark.parametrize("invalid_value", [65535, 32767, -32768])
-    def test_invalid_modbus_values_filtered(self, invalid_value):
-        """Invalid Modbus placeholder values should become None."""
+    def test_invalid_modbus_placeholder_becomes_none(self, invalid_value):
+        """Bekannte Modbus-Platzhalterwerte werden zu None."""
         assert get_value(invalid_value) is None
 
-    def test_valid_numeric_passthrough(self):
-        """Valid numbers should pass through unchanged."""
-        assert get_value(4500) == 4500
-        assert get_value(85.5) == 85.5
-        assert get_value(0) == 0
-        assert get_value(-100) == -100
+    @pytest.mark.parametrize("valid_value", [4500, 85.5, 0, -100])
+    def test_valid_numeric_passes_through(self, valid_value):
+        """Gültige numerische Werte werden unverändert weitergegeben."""
+        assert get_value(valid_value) == valid_value
 
-    def test_datetime_conversion(self):
-        """datetime objects should be converted to ISO format."""
-        from datetime import datetime
-
+    def test_datetime_converted_to_iso_string(self):
+        """datetime-Objekte werden in ISO-8601-Format konvertiert."""
         dt = datetime(2026, 2, 1, 18, 30, 0)
-        result = get_value(dt)
-        assert result == "2026-02-01T18:30:00"
+        assert get_value(dt) == "2026-02-01T18:30:00"
+
+
+# ---------------------------------------------------------------------------
+# TestCleanupResult
+# ---------------------------------------------------------------------------
 
 
 class TestCleanupResult:
-    """Test result cleanup and timestamp addition."""
+    """Bereinigung des Result-Dicts und Timestamp-Hinzufügung."""
 
-    def test_remove_none_values(self):
-        """None values should be removed from result."""
-        input_data = {
-            "power_active": 4500,
-            "alarm1": None,
-            "battery_soc": 85.5,
-            "missing": None,
-        }
-        result = _cleanup_result(input_data)
-
+    def test_none_values_removed(self):
+        """Keys mit None-Wert werden aus dem Ergebnis entfernt."""
+        result = _cleanup_result(
+            {
+                "power_active": 4500,
+                "alarm1": None,
+                "battery_soc": 85.5,
+                "missing": None,
+            }
+        )
         assert "power_active" in result
         assert "battery_soc" in result
         assert "alarm1" not in result
         assert "missing" not in result
 
-    def test_timestamp_added(self):
-        """last_update timestamp should be added."""
-        input_data = {"power_active": 4500}
+    def test_last_update_timestamp_added(self):
+        """last_update wird mit aktuellem Zeitstempel eingefügt."""
         before = time.time()
-        result = _cleanup_result(input_data)
+        result = _cleanup_result({"power_active": 4500})
         after = time.time()
-
         assert "last_update" in result
         assert before <= result["last_update"] <= after
 
-    def test_empty_dict(self):
-        """Empty dict should get only timestamp."""
+    def test_empty_dict_gets_only_timestamp(self):
+        """Leeres Dict enthält nach Cleanup nur den Timestamp."""
         result = _cleanup_result({})
         assert len(result) == 1
         assert "last_update" in result
 
 
-class TestTransformData:
-    """Test complete data transformation pipeline."""
+# ---------------------------------------------------------------------------
+# TestTransformData
+# ---------------------------------------------------------------------------
 
-    def test_transform_with_register_values(self, mocker):
-        """Transform RegisterValue objects to MQTT format."""
-        # Mock REGISTER_MAPPING
-        mock_mapping = {
-            "activepower": "power_active",
-            "inputpower": "power_input",
-        }
-        mocker.patch("bridge.transform.REGISTER_MAPPING", mock_mapping)
+
+class TestTransformData:
+    """Vollständige Transformations-Pipeline."""
+
+    def test_register_values_mapped_to_mqtt_keys(self, mocker):
+        """RegisterValue-Objekte werden über REGISTER_MAPPING in MQTT-Keys umgewandelt."""
+        mocker.patch(
+            "bridge.transform.REGISTER_MAPPING",
+            {
+                "activepower": "power_active",
+                "inputpower": "power_input",
+            },
+        )
         mocker.patch("bridge.transform.CRITICAL_DEFAULTS", {})
 
-        # Create mock RegisterValue objects
         mock_active = Mock()
         mock_active.value = 4500
         mock_input = Mock()
         mock_input.value = 4800
 
-        input_data = {
-            "activepower": mock_active,
-            "inputpower": mock_input,
-        }
-
-        result = transform_data(input_data)
+        result = transform_data({"activepower": mock_active, "inputpower": mock_input})
 
         assert result["power_active"] == 4500
         assert result["power_input"] == 4800
         assert "last_update" in result
 
-    def test_transform_filters_invalid_values(self, mocker):
-        """Invalid Modbus values should be filtered out."""
-        mock_mapping = {
-            "activepower": "power_active",
-            "alarm1": "alarm_1",
-        }
-        mocker.patch("bridge.transform.REGISTER_MAPPING", mock_mapping)
+    def test_invalid_modbus_values_excluded_from_result(self, mocker):
+        """Ungültige Modbus-Werte (65535) werden nicht in das Ergebnis übernommen."""
+        mocker.patch(
+            "bridge.transform.REGISTER_MAPPING",
+            {
+                "activepower": "power_active",
+                "alarm1": "alarm_1",
+            },
+        )
         mocker.patch("bridge.transform.CRITICAL_DEFAULTS", {})
 
         mock_active = Mock()
         mock_active.value = 4500
         mock_alarm = Mock()
-        mock_alarm.value = 65535  # Invalid
+        mock_alarm.value = 65535
 
-        input_data = {
-            "activepower": mock_active,
-            "alarm1": mock_alarm,
-        }
-
-        result = transform_data(input_data)
+        result = transform_data({"activepower": mock_active, "alarm1": mock_alarm})
 
         assert result["power_active"] == 4500
-        assert "alarm_1" not in result  # Filtered out
+        assert "alarm_1" not in result
 
-    def test_transform_applies_critical_defaults(self, mocker):
-        """Missing critical values should get defaults."""
-        mock_mapping = {"activepower": "power_active"}
-        mock_defaults = {"battery_power": 0}
-
-        mocker.patch("bridge.transform.REGISTER_MAPPING", mock_mapping)
-        mocker.patch("bridge.transform.CRITICAL_DEFAULTS", mock_defaults)
+    def test_critical_defaults_applied_for_missing_keys(self, mocker):
+        """Fehlende kritische Keys erhalten ihren Default-Wert."""
+        mocker.patch("bridge.transform.REGISTER_MAPPING", {"activepower": "power_active"})
+        mocker.patch("bridge.transform.CRITICAL_DEFAULTS", {"battery_power": 0})
 
         mock_active = Mock()
         mock_active.value = 4500
 
-        input_data = {"activepower": mock_active}
-
-        result = transform_data(input_data)
+        result = transform_data({"activepower": mock_active})
 
         assert result["power_active"] == 4500
-        assert result["battery_power"] == 0  # Default applied
+        assert result["battery_power"] == 0
 
-    def test_transform_empty_input(self, mocker):
-        """Empty input should return only timestamp."""
+    def test_empty_input_returns_only_timestamp(self, mocker):
+        """Leere Eingabe ergibt ein Dict mit ausschließlich last_update."""
         mocker.patch("bridge.transform.REGISTER_MAPPING", {})
         mocker.patch("bridge.transform.CRITICAL_DEFAULTS", {})
 

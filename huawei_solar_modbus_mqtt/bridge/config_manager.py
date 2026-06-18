@@ -17,6 +17,8 @@ import os
 from pathlib import Path
 from typing import Any, cast
 
+from .batch_builder import BatchBuilder
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,9 +41,17 @@ class ConfigManager:
         Load configuration from file or environment variables.
         """
         if self.config_path.exists():
-            logger.info(f"🚀 Loading configuration from {self.config_path}")
-            with open(self.config_path) as f:
-                self._config = json.load(f)
+            logger.info("🚀 Loading configuration from %s", self.config_path)
+            try:
+                with open(self.config_path) as f:
+                    self._config = json.load(f)
+            except json.JSONDecodeError as exc:
+                logger.critical(
+                    "❌ Invalid JSON in %s: %s — check your add-on configuration",
+                    self.config_path,
+                    exc,
+                )
+                raise
             logger.debug(f"✅ Loaded config keys: {list(self._config.keys())}")
         else:
             logger.info("🔍 No config file found, loading from environment variables")
@@ -194,7 +204,7 @@ class ConfigManager:
     def batch_max_gap(self) -> int:
         """Maximum address gap within a batch (v1.10.0+).
 
-        Default: 100 (Modbus address units)
+        Default: 50 (Modbus address units)
         If gap between registers > batch_max_gap, start a new batch.
         Helps group related registers together.
         """
@@ -241,6 +251,9 @@ class ConfigManager:
 
         if not (10 <= self.poll_interval <= 300):
             errors.append(f"poll_interval must be 10-300 seconds, got {self.poll_interval}")
+
+        if not BatchBuilder().validate_batch_gap(self.batch_max_gap):
+            errors.append(f"batch_max_gap must be 1-10000, got {self.batch_max_gap}")
 
         return errors
 

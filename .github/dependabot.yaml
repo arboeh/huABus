@@ -1,45 +1,46 @@
 # .github/dependabot.yml
+
 version: 2
 updates:
-  # Python dependencies (requirements.txt)
-  - package-ecosystem: 'pip'
-    directory: '/'
+  # Python dependencies (pyproject.toml)
+  - package-ecosystem: "pip"
+    directory: "/"
     schedule:
-      interval: 'weekly'
-      day: 'monday'
-      time: '03:00'
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
     open-pull-requests-limit: 3
     labels:
-      - 'dependencies'
-      - 'python'
+      - "dependencies"
+      - "python"
     reviewers:
-      - 'arboeh'
+      - "arboeh"
     commit-message:
-      prefix: 'chore(deps)'
+      prefix: "chore(deps)"
     groups:
       python-dependencies:
         patterns:
-          - '*'
+          - "*"
         update-types:
-          - 'minor'
-          - 'patch'
+          - "minor"
+          - "patch"
 
   # GitHub Actions
-  - package-ecosystem: 'github-actions'
-    directory: '/'
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
-      interval: 'weekly'
-      day: 'monday'
-      time: '03:00'
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
     open-pull-requests-limit: 3
     labels:
-      - 'dependencies'
-      - 'github-actions'
+      - "dependencies"
+      - "github-actions"
     reviewers:
-      - 'arboeh'
+      - "arboeh"
     commit-message:
-      prefix: 'chore(ci)'
+      prefix: "chore(ci)"
     groups:
       github-actions:
         patterns:
-          - '*'
+          - "*"
