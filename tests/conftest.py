@@ -69,13 +69,13 @@ def mock_config_file(tmp_path):
     """Create a temporary config file with test data."""
     config_data = {
         "modbus": {
-            "host": "192.168.0.246",
+            "host": "192.0.2.100",
             "port": 502,
             "auto_detect_slave_id": False,
             "slave_id": 1,
         },
         "mqtt": {
-            "broker": "192.168.0.140",
+            "broker": "192.0.2.1",
             "port": 1883,
             "username": None,
             "password": None,

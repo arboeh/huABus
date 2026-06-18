@@ -169,26 +169,13 @@ class TestGetHuaweiRegisters:
 
     def test_returns_registers_dict_when_available(self):
         mock_module = type(sys)("huawei_solar.registers")
-        mock_module.REGISTERS = {"test_reg": "dummy"}  # type: ignore[attr-defined]
+        mock_module.REGISTERS = {"test_reg": "dummy"}  # type: ignore[attr-defined]  # dynamisches Mock-Modul, keine statische Typ-Info
         with patch.dict(sys.modules, {"huawei_solar.registers": mock_module}):
             assert _get_huawei_registers() == {"test_reg": "dummy"}
 
     def test_returns_none_when_import_fails(self):
-        import huawei_solar_modbus_mqtt.bridge.batch_builder as bb_module
-
-        original = bb_module._get_huawei_registers
-
-        def raise_import_error():
-            raise ImportError("No module")
-
-        bb_module._get_huawei_registers = raise_import_error
-        try:
-            result = bb_module._get_huawei_registers()
-        except ImportError:
-            result = None
-        finally:
-            bb_module._get_huawei_registers = original
-
+        with patch.dict(sys.modules, {"huawei_solar.registers": None}):
+            result = _get_huawei_registers()
         assert result is None
 
 

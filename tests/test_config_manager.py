@@ -14,8 +14,8 @@ from bridge.config_manager import ConfigManager
 
 
 def _make_config(tmp_path, data):
-    tmp_path.mkdir(parents=True, exist_ok=True)
     config_file = tmp_path / "options.json"
+    config_file.parent.mkdir(parents=True, exist_ok=True)
     config_file.write_text(json.dumps(data))
     return ConfigManager(config_path=config_file)
 

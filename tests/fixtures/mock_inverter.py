@@ -11,7 +11,7 @@ import yaml  # pyright: ignore[reportMissingModuleSource]
 class MockRegisterValue:
     """Simuliert RegisterValue-Objekt von huawei-solar"""
 
-    def __init__(self, value, unit=""):
+    def __init__(self, value: int | float | str, unit: str = "") -> None:
         self.value = value
         self.unit = unit
 
@@ -40,7 +40,7 @@ class MockHuaweiSolar:
         with open(self.scenario_file, encoding="utf-8") as f:
             return cast(dict[str, Any], yaml.safe_load(f))
 
-    def load_scenario(self, name: str):
+    def load_scenario(self, name: str) -> None:
         """Aktiviert ein Test-Szenario"""
         if name not in self.scenarios:
             raise ValueError(f"Scenario '{name}' not found. Available: {list(self.scenarios.keys())}")
@@ -48,7 +48,7 @@ class MockHuaweiSolar:
         self.current_scenario = self.scenarios[name]
         self.cycle = 0
 
-    async def get(self, register_name: str):
+    async def get(self, register_name: str) -> MockRegisterValue:
         """Simuliert Modbus-Read mit konfigurierten Werten/Fehlern"""
         if not self.current_scenario:
             raise ValueError("No scenario loaded! Call load_scenario() first")
@@ -72,6 +72,6 @@ class MockHuaweiSolar:
         value = cycle_data[register_name]
         return MockRegisterValue(value)
 
-    def next_cycle(self):
+    def next_cycle(self) -> None:
         """Nächster Cycle für Tests"""
         self.cycle += 1

@@ -228,6 +228,6 @@ class TestRestartScenarios:
         filtered = instance.filter({"energy_grid_exported": morning_value})
         mock_mqtt.publish("huawei-solar", str(filtered))
 
-        assert morning_value > evening_value
+        assert float(morning_value) > float(evening_value)
         assert filtered["energy_grid_exported"] == morning_value
-        assert (morning_value - evening_value) < 50.0
+        assert (float(morning_value) - float(evening_value)) < 50.0
