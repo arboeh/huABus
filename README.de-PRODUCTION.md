@@ -34,7 +34,7 @@
 - **Vollständiges Monitoring:** Batterie, PV (1-4), Netz (3-Phasen), Energie-Counter
 - **Total Increasing Filter:** Verhindert falsche Counter-Resets in Energie-Statistiken
 - **Auto MQTT-Konfiguration:** Nutzt automatisch Home Assistant MQTT-Zugangsdaten
-- **Batch-Modus (v1.10.0+):** Optionaler Modus für 75% schnellere Modbus-Zyklen mit automatischem Fallback
+- **Batch-Modus (v1.10.1+):** Optionaler Modus für bis zu 75% schnellere Modbus-Zyklen mit automatischem Fallback und sicherem Standard-Batching.
 - **Performance-Diagnostik:** Per-Register-Timing-Analyse im DEBUG-Modus zur Engpass-Identifikation
 - **TRACE Log Level:** Ultra-detailliertes Debugging mit Modbus-Byte-Arrays
 - **Umfassende Test-Suite:** 89% Code-Coverage
@@ -54,14 +54,14 @@
    ```
 4. Addon starten → **Einstellungen → Geräte & Dienste → MQTT → "Huawei Solar Inverter"**
 
-## Batch-Lesemodus (v1.10.0+)
+## Batch-Lesemodus (v1.10.1+)
 
-Liest alle 67 Register in 3-5 Batches statt einzeln. **Performance-Verbesserung:** 75% schneller bei hoher Latenz. Automatisches Fallback zum sequenziellen Modus bei Fehlern.
+Liest alle 67 Register in 3-5 Batches statt einzeln. **Performance-Verbesserung:** bis zu 75% schneller bei hoher Latenz. Automatisches Fallback zum sequenziellen Modus bei Fehlern.
 
 **Konfiguration:**
 ```yaml
 enable_batching: true        # Standard: intelligentes Batching aktiviert
-batch_max_gap: 100           # Max. Adresslücke pro Batch
+batch_max_gap: 50             # Max. Adresslücke pro Batch
 ```
 
 ## EVCC Integration (Kein Modbus Proxy!)
@@ -155,6 +155,8 @@ Beide teilen die gleiche Limitierung - nur **EINE Modbus-Verbindung**. Für glei
 
 Siehe [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) für detaillierte Release-Notes.
 
+- ✅ **v1.10.2:** Runtime-State-Bereinigung, sicherere Modbus-Auto-Detection, uv-verwaltete Laufzeit-Abhängigkeiten und `batch_max_gap` bleibt bei 50
+- ✅ **v1.10.1:** Batch-Modus-Standard auf `batch_max_gap: 50` reduziert, um Inverter-Registerlimit-Fallbacks zu vermeiden
 - ✅ **v1.10.0:** Batch-Modus für bis zu 75% schnellere Modbus-Zyklen (Opt-in Beta)
 - ✅ **v1.9.0:** Performance-Diagnostik mit Per-Register-Timing-Analyse im DEBUG-Modus
 - ✅ **v1.8.5:** Multi-Arch-Build-Konfiguration ergänzt und Dockerfile vereinfacht
