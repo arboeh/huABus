@@ -34,7 +34,7 @@
 - **Complete Monitoring:** Battery, PV (1-4), Grid (3-phase), Energy counters
 - **Total Increasing Filter:** Prevents false counter resets in energy statistics
 - **Auto MQTT Configuration:** Automatically uses Home Assistant MQTT credentials
-- **Batch Reading (v1.10.0+):** Optional mode for 75% faster Modbus cycles with automatic fallback
+- **Batch Reading (v1.10.1+):** Optional mode for up to 75% faster Modbus cycles with automatic fallback and safer default batching.
 - **Performance Diagnostics:** Per-register timing analysis at DEBUG level to identify bottlenecks
 - **TRACE Log Level:** Ultra-detailed debugging with Modbus byte arrays
 - **Comprehensive Test Suite:** 89% code coverage
@@ -54,14 +54,14 @@
    ```
 4. Start the addon → **Settings → Devices & Services → MQTT → "Huawei Solar Inverter"**
 
-## Batch Reading Mode (v1.10.0+)
+## Batch Reading Mode (v1.10.1+)
 
-Reads all 67 registers in 3-5 batches instead of individually. **Performance improvement:** 75% faster on high-latency networks. Automatic fallback to sequential mode if batching fails.
+Reads all 67 registers in 3-5 batches instead of individually. **Performance improvement:** up to 75% faster on high-latency networks. Automatic fallback to sequential mode if batching fails.
 
 **Configuration:**
 ```yaml
 enable_batching: true        # Default: smart batching enabled
-batch_max_gap: 100           # Max address gap per batch
+batch_max_gap: 50             # Max address gap per batch
 ```
 
 ## EVCC Integration (No Modbus Proxy!)
@@ -155,6 +155,8 @@ Both share the same limitation - only **ONE Modbus connection**. To use both sim
 
 See [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) for detailed release notes.
 
+- ✅ **v1.10.2:** Runtime-state cleanup, safer Modbus auto-detection, uv-managed runtime dependencies, and `batch_max_gap` kept at 50
+- ✅ **v1.10.1:** Batch-Mode default reduced to `batch_max_gap: 50` to avoid inverter register-limit fallback
 - ✅ **v1.10.0:** Batch reading mode for up to 75% faster Modbus cycles (opt-in beta)
 - ✅ **v1.9.0:** Performance diagnostics with per-register timing analysis at DEBUG level
 - ✅ **v1.8.5:** Added multi-architecture build configuration and simplified the Dockerfile

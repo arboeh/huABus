@@ -21,8 +21,11 @@ Features:
 
 import asyncio
 import logging
+import signal
 import sys
 import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from huawei_solar import AsyncHuaweiSolar
@@ -51,27 +54,34 @@ try:
 except ImportError:  # pragma: no cover
     MODBUS_EXCEPTIONS = ()  # type: ignore[assignment]
 
-# Globaler Timestamp des letzten erfolgreichen Reads
-# Wird von main_once() gesetzt und von heartbeat() geprüft
-# 0 = noch kein erfolgreicher Read (Startup-Phase)
-LAST_SUCCESS: float = 0
-
-# Batch-Mode State: None = nicht getestet, True = funktioniert, False = nicht verfügbar
-# Wird beim ersten Batch-Versuch gesetzt um wiederholte Fehlermeldungen zu vermeiden
-BATCH_MODE_AVAILABLE: bool | None = None
 
 TRACE = 5  # DEBUG ist 10, INFO ist 20, WARNING ist 30
 logging.addLevelName(TRACE, "TRACE")
 
 
-def trace(self, message, *args, **kwargs):
-    if self.isEnabledFor(TRACE):
-        self._log(TRACE, message, args, **kwargs)
+class _TraceLogger(logging.Logger):
+    """Logger subclass adding a trace() method at level 5."""
+
+    def trace(self, message: object, *args: object, **kwargs: object) -> None:
+        if self.isEnabledFor(TRACE):
+            self._log(TRACE, message, args, **kwargs)  # type: ignore[arg-type]
 
 
-logging.Logger.trace = trace  # type: ignore[attr-defined]
+logging.setLoggerClass(_TraceLogger)
+
+
 logger = get_logger("huawei.main")
 error_tracker = ConnectionErrorTracker(log_interval=60)
+
+
+def _register_sigterm_handler(loop: asyncio.AbstractEventLoop, cancel_callback: Callable[[], object]) -> None:
+    if sys.platform == "win32":
+        return
+
+    try:
+        loop.add_signal_handler(signal.SIGTERM, cancel_callback)
+    except (NotImplementedError, RuntimeError):
+        logger.debug("SIGTERM handler not registered for this event loop")
 
 
 class TraceFormatter(logging.Formatter):
@@ -82,6 +92,33 @@ class TraceFormatter(logging.Formatter):
         if record.levelno == TRACE:
             record.levelname = "TRACE"
         return super().format(record)
+
+
+@dataclass
+class _BridgeState:
+    """Mutable runtime state of the bridge main loop."""
+
+    last_success: float = 0.0
+    config: "ConfigManager | None" = None
+    cycle_count: int = 0
+
+    def publish_status(self, status: str, topic: str) -> None:
+        if self.config is not None:
+            publish_status(status, topic)
+
+
+_state = _BridgeState()
+
+
+def reset_state() -> None:
+    """Wipe global bridge singletons.
+
+    WARNING: For testing only. Resets runtime state (_state, error_tracker)
+    so tests can start from a clean baseline. Do not call in production.
+    """
+    global _state, error_tracker
+    _state = _BridgeState()
+    error_tracker = ConnectionErrorTracker(log_interval=60)
 
 
 def init_logging(log_level: str) -> None:
@@ -101,13 +138,13 @@ def init_logging(log_level: str) -> None:
     _configure_pymodbus(level)
     _configure_huawei_solar(level)
 
-    logger.info(f"📋 Logging initialized: {logging.getLevelName(level)}")
+    logger.info("📋 Logging initialized: %s", logging.getLevelName(level))
 
     if level <= logging.DEBUG:
         logger.debug(
-            f"External loggers: "
-            f"pymodbus={logging.getLevelName(logging.getLogger('pymodbus').level)}, "
-            f"huawei_solar={logging.getLevelName(logging.getLogger('huawei_solar').level)}"
+            "External loggers: pymodbus=%s, huawei_solar=%s",
+            logging.getLevelName(logging.getLogger("pymodbus").level),
+            logging.getLevelName(logging.getLogger("huawei_solar").level),
         )
 
 
@@ -133,19 +170,17 @@ def _parse_log_level(level_str: str) -> int:
 
 
 def _setup_root_logger(level: int) -> None:
-    """Konfiguriert Root Logger mit einheitlichem Format."""
     root = logging.getLogger()
     root.setLevel(level)
 
     # Handler clearen und neu erstellen
     for handler in root.handlers[:]:
         root.removeHandler(handler)
+        handler.close()  # ← Handler auch schließen!
 
-    # StreamHandler für stdout (Docker/Hassio Logging)
     handler = logging.StreamHandler(sys.stdout)
     formatter = TraceFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     handler.setFormatter(formatter)
-
     root.addHandler(handler)
 
 
@@ -182,26 +217,26 @@ def heartbeat(config: ConfigManager) -> None:
     """
     timeout = config.status_timeout
 
-    if LAST_SUCCESS == 0:
+    if _state.last_success == 0.0:
         return
-
-    offline_duration = time.time() - LAST_SUCCESS
+    offline_duration = time.time() - _state.last_success
 
     if offline_duration > timeout:
         if offline_duration < timeout + 5:
             error_status = error_tracker.get_status()
             logger.warning(
-                f"⚠️ Inverter offline for {int(offline_duration)}s "
-                f"(timeout: {timeout}s) | "
-                f"Failed attempts: {error_status['total_failures']} | "
-                f"Error types: {error_status['active_errors']}"
+                "⚠️ Inverter offline for %ds (timeout: %ss) | Failed attempts: %s | Error types: %s",
+                int(offline_duration),
+                timeout,
+                error_status["total_failures"],
+                error_status["active_errors"],
             )
         publish_status("offline", config.mqtt_topic)
     else:
-        logger.debug(f"Heartbeat OK: {offline_duration:.1f}s since last success")
+        logger.debug("Heartbeat OK: %.1fs since last success", offline_duration)
 
 
-def log_cycle_summary(cycle_num: float, timings: dict[str, float], data: dict[str, Any]) -> None:
+def log_cycle_summary(cycle_num: int, _timings: dict[str, float], data: dict[str, Any]) -> None:
     """Loggt Cycle-Zusammenfassung."""
     filter_stats = get_filter().get_stats()
     filter_indicator = ""
@@ -225,8 +260,9 @@ def log_cycle_summary(cycle_num: float, timings: dict[str, float], data: dict[st
 
         if total_filtered > 0:
             logger.info(
-                f"└─> 🔍 Filter summary (last 20 cycles): {total_filtered} values filtered | "
-                f"Details: {dict(filter_stats)}"
+                "└─> 🔍 Filter summary (last 20 cycles): %d values filtered | Details: %s",
+                total_filtered,
+                dict(filter_stats),
             )
         else:
             logger.info("└─> 🔍 Filter summary (last 20 cycles): 0 values filtered - all data valid ✓")
@@ -234,12 +270,12 @@ def log_cycle_summary(cycle_num: float, timings: dict[str, float], data: dict[st
         get_filter().reset_stats()
 
     elif filter_stats and logger.isEnabledFor(logging.DEBUG):
-        logger.debug(f"🔍 Filter details: {dict(filter_stats)}")
+        logger.debug("🔍 Filter details: %s", dict(filter_stats))
 
 
 async def read_registers(
     client: AsyncHuaweiSolar,
-    batch_max_gap: int = 100,
+    batch_max_gap: int = 50,
     enable_batching: bool = True,
 ) -> dict[str, Any]:
     """Liest Essential Registers vom Inverter mit optimalem Batching.
@@ -256,11 +292,12 @@ async def read_registers(
     Bei DEBUG-Level werden detaillierte Timing-Informationen pro Register ausgegeben,
     um Performance-Probleme zu diagnostizieren.
     """
-    global BATCH_MODE_AVAILABLE
 
     logger.debug(
-        f"Reading {len(ESSENTIAL_REGISTERS)} essential registers "
-        f"(enable_batching={enable_batching}, batch_max_gap={batch_max_gap})"
+        "Reading %d essential registers (enable_batching=%s, batch_max_gap=%d)",
+        len(ESSENTIAL_REGISTERS),
+        enable_batching,
+        batch_max_gap,
     )
 
     start = time.time()
@@ -274,8 +311,9 @@ async def read_registers(
             batches, unknown_registers = builder.build_batches(ESSENTIAL_REGISTERS)
 
             logger.debug(
-                f"📦 Using smart batching: {len(batches)} batches"
-                + (f", {len(unknown_registers)} sequential" if unknown_registers else "")
+                "📦 Using smart batching: %d batches%s",
+                len(batches),
+                f", {len(unknown_registers)} sequential" if unknown_registers else "",
             )
 
             batch_start = time.time()
@@ -292,30 +330,34 @@ async def read_registers(
                     data.update(batch_data)
 
                     logger.debug(
-                        f"📦 Batch {batch_num}/{len(batches)}: {len(batch)} registers in {batch_duration:.2f}s"
+                        "📦 Batch %d/%d: %d registers in %.2fs",
+                        batch_num,
+                        len(batches),
+                        len(batch),
+                        batch_duration,
                     )
 
                 except Exception as e:
-                    if "count" in str(e):
-                        logger.debug(
-                            f"⚠️ Batch {batch_num} too large for inverter ({e}), "
-                            f"consider reducing batch_max_gap below current value of {batch_max_gap}"
-                        )
-                    else:
-                        logger.debug(f"⚠️ Batch {batch_num} failed ({e}), falling back to sequential")
+                    logger.debug(
+                        "⚠️ Batch %d failed (%s), falling back to sequential "
+                        "(if this repeats, try reducing batch_max_gap below %d)",
+                        batch_num,
+                        e,
+                        batch_max_gap,
+                    )
                     # Fall back to sequential for this batch
                     for name in batch:
                         try:
                             data[name] = await client.get(name)
                         except Exception:
-                            logger.debug(f"Skipping '{name}' (not available)")
+                            logger.debug("Skipping '%s' (not available)", name)
 
             # Unknown registers (not in library) are always read sequentially
             for name in unknown_registers:
                 try:
                     data[name] = await client.get(name)
                 except Exception:
-                    logger.debug(f"Skipping '{name}' (not available)")
+                    logger.debug("Skipping '%s' (not available)", name)
 
             total_batch_duration = time.time() - batch_start
             successful = len([v for v in data.values() if v is not None])
@@ -331,14 +373,16 @@ async def read_registers(
             if logger.isEnabledFor(logging.DEBUG) and batch_timings:
                 batch_times = [t for _, t in batch_timings]
                 logger.debug(
-                    f"📦 Batch timings: avg={sum(batch_times) / len(batch_times):.2f}s, "
-                    f"min={min(batch_times):.2f}s, max={max(batch_times):.2f}s"
+                    "📦 Batch timings: avg=%.2fs, min=%.2fs, max=%.2fs",
+                    sum(batch_times) / len(batch_times),
+                    min(batch_times),
+                    max(batch_times),
                 )
 
             return data
 
         except Exception as e:
-            logger.debug(f"⚠️ Smart batching failed ({e}), falling back to sequential mode")
+            logger.debug("⚠️ Smart batching failed (%s), falling back to sequential mode", e)
             data = {}  # Reset data, will retry sequentially
 
     # === SEQUENTIAL MODE (v1.9.0 behavior) ===
@@ -358,12 +402,12 @@ async def read_registers(
 
             # Warnung bei sehr langsamen einzelnen Registern
             if register_duration > slow_register_threshold:
-                logger.debug(f"⏱️ Slow register '{name}': {register_duration:.3f}s")
+                logger.debug("⏱️ Slow register '%s': %.3fs", name, register_duration)
 
         except Exception:
             register_duration = time.time() - register_start
             register_timings.append((name, register_duration))
-            logger.debug(f"Skipping '{name}' (not available, took {register_duration:.3f}s)")
+            logger.debug("Skipping '%s' (not available, took %.3fs)", name, register_duration)
 
     duration = time.time() - start
 
@@ -377,8 +421,11 @@ async def read_registers(
         median_time = sorted_timings[len(sorted_timings) // 2]
 
         logger.debug(
-            f"📊 Register timing stats: avg={avg_time:.3f}s, "
-            f"min={min_time:.3f}s, max={max_time:.3f}s, median={median_time:.3f}s"
+            "📊 Register timing stats: avg=%.3fs, min=%.3fs, max=%.3fs, median=%.3fs",
+            avg_time,
+            min_time,
+            max_time,
+            median_time,
         )
 
         # Top 5 langsamste Register anzeigen
@@ -386,7 +433,7 @@ async def read_registers(
         if slowest and slowest[0][1] > 0.1:  # Nur wenn wirklich langsam
             logger.debug("🐌 Slowest registers:")
             for reg_name, reg_time in slowest:
-                logger.debug(f"   • {reg_name}: {reg_time:.3f}s")
+                logger.debug("   • %s: %.3fs", reg_name, reg_time)
 
     logger.info(
         "📖 Essential read: %.1fs (%d/%d)",
@@ -405,16 +452,24 @@ def is_modbus_exception(exc: Exception) -> bool:
     return isinstance(exc, MODBUS_EXCEPTIONS)
 
 
-async def main_once(client: AsyncHuaweiSolar, config: ConfigManager, cycle_num: float) -> None:
-    """
-    Führt einen kompletten Read-Transform-Filter-Publish Cycle aus.
+async def main_once(client: AsyncHuaweiSolar, config: ConfigManager, cycle_num: int) -> None:
+    """Execute a single read-transform-filter-publish cycle.
+
+    Reads essential Modbus registers, transforms and filters the values,
+    publishes them to MQTT, and updates cycle summary logging.
 
     Args:
-        client:     AsyncHuaweiSolar Client
-        config:     ConfigManager instance
-        cycle_num:  Aktuelle Cycle-Nummer
+        client: Connected AsyncHuaweiSolar Modbus client.
+        config: Active configuration instance.
+        cycle_num: Sequential cycle counter for logging and filtering.
+
+    Raises:
+        TimeoutError: On Modbus read timeout.
+        ConnectionRefusedError: On connection failure.
+        ModbusException: On Modbus protocol errors.
     """
-    global LAST_SUCCESS
+    _state.cycle_count = cycle_num
+    _state.config = config
 
     start: float = time.time()
     logger.debug("Starting cycle")
@@ -430,9 +485,9 @@ async def main_once(client: AsyncHuaweiSolar, config: ConfigManager, cycle_num: 
         modbus_duration: float = time.time() - modbus_start
     except Exception as e:
         if is_modbus_exception(e):
-            logger.warning(f"⚠️ Modbus read failed after {time.time() - start:.1f}s: {e}")
+            logger.warning("⚠️ Modbus read failed after %.1fs: %s", time.time() - start, e)
         else:
-            logger.error(f"❌ Read error: {e}")
+            logger.error("❌ Read error: %s", e)
         raise
 
     if not data:
@@ -453,9 +508,9 @@ async def main_once(client: AsyncHuaweiSolar, config: ConfigManager, cycle_num: 
     # === PHASE 4: MQTT Publish ===
     mqtt_start: float = time.time()
     publish_data(mqtt_data, config.mqtt_topic)
+    _state.last_success = time.time()
     mqtt_duration = time.time() - mqtt_start
 
-    LAST_SUCCESS = time.time()
     cycle_duration: float = time.time() - start
 
     # === PHASE 5: Logging ===
@@ -479,7 +534,7 @@ async def main_once(client: AsyncHuaweiSolar, config: ConfigManager, cycle_num: 
     )
 
     # === PHASE 7: Performance-Check ===
-    if cycle_duration > config.poll_interval * 0.8:
+    if cycle_duration > config.poll_interval * 0.8:  # ← direkt config nutzen, nicht _state.config
         logger.warning("⚠️ Cycle %.1fs > 80%% poll_interval (%ds)", cycle_duration, config.poll_interval)
 
 
@@ -528,12 +583,159 @@ async def determine_slave_id(config: ConfigManager) -> int:
             )
             sys.exit(1)
 
-        logger.debug(f"Using manual Slave ID: {manual_slave_id}")
+        logger.debug("Using manual Slave ID: %s", manual_slave_id)
         return manual_slave_id
+
+
+async def setup_mqtt(config: ConfigManager) -> bool:
+    """Connect to MQTT broker and wait for connection to stabilize.
+
+    Args:
+        config: Configuration instance with MQTT settings.
+
+    Returns:
+        True if MQTT connection succeeded, False otherwise.
+    """
+    try:
+        connect_mqtt()
+        await asyncio.sleep(1)
+    except Exception as e:
+        logger.error("❌ MQTT connect failed: %s", e)
+        return False
+    return True
+
+
+async def setup_modbus(slave_id: int, config: ConfigManager) -> AsyncHuaweiSolar | None:
+    """Create Modbus TCP connection to the inverter.
+
+    Args:
+        slave_id: Modbus slave ID to connect to.
+        config: Configuration instance with connection settings.
+
+    Returns:
+        Connected AsyncHuaweiSolar client, or None on failure.
+    """
+    try:
+        connection_start = time.time()
+        client = await AsyncHuaweiSolar.create(
+            config.modbus_host,
+            config.modbus_port,
+            slave_id,
+        )
+        connection_time = time.time() - connection_start
+        logger.info(
+            "🔌 Connected to %s:%s (Slave ID: %s, took %.3fs)",
+            config.modbus_host,
+            config.modbus_port,
+            slave_id,
+            connection_time,
+        )
+        _state.publish_status("online", config.mqtt_topic)
+        return client
+    except Exception as e:
+        logger.error("❌ Connection failed: %s", e)
+        return None
+
+
+async def initialize_bridge(config: ConfigManager) -> AsyncHuaweiSolar | None:
+    """Initialize MQTT, discovery, and Modbus connection.
+
+    Args:
+        config: Configuration instance.
+
+    Returns:
+        Connected AsyncHuaweiSolar client, or None if initialization failed.
+    """
+    logger.info("🚀 Huawei Solar → MQTT starting")
+    config.log_config()
+
+    slave_id = await determine_slave_id(config)
+
+    mqtt_connected = await setup_mqtt(config)
+    if not mqtt_connected:
+        return None
+
+    publish_status("offline", config.mqtt_topic)
+
+    try:
+        publish_discovery_configs(config.mqtt_topic)
+        logger.info("📢 Discovery published")
+    except Exception as e:
+        logger.error("❌ Discovery failed: %s", e)
+
+    client = await setup_modbus(slave_id, config)
+    if client is None:
+        disconnect_mqtt()
+        return None
+
+    get_filter()
+    logger.info("🛡️ Total Increasing Filter initialized")
+    logger.info("⏱️ Poll interval: %ss", config.poll_interval)
+    return client
+
+
+async def _maybe_reset_on_error(e: Exception, config: ConfigManager) -> bool:
+    if isinstance(e, (TimeoutError, ConnectionRefusedError)):
+        error_tracker.track_error(type(e).__name__.lower(), str(e))
+        _state.publish_status("offline", config.mqtt_topic)
+        reset_filter()
+        logger.debug("Filter reset due to %s", type(e).__name__)
+        await asyncio.sleep(10)
+        return True
+
+    if MODBUS_EXCEPTIONS and isinstance(e, MODBUS_EXCEPTIONS):
+        error_tracker.track_error("modbus_exception", str(e))
+        _state.publish_status("offline", config.mqtt_topic)
+        reset_filter()
+        logger.debug("Filter reset due to modbus exception")
+        await asyncio.sleep(10)
+        return True
+
+    return False
+
+
+async def run_main_cycle(client: AsyncHuaweiSolar, config: ConfigManager, cycle_count: int) -> None:
+    cycle_start = time.time()
+    logger.debug("Cycle #%d", cycle_count)
+
+    try:
+        await main_once(client, config, cycle_count)
+    except KeyboardInterrupt as e:
+        logger.info("🛑 Interrupted during cycle")
+        raise KeyboardInterrupt from e
+    except Exception as e:
+        if await _maybe_reset_on_error(e, config):
+            return
+        error_type = type(e).__name__
+        if error_tracker.track_error(error_type, str(e)):
+            logger.error("❌ Unexpected: %s", error_type, exc_info=True)
+        _state.publish_status("offline", config.mqtt_topic)
+        reset_filter()
+        logger.debug("Filter reset")
+        await asyncio.sleep(10)
+        return
+
+    error_tracker.mark_success()
+    _state.publish_status("online", config.mqtt_topic)
+
+    elapsed = time.time() - cycle_start
+    wait = max(0.0, config.poll_interval - elapsed)
+    if wait > 0:
+        logger.debug("Waiting %.1fs until next cycle", wait)
+        try:
+            await asyncio.sleep(wait)
+        except KeyboardInterrupt:
+            logger.info("⌨️ Interrupted during wait")
+            raise
 
 
 async def main() -> None:
     """Haupt-Loop mit Error-Handling und automatischer Wiederverbindung."""
+    loop = asyncio.get_running_loop()
+    current_task = asyncio.current_task()
+    if current_task is not None:
+        _register_sigterm_handler(loop, current_task.cancel)
+
     # Load configuration
     try:
         config = ConfigManager()
@@ -544,125 +746,35 @@ async def main() -> None:
 
     # Initialize logging
     init_logging(config.log_level)
+    _state.config = config
 
-    logger.info("🚀 Huawei Solar → MQTT starting")
-
-    # Log configuration
-    config.log_config()
-
-    # Determine Slave ID (auto-detect or manual)
-    slave_id = await determine_slave_id(config)
-
-    # === MQTT Verbindung (persistent) ===
-    try:
-        connect_mqtt()
-        time.sleep(1)
-    except Exception as e:
-        logger.error(f"❌ MQTT connect failed: {e}")
-        sys.exit(1)
-
-    # Initial Status: offline
-    publish_status("offline", config.mqtt_topic)
-
-    # === Discovery publizieren ===
-    try:
-        publish_discovery_configs(config.mqtt_topic)
-        logger.info("📢 Discovery published")
-    except Exception as e:
-        logger.error(f"❌ Discovery failed: {e}")
-
-    # === Modbus Client erstellen ===
-    try:
-        connection_start = time.time()
-        client = await AsyncHuaweiSolar.create(
-            config.modbus_host,
-            config.modbus_port,
-            slave_id,
-        )
-        connection_time = time.time() - connection_start
-        logger.info(
-            f"🔌 Connected to {config.modbus_host}:{config.modbus_port} "
-            f"(Slave ID: {slave_id}, took {connection_time:.3f}s)"
-        )
-        logger.debug(
-            f"📡 Modbus connection details: host={config.modbus_host}, port={config.modbus_port}, slave={slave_id}"
-        )
-        publish_status("online", config.mqtt_topic)
-    except Exception as e:
-        logger.error(f"❌ Connection failed: {e}")
-        disconnect_mqtt()
+    client = await initialize_bridge(config)
+    if client is None:
         return
 
-    # Filter initialisieren
-    get_filter()
-    logger.info("🛡️ Total Increasing Filter initialized")
-    logger.info(f"⏱️ Poll interval: {config.poll_interval}s")
-
     # === Main Loop ===
-    cycle_count: float = 0
+    cycle_count: int = 0
     try:
         while True:
             cycle_count += 1
-            logger.debug(f"Cycle #{cycle_count}")
-            cycle_start = time.time()
-
-            try:
-                await main_once(client, config, cycle_count)
-                error_tracker.mark_success()
-                publish_status("online", config.mqtt_topic)
-
-                # Restliche Zeit bis zum nächsten Poll-Intervall warten
-                elapsed = time.time() - cycle_start
-                wait = max(0.0, config.poll_interval - elapsed)
-                if wait > 0:
-                    logger.debug(f"Waiting {wait:.1f}s until next cycle")
-                    await asyncio.sleep(wait)
-
-            except TimeoutError as e:
-                error_tracker.track_error("timeout", str(e))
-                publish_status("offline", config.mqtt_topic)
-                reset_filter()
-                logger.debug("Filter reset due to timeout")
-                await asyncio.sleep(10)
-
-            except ConnectionRefusedError as e:
-                error_tracker.track_error("connection_refused", f"Errno {e.errno}")
-                publish_status("offline", config.mqtt_topic)
-                reset_filter()
-                logger.debug("Filter reset due to connection error")
-                await asyncio.sleep(10)
-
-            except Exception as e:
-                if MODBUS_EXCEPTIONS and isinstance(e, MODBUS_EXCEPTIONS):
-                    error_tracker.track_error("modbus_exception", str(e))
-                    logger.warning("⚠️ Modbus error, will retry")
-                else:
-                    error_type = type(e).__name__
-                    if error_tracker.track_error(error_type, str(e)):
-                        logger.error(f"❌ Unexpected: {error_type}", exc_info=True)
-
-                publish_status("offline", config.mqtt_topic)
-                reset_filter()
-                logger.debug("Filter reset")
-                await asyncio.sleep(10)
-
+            await run_main_cycle(client, config, cycle_count)
             heartbeat(config)
-
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("🛑 Shutdown")
-        publish_status("offline", config.mqtt_topic)
+        _state.publish_status("offline", config.mqtt_topic)
         disconnect_mqtt()
-
     except Exception as e:
-        logger.error(f"💥 Fatal: {e}", exc_info=True)
-        publish_status("offline", config.mqtt_topic)
+        logger.error("💥 Fatal: %s", e, exc_info=True)
+        _state.publish_status("offline", config.mqtt_topic)
         disconnect_mqtt()
         sys.exit(1)
+
+
+async def _run() -> None:
+    """Entry-point wrapper used by direct execution of this module."""
+    await main()
 
 
 if __name__ == "__main__":
     """Entry-Point beim direkten Ausführen der Datei."""
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("⌨️ Interrupted")
+    asyncio.run(_run())

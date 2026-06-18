@@ -19,14 +19,15 @@ logger = logging.getLogger("huawei.filter")
 class TotalIncreasingFilter:
     """Vereinfachter Filter - keine Warmup, keine Toleranz-Config."""
 
-    # Keys die NIEMALS fallen dürfen
-    TOTAL_INCREASING_KEYS = [
-        "energy_yield_accumulated",
-        "energy_grid_exported",
-        "energy_grid_accumulated",
-        "battery_charge_total",
-        "battery_discharge_total",
-    ]
+    TOTAL_INCREASING_KEYS: frozenset[str] = frozenset(
+        {
+            "energy_yield_accumulated",
+            "energy_grid_exported",
+            "energy_grid_accumulated",
+            "battery_charge_total",
+            "battery_discharge_total",
+        }
+    )
 
     def __init__(self):
         """Initialisiert den Filter - simpel!"""
@@ -156,9 +157,10 @@ def get_filter() -> TotalIncreasingFilter:
     return _filter_instance
 
 
-def reset_filter():
-    """Setzt Singleton zurück (löscht Instanz komplett)."""
+def reset_filter() -> None:
+    """Setzt den Singleton-Filter zurück und behält die Instanz."""
     global _filter_instance
-    if _filter_instance is not None:
+    if _filter_instance is None:
+        _filter_instance = TotalIncreasingFilter()
+    else:
         _filter_instance.reset()
-        _filter_instance = None
