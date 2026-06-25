@@ -14,7 +14,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
@@ -34,7 +34,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v8.2.0
         with:
           python-version: ${{ matrix.python-version }}
@@ -74,7 +74,7 @@ jobs:
   type-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v8.2.0
         with:
           python-version: "3.12"
@@ -90,7 +90,7 @@ jobs:
   validate-config:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v8.2.0
         with:
           python-version: "3.12"
@@ -112,7 +112,7 @@ jobs:
   test-bash:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install ShellCheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
@@ -126,7 +126,7 @@ jobs:
   test-bash-advanced:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install BATS
         run: |
@@ -139,7 +139,7 @@ jobs:
   test-docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v8.2.0
         with:
