@@ -61,8 +61,14 @@ Liest alle 67 Register in 3-5 Batches statt einzeln. **Performance-Verbesserung:
 **Konfiguration:**
 ```yaml
 enable_batching: true        # Standard: intelligentes Batching aktiviert
-batch_max_gap: 50             # Max. Adresslücke pro Batch
+batch_max_gap: 50             # Max. Adresslücke pro Batch (Standard: 50, empfohlen: 30-50)
 ```
+
+**Details:**
+- `enable_batching: true` — Gruppiert Register intelligent nach Modbus-Adress-Nähe. Reduziert 67 einzelne Reads auf typisch 3-5 Batch-Anfragen.
+- `batch_max_gap: 50` — Maximale Adress-Lücke (in Modbus-Einheiten) innerhalb eines Batches. Kleinere Werte erzeugen mehr Batches mit weniger Risiko, das Inverter-Limit (~125 Register pro Batch) zu überschreiten. Größere Werte reduzieren die Batch-Anzahl, erhöhen aber das Risiko von Batch-Fehlern.
+- **Empfohlen:** `30-50` für die meisten Installationen. Nur bei stabilen, schnellen Netzwerken auf `100` erhöhen.
+- Deaktivieren (`enable_batching: false`), falls wiederholt Batch-Fehler auftreten.
 
 ## EVCC Integration (Kein Modbus Proxy!)
 
@@ -155,6 +161,7 @@ Beide teilen die gleiche Limitierung - nur **EINE Modbus-Verbindung**. Für glei
 
 Siehe [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) für detaillierte Release-Notes.
 
+- ✅ **v1.10.3:** Async-Sicherheitsfix — blockierende `wait_for_publish()`- und `time.sleep()`-Aufrufe im MQTT-Hotpath und Connection-Setup eliminiert
 - ✅ **v1.10.2:** Runtime-State-Bereinigung, sicherere Modbus-Auto-Detection, uv-verwaltete Laufzeit-Abhängigkeiten und `batch_max_gap` bleibt bei 50
 - ✅ **v1.10.1:** Batch-Modus-Standard auf `batch_max_gap: 50` reduziert, um Inverter-Registerlimit-Fallbacks zu vermeiden
 - ✅ **v1.10.0:** Batch-Modus für bis zu 75% schnellere Modbus-Zyklen (Opt-in Beta)

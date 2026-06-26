@@ -121,6 +121,18 @@ INFO - 📊 Published - PV: 4500W | AC Out: 4200W | ...
 - **poll_interval** (Standard: `30s`, Range: 10-300): Abfrageintervall für Modbus
   - Empfohlen: **30-60s** für stabile Verbindungen
 
+### Batch-Konfiguration (Performance-Optimierung)
+
+- **enable_batching** (Standard: `true`): Intelligente Gruppenbildung von Registern nach Modbus-Adress-Nähe
+  - Reduziert TCP-Calls von 67 einzelnen Reads auf typisch 3-5 Batch-Anfragen
+  - Automatischer Fallback auf sequentielle Reads bei Batch-Fehlern
+  - Deaktivieren (`false`), falls Probleme mit bestimmten Register-Kombinationen auftreten
+- **batch_max_gap** (Standard: `50`, Range: 1-10000): Maximale Adress-Lücke (in Modbus-Einheiten) innerhalb eines Batches
+  - Kleinere Werte (z.B. `30-50`): Mehrere kleinere Batches, weniger Risiko von Batch-Fehlern
+  - Größere Werte (z.B. `100`): Weniger Batches, aber höheres Risiko dass einzelne Batches das Inverter-Limit überschreiten
+  - **Hinweis:** Das Inverter-Interne Limit liegt bei ~125 Registern pro Batch. Der Standardwert `50` hält Batch 3 sicher darunter.
+  - Empfohlen: **30-50** für die meisten Installationen
+
 ## MQTT Topics
 
 - **Messdaten:** `huawei-solar` (JSON mit allen Sensordaten + Timestamp)

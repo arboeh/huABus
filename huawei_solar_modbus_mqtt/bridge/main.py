@@ -102,9 +102,9 @@ class _BridgeState:
     config: "ConfigManager | None" = None
     cycle_count: int = 0
 
-    def publish_status(self, status: str, topic: str) -> None:
+    async def publish_status(self, status: str, topic: str) -> None:
         if self.config is not None:
-            publish_status(status, topic)
+            await publish_status(status, topic)
 
 
 _state = _BridgeState()
@@ -208,7 +208,7 @@ def _configure_huawei_solar(level: int) -> None:
             hs_logger.setLevel(logging.WARNING)
 
 
-def heartbeat(config: ConfigManager) -> None:
+async def heartbeat(config: ConfigManager) -> None:
     """
     Überwacht erfolgreiche Reads und setzt Status auf offline bei Timeout.
 
@@ -231,7 +231,7 @@ def heartbeat(config: ConfigManager) -> None:
                 error_status["total_failures"],
                 error_status["active_errors"],
             )
-        publish_status("offline", config.mqtt_topic)
+        await publish_status("offline", config.mqtt_topic)
     else:
         logger.debug("Heartbeat OK: %.1fs since last success", offline_duration)
 
@@ -507,7 +507,7 @@ async def main_once(client: AsyncHuaweiSolar, config: ConfigManager, cycle_num: 
 
     # === PHASE 4: MQTT Publish ===
     mqtt_start: float = time.time()
-    publish_data(mqtt_data, config.mqtt_topic)
+    await publish_data(mqtt_data, config.mqtt_topic)
     _state.last_success = time.time()
     mqtt_duration = time.time() - mqtt_start
 
@@ -597,7 +597,7 @@ async def setup_mqtt(config: ConfigManager) -> bool:
         True if MQTT connection succeeded, False otherwise.
     """
     try:
-        connect_mqtt()
+        await connect_mqtt()
         await asyncio.sleep(1)
     except Exception as e:
         logger.error("❌ MQTT connect failed: %s", e)
@@ -630,7 +630,7 @@ async def setup_modbus(slave_id: int, config: ConfigManager) -> AsyncHuaweiSolar
             slave_id,
             connection_time,
         )
-        _state.publish_status("online", config.mqtt_topic)
+        await _state.publish_status("online", config.mqtt_topic)
         return client
     except Exception as e:
         logger.error("❌ Connection failed: %s", e)
@@ -655,17 +655,17 @@ async def initialize_bridge(config: ConfigManager) -> AsyncHuaweiSolar | None:
     if not mqtt_connected:
         return None
 
-    publish_status("offline", config.mqtt_topic)
+    await publish_status("offline", config.mqtt_topic)
 
     try:
-        publish_discovery_configs(config.mqtt_topic)
+        await publish_discovery_configs(config.mqtt_topic)
         logger.info("📢 Discovery published")
     except Exception as e:
         logger.error("❌ Discovery failed: %s", e)
 
     client = await setup_modbus(slave_id, config)
     if client is None:
-        disconnect_mqtt()
+        await disconnect_mqtt()
         return None
 
     get_filter()
@@ -677,7 +677,7 @@ async def initialize_bridge(config: ConfigManager) -> AsyncHuaweiSolar | None:
 async def _maybe_reset_on_error(e: Exception, config: ConfigManager) -> bool:
     if isinstance(e, (TimeoutError, ConnectionRefusedError)):
         error_tracker.track_error(type(e).__name__.lower(), str(e))
-        _state.publish_status("offline", config.mqtt_topic)
+        await _state.publish_status("offline", config.mqtt_topic)
         reset_filter()
         logger.debug("Filter reset due to %s", type(e).__name__)
         await asyncio.sleep(10)
@@ -685,7 +685,7 @@ async def _maybe_reset_on_error(e: Exception, config: ConfigManager) -> bool:
 
     if MODBUS_EXCEPTIONS and isinstance(e, MODBUS_EXCEPTIONS):
         error_tracker.track_error("modbus_exception", str(e))
-        _state.publish_status("offline", config.mqtt_topic)
+        await _state.publish_status("offline", config.mqtt_topic)
         reset_filter()
         logger.debug("Filter reset due to modbus exception")
         await asyncio.sleep(10)
@@ -709,14 +709,14 @@ async def run_main_cycle(client: AsyncHuaweiSolar, config: ConfigManager, cycle_
         error_type = type(e).__name__
         if error_tracker.track_error(error_type, str(e)):
             logger.error("❌ Unexpected: %s", error_type, exc_info=True)
-        _state.publish_status("offline", config.mqtt_topic)
+        await _state.publish_status("offline", config.mqtt_topic)
         reset_filter()
         logger.debug("Filter reset")
         await asyncio.sleep(10)
         return
 
     error_tracker.mark_success()
-    _state.publish_status("online", config.mqtt_topic)
+    await _state.publish_status("online", config.mqtt_topic)
 
     elapsed = time.time() - cycle_start
     wait = max(0.0, config.poll_interval - elapsed)
@@ -758,15 +758,15 @@ async def main() -> None:
         while True:
             cycle_count += 1
             await run_main_cycle(client, config, cycle_count)
-            heartbeat(config)
+            await heartbeat(config)
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("🛑 Shutdown")
-        _state.publish_status("offline", config.mqtt_topic)
-        disconnect_mqtt()
+        await _state.publish_status("offline", config.mqtt_topic)
+        await disconnect_mqtt()
     except Exception as e:
         logger.error("💥 Fatal: %s", e, exc_info=True)
-        _state.publish_status("offline", config.mqtt_topic)
-        disconnect_mqtt()
+        await _state.publish_status("offline", config.mqtt_topic)
+        await disconnect_mqtt()
         sys.exit(1)
 
 
