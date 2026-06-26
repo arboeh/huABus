@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.3] - 2026-06-26
+
+### Fixed
+
+- **Async safety in MQTT hotpath**: `publish_data()` and `publish_status()` no longer block the event loop with synchronous `wait_for_publish()` calls. Both functions now offload the blocking paho-mqtt wait to `loop.run_in_executor()`.
+- **Startup connection polling**: `connect_mqtt()` no longer uses a busy-poll loop with `time.sleep(0.1)` to wait for the MQTT callback. Replaced with `threading.Event` + `run_in_executor()` — the correct primitive since paho callbacks run in their own thread.
+- **Shutdown cleanup**: `disconnect_mqtt()` is now async; `loop_stop()` and `disconnect()` run in an executor instead of blocking shutdown.
+
+### Changed
+
+- **`myPy` compliance**: Added `# type: ignore[attr-defined]` for paho-mqtt `CallbackAPIVersion.VERSION2` to resolve type-checker false positive.
+- **Dependency sync**: `requirements.txt` regenerated from `uv.lock` with pinned versions `pymodbus==3.13.1` and `pytz==2026.2`.
+
 ## [1.10.2] - 2026-06-18
 
 ### Fixed
