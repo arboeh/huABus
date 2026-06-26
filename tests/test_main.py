@@ -85,10 +85,10 @@ class TestMain:
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
             patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
-            patch("bridge.main.connect_mqtt"),
-            patch("bridge.main.disconnect_mqtt"),
-            patch("bridge.main.publish_status"),
-            patch("bridge.main.publish_discovery_configs"),
+            patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
+            patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock),
+            patch("bridge.main.publish_status", new_callable=AsyncMock),
+            patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
             patch("bridge.main.main_once", side_effect=KeyboardInterrupt()),
             patch("bridge.main._register_sigterm_handler") as mock_register,
         ):
@@ -128,11 +128,10 @@ class TestMain:
             patch("bridge.main.ConfigManager", return_value=mock_config),
             patch("bridge.main.detect_slave_id", return_value=1),
             patch("bridge.main.AsyncHuaweiSolar.create", side_effect=ConnectionRefusedError()),
-            patch("bridge.main.connect_mqtt"),
-            patch("bridge.main.disconnect_mqtt") as mock_disconnect,
-            patch("bridge.main.publish_status"),
-            patch("bridge.main.publish_discovery_configs"),
-            patch("bridge.main.time.sleep"),  # ← connect_mqtt sleep(1) nicht warten
+            patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
+            patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as mock_disconnect,
+            patch("bridge.main.publish_status", new_callable=AsyncMock),
+            patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
         ):
             await main()
 
@@ -144,10 +143,10 @@ class TestMain:
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
             patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
-            patch("bridge.main.connect_mqtt"),
-            patch("bridge.main.disconnect_mqtt") as mock_disconnect,
-            patch("bridge.main.publish_status") as mock_status,
-            patch("bridge.main.publish_discovery_configs"),
+            patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
+            patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as mock_disconnect,
+            patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status,
+            patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
             patch("bridge.main.main_once", side_effect=KeyboardInterrupt()),
         ):
             try:
@@ -165,10 +164,10 @@ class TestMain:
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
             patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
-            patch("bridge.main.connect_mqtt"),
-            patch("bridge.main.disconnect_mqtt") as mock_disconnect,
-            patch("bridge.main.publish_status") as mock_status,
-            patch("bridge.main.publish_discovery_configs"),
+            patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
+            patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as mock_disconnect,
+            patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status,
+            patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
             patch("bridge.main.main_once", side_effect=asyncio.CancelledError()),
         ):
             await main()
@@ -182,9 +181,9 @@ class TestMain:
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
             patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
-            patch("bridge.main.connect_mqtt"),
-            patch("bridge.main.publish_status") as mock_status,
-            patch("bridge.main.publish_discovery_configs"),
+            patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
+            patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status,
+            patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
             patch("bridge.main.main_once", side_effect=[TimeoutError(), KeyboardInterrupt()]),
             patch("bridge.main.reset_filter") as mock_reset_filter,
             patch("asyncio.sleep", new_callable=AsyncMock),
@@ -205,9 +204,9 @@ class TestMain:
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
             patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
-            patch("bridge.main.connect_mqtt"),
-            patch("bridge.main.publish_status") as mock_status,
-            patch("bridge.main.publish_discovery_configs"),
+            patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
+            patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status,
+            patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
             patch("bridge.main.main_once", side_effect=[ModbusException("error"), KeyboardInterrupt()]),
             patch("bridge.main.reset_filter") as mock_reset_filter,
             patch("asyncio.sleep", new_callable=AsyncMock),
@@ -226,10 +225,10 @@ class TestMain:
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
             patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
-            patch("bridge.main.connect_mqtt"),
-            patch("bridge.main.disconnect_mqtt"),
-            patch("bridge.main.publish_status"),
-            patch("bridge.main.publish_discovery_configs"),
+            patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
+            patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock),
+            patch("bridge.main.publish_status", new_callable=AsyncMock),
+            patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
             patch("bridge.main.error_tracker"),
             patch("bridge.main.main_once", side_effect=[None, KeyboardInterrupt()]),
             patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
@@ -248,9 +247,9 @@ class TestMain:
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
             patch("bridge.main.detect_slave_id", return_value=1),
-            patch("bridge.main.connect_mqtt", side_effect=Exception("MQTT failed")),
-            patch("bridge.main.disconnect_mqtt") as mock_disconnect,
-            patch("bridge.main.publish_status"),
+            patch("bridge.main.connect_mqtt", new_callable=AsyncMock, side_effect=Exception("MQTT failed")),
+            patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as mock_disconnect,
+            patch("bridge.main.publish_status", new_callable=AsyncMock),
             patch("asyncio.sleep", new_callable=AsyncMock),
         ):
             await main()
@@ -268,20 +267,17 @@ class TestDetermineSlaveId:
 
     @pytest.mark.asyncio
     async def test_manual_mode_returns_configured_id(self):
-        """Uses manual slave ID when auto-detect is disabled."""
         config = Mock(modbus_auto_detect_slave_id=False, slave_id=42)
         assert await determine_slave_id(config) == 42
 
     @pytest.mark.asyncio
     async def test_manual_mode_none_exits(self):
-        """Exits when manual mode but slave_id is None."""
         config = Mock(modbus_auto_detect_slave_id=False, slave_id=None)
         with pytest.raises(SystemExit):
             await determine_slave_id(config)
 
     @pytest.mark.asyncio
     async def test_auto_detect_success(self):
-        """Auto-detects slave ID successfully."""
         config = Mock(modbus_auto_detect_slave_id=True, modbus_host="192.168.1.100", modbus_port=502)
         with patch("bridge.main.detect_slave_id", return_value=1) as mock_detect:
             result = await determine_slave_id(config)
@@ -290,7 +286,6 @@ class TestDetermineSlaveId:
 
     @pytest.mark.asyncio
     async def test_auto_detect_failure_exits(self):
-        """Exits when auto-detection returns None."""
         config = Mock(modbus_auto_detect_slave_id=True, modbus_host="192.168.1.100", modbus_port=502)
         with (
             patch("bridge.main.detect_slave_id", return_value=None),
@@ -314,28 +309,31 @@ class TestHeartbeat:
         yield
         main_module._state.last_success = 0.0
 
-    def test_startup_no_check(self):
+    @pytest.mark.asyncio
+    async def test_startup_no_check(self):
         """Does nothing during startup (_state.last_success == 0)."""
         main_module._state.last_success = 0.0
         config = Mock(mqtt_topic="test-topic", status_timeout=180)
-        with patch("bridge.main.publish_status") as mock_status:
-            heartbeat(config)
+        with patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status:
+            await heartbeat(config)
             mock_status.assert_not_called()
 
-    def test_online_within_timeout(self):
+    @pytest.mark.asyncio
+    async def test_online_within_timeout(self):
         """Does not publish offline when within timeout."""
         main_module._state.last_success = time.time() - 50
         config = Mock(mqtt_topic="test-topic", status_timeout=180)
-        with patch("bridge.main.publish_status") as mock_status:
-            heartbeat(config)
+        with patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status:
+            await heartbeat(config)
             assert not any(call[0][0] == "offline" for call in mock_status.call_args_list)
 
-    def test_offline_when_timeout_exceeded(self):
+    @pytest.mark.asyncio
+    async def test_offline_when_timeout_exceeded(self):
         """Publishes offline when timeout is exceeded."""
         main_module._state.last_success = time.time() - 200
         config = Mock(mqtt_topic="test-topic", status_timeout=180)
-        with patch("bridge.main.publish_status") as mock_status:
-            heartbeat(config)
+        with patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status:
+            await heartbeat(config)
             mock_status.assert_called_with("offline", "test-topic")
 
 
@@ -378,7 +376,7 @@ class TestMainOnce:
         with (
             patch("bridge.main.read_registers", return_value={"power_active": 4500}) as mock_read,
             patch("bridge.main.transform_data", return_value={"power_active": 4500}) as mock_transform,
-            patch("bridge.main.publish_data") as mock_publish,
+            patch("bridge.main.publish_data", new_callable=AsyncMock) as mock_publish,
             patch("bridge.main.log_cycle_summary"),
             patch("bridge.main.get_filter") as mock_get_filter,
         ):
@@ -398,7 +396,7 @@ class TestMainOnce:
         """Returns early without publishing when read returns empty data."""
         with (
             patch("bridge.main.read_registers", return_value={}),
-            patch("bridge.main.publish_data") as mock_publish,
+            patch("bridge.main.publish_data", new_callable=AsyncMock) as mock_publish,
         ):
             await main_once(mock_client, mock_config, 1)
             assert mock_publish.call_count == 0
@@ -413,7 +411,7 @@ class TestMainOnce:
         with (
             patch("bridge.main.read_registers", return_value={"power_active": 4500}),
             patch("bridge.main.transform_data", return_value={"power_active": 4500}),
-            patch("bridge.main.publish_data"),
+            patch("bridge.main.publish_data", new_callable=AsyncMock),
             patch("bridge.main.log_cycle_summary"),
             patch("bridge.main.get_filter") as mock_get_filter,
         ):
