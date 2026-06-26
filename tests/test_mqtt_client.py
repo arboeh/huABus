@@ -52,9 +52,11 @@ def reset_mqtt_globals():
 
     mqtt_module._mqtt_client = None
     mqtt_module._is_connected = False
+    mqtt_module._connected_event.clear()
     yield
     mqtt_module._mqtt_client = None
     mqtt_module._is_connected = False
+    mqtt_module._connected_event.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +140,8 @@ class TestClientCreation:
 class TestConnect:
     """MQTT Verbindungsaufbau."""
 
-    def test_connect_mqtt_calls_connect_and_loop_start(self, mock_mqtt_client, mqtt_env_vars):
+    @pytest.mark.asyncio
+    async def test_connect_mqtt_calls_connect_and_loop_start(self, mock_mqtt_client, mqtt_env_vars):
         import bridge.mqtt_client as mqtt_module
 
         with patch("bridge.mqtt_client.mqtt.Client") as mock_client:
@@ -146,27 +149,29 @@ class TestConnect:
 
             def set_connected(*args):
                 mqtt_module._is_connected = True
+                mqtt_module._connected_event.set()
 
             mock_mqtt_client.connect.side_effect = set_connected
-            connect_mqtt()
+            await connect_mqtt()
 
             mock_mqtt_client.connect.assert_called_once_with("localhost", 1883, 60)
             mock_mqtt_client.loop_start.assert_called_once()
 
-    def test_connect_mqtt_raises_without_broker(self, mock_mqtt_client, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_connect_mqtt_raises_without_broker(self, mock_mqtt_client, monkeypatch):
         monkeypatch.delenv("HUAWEI_MQTT_HOST", raising=False)
         with pytest.raises(RuntimeError, match="MQTT broker not configured"):
-            connect_mqtt()
+            await connect_mqtt()
 
-    def test_connect_mqtt_raises_on_timeout(self, mock_mqtt_client, mqtt_env_vars):
+    @pytest.mark.asyncio
+    async def test_connect_mqtt_raises_on_timeout(self, mock_mqtt_client, mqtt_env_vars):
         import bridge.mqtt_client as mqtt_module
 
         with patch("bridge.mqtt_client.mqtt.Client") as mock_client:
             mock_client.return_value = mock_mqtt_client
-            mqtt_module._is_connected = False
-            with patch("bridge.mqtt_client.time.sleep"):
+            with patch.object(mqtt_module._connected_event, "wait", return_value=False):
                 with pytest.raises(ConnectionError, match="MQTT connection timeout"):
-                    connect_mqtt()
+                    await connect_mqtt()
 
 
 # ---------------------------------------------------------------------------
@@ -177,13 +182,14 @@ class TestConnect:
 class TestDisconnect:
     """MQTT Trennung."""
 
-    def test_disconnect_when_connected_publishes_and_cleans_up(self, mock_mqtt_client, mqtt_env_vars):
+    @pytest.mark.asyncio
+    async def test_disconnect_when_connected_publishes_and_cleans_up(self, mock_mqtt_client, mqtt_env_vars):
         import bridge.mqtt_client as mqtt_module
 
         mqtt_module._mqtt_client = mock_mqtt_client
         mqtt_module._is_connected = True
 
-        disconnect_mqtt()
+        await disconnect_mqtt()
 
         mock_mqtt_client.publish.assert_called_once()
         mock_mqtt_client.loop_stop.assert_called_once()
@@ -191,8 +197,9 @@ class TestDisconnect:
         assert mqtt_module._mqtt_client is None
         assert mqtt_module._is_connected is False
 
-    def test_disconnect_when_not_connected_is_safe(self):
-        disconnect_mqtt()  # Should not raise
+    @pytest.mark.asyncio
+    async def test_disconnect_when_not_connected_is_safe(self):
+        await disconnect_mqtt()  # Should not raise
 
 
 # ---------------------------------------------------------------------------
@@ -243,13 +250,14 @@ class TestSensorConfig:
 class TestPublishing:
     """MQTT Publishing von Daten und Status."""
 
-    def test_publish_data_sends_correct_payload(self, mock_mqtt_client, mqtt_env_vars):
+    @pytest.mark.asyncio
+    async def test_publish_data_sends_correct_payload(self, mock_mqtt_client, mqtt_env_vars):
         import bridge.mqtt_client as mqtt_module
 
         mqtt_module._mqtt_client = mock_mqtt_client
         mqtt_module._is_connected = True
 
-        publish_data({"power_input": 4500, "battery_soc": 85.5}, "test/topic")
+        await publish_data({"power_input": 4500, "battery_soc": 85.5}, "test/topic")
 
         mock_mqtt_client.publish.assert_called_once()
         call_args = mock_mqtt_client.publish.call_args
@@ -259,30 +267,33 @@ class TestPublishing:
         assert payload["battery_soc"] == 85.5
         assert "last_update" in payload
 
-    def test_publish_data_raises_when_not_connected(self):
+    @pytest.mark.asyncio
+    async def test_publish_data_raises_when_not_connected(self):
         import bridge.mqtt_client as mqtt_module
 
         mqtt_module._is_connected = False
         with pytest.raises(ConnectionError, match="MQTT not connected"):
-            publish_data({"test": 123}, "test/topic")
+            await publish_data({"test": 123}, "test/topic")
 
-    def test_publish_data_propagates_exception(self, mock_mqtt_client, mqtt_env_vars):
+    @pytest.mark.asyncio
+    async def test_publish_data_propagates_exception(self, mock_mqtt_client, mqtt_env_vars):
         import bridge.mqtt_client as mqtt_module
 
         mqtt_module._mqtt_client = mock_mqtt_client
         mqtt_module._is_connected = True
         mock_mqtt_client.publish.side_effect = Exception("Test error")
         with pytest.raises(Exception, match="Test error"):
-            publish_data({"test": 123}, "test/topic")
+            await publish_data({"test": 123}, "test/topic")
 
-    def test_publish_data_logs_debug_info(self, mock_mqtt_client, mqtt_env_vars, caplog):
+    @pytest.mark.asyncio
+    async def test_publish_data_logs_debug_info(self, mock_mqtt_client, mqtt_env_vars, caplog):
         import bridge.mqtt_client as mqtt_module
 
         mqtt_module._mqtt_client = mock_mqtt_client
         mqtt_module._is_connected = True
         caplog.set_level(logging.DEBUG, logger="huawei.mqtt")
 
-        publish_data(
+        await publish_data(
             {"power_active": 4500, "meter_power_active": -200, "battery_power": 800},
             "test/topic",
         )
@@ -291,31 +302,34 @@ class TestPublishing:
         assert "Grid=-200W" in caplog.text
         assert "Battery=800W" in caplog.text
 
-    def test_publish_status_online(self, mock_mqtt_client, mqtt_env_vars):
+    @pytest.mark.asyncio
+    async def test_publish_status_online(self, mock_mqtt_client, mqtt_env_vars):
         import bridge.mqtt_client as mqtt_module
 
         mqtt_module._mqtt_client = mock_mqtt_client
         mqtt_module._is_connected = True
 
-        publish_status("online", "test/topic")
+        await publish_status("online", "test/topic")
 
         mock_mqtt_client.publish.assert_called_once_with("test/topic/status", "online", qos=1, retain=True)
 
-    def test_publish_status_skips_when_not_connected(self, mock_mqtt_client):
+    @pytest.mark.asyncio
+    async def test_publish_status_skips_when_not_connected(self, mock_mqtt_client):
         import bridge.mqtt_client as mqtt_module
 
         mqtt_module._is_connected = False
-        publish_status("online", "test/topic")
+        await publish_status("online", "test/topic")
         mock_mqtt_client.publish.assert_not_called()
 
-    def test_publish_status_logs_exception_without_raising(self, mock_mqtt_client, mqtt_env_vars, caplog):
+    @pytest.mark.asyncio
+    async def test_publish_status_logs_exception_without_raising(self, mock_mqtt_client, mqtt_env_vars, caplog):
         import bridge.mqtt_client as mqtt_module
 
         mqtt_module._mqtt_client = mock_mqtt_client
         mqtt_module._is_connected = True
         mock_mqtt_client.publish.side_effect = Exception("Network timeout")
 
-        publish_status("online", "test/topic")
+        await publish_status("online", "test/topic")
 
         assert "Status publish failed" in caplog.text
         assert "Network timeout" in caplog.text
@@ -329,7 +343,8 @@ class TestPublishing:
 class TestDiscovery:
     """MQTT Discovery Config Publishing."""
 
-    def test_publish_discovery_configs_publishes_sensors(self, mock_mqtt_client, mqtt_env_vars):
+    @pytest.mark.asyncio
+    async def test_publish_discovery_configs_publishes_sensors(self, mock_mqtt_client, mqtt_env_vars):
         import bridge.mqtt_client as mqtt_module
 
         mqtt_module._mqtt_client = mock_mqtt_client
@@ -337,14 +352,15 @@ class TestDiscovery:
 
         with patch("bridge.mqtt_client._load_numeric_sensors", return_value=[{"name": "Test", "key": "test"}]):
             with patch("bridge.mqtt_client._load_text_sensors", return_value=[]):
-                publish_discovery_configs("test/topic")
+                await publish_discovery_configs("test/topic")
                 assert mock_mqtt_client.publish.call_count >= 2
 
-    def test_publish_discovery_skips_when_not_connected(self, mock_mqtt_client):
+    @pytest.mark.asyncio
+    async def test_publish_discovery_skips_when_not_connected(self, mock_mqtt_client):
         import bridge.mqtt_client as mqtt_module
 
         mqtt_module._is_connected = False
-        publish_discovery_configs("test/topic")
+        await publish_discovery_configs("test/topic")
         mock_mqtt_client.publish.assert_not_called()
 
 

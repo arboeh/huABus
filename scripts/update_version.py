@@ -42,7 +42,7 @@ def update_version_py(version):
     content = version_file.read_text(encoding="utf-8")
     new_content = re.sub(
         r'(version\s*=\s*")[^"]+(")',
-        rf"\g<1>{re.escape(version)}\g<2>",
+        rf"\g<1>{version}\g<2>",  # ← re.escape() entfernt
         content,
     )
 
@@ -57,19 +57,21 @@ def update_requirements():
     """Generate requirements.txt from pyproject.toml via uv."""
     output_path = SCRIPT_DIR / "../huawei_solar_modbus_mqtt/requirements.txt"
     try:
-        subprocess.run(
+        result = subprocess.run(
             [
                 "uv",
                 "export",
                 "--no-dev",
                 "--no-hashes",
                 "--no-emit-project",
-                "-o",
-                str(output_path),
             ],
             check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
             cwd=SCRIPT_DIR / "..",
         )
+        output_path.write_text(result.stdout, encoding="utf-8")
         print("✅ UPDATED: requirements.txt")
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"uv export failed: {e}") from e
