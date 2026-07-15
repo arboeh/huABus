@@ -6,7 +6,7 @@ huawei-solar==2.5.0
     # via huabus
 paho-mqtt==2.1.0
     # via huabus
-pymodbus==3.13.1
+pymodbus==3.14.0
     # via
     #   huabus
     #   huawei-solar
