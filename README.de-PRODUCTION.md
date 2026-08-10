@@ -161,6 +161,7 @@ Beide teilen die gleiche Limitierung - nur **EINE Modbus-Verbindung**. Für glei
 
 Siehe [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) für detaillierte Release-Notes.
 
+- ✅ **v1.10.4:** Modbus-Verbindungs-Timeout in `setup_modbus()`, verengte Exception-Handler in `run_main_cycle` auf explizite `RECOVERABLE_EXCEPTIONS`, typisierte `ErrorType` im Error-Tracker
 - ✅ **v1.10.3:** Async-Sicherheitsfix — blockierende `wait_for_publish()`- und `time.sleep()`-Aufrufe im MQTT-Hotpath und Connection-Setup eliminiert
 - ✅ **v1.10.2:** Runtime-State-Bereinigung, sicherere Modbus-Auto-Detection, uv-verwaltete Laufzeit-Abhängigkeiten und `batch_max_gap` bleibt bei 50
 - ✅ **v1.10.1:** Batch-Modus-Standard auf `batch_max_gap: 50` reduziert, um Inverter-Registerlimit-Fallbacks zu vermeiden

@@ -161,6 +161,7 @@ Both share the same limitation - only **ONE Modbus connection**. To use both sim
 
 See [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) for detailed release notes.
 
+  - ✅ **v1.10.4:** Modbus connection timeout on `setup_modbus()`, narrowed exception handlers in `run_main_cycle` to explicit `RECOVERABLE_EXCEPTIONS`, typed `ErrorType` in error tracker
 - ✅ **v1.10.3:** Async-safety fix — eliminated blocking `wait_for_publish()` and `time.sleep()` polling in MQTT hotpath and connection setup
 - ✅ **v1.10.2:** Runtime-state cleanup, safer Modbus auto-detection, uv-managed runtime dependencies, and `batch_max_gap` kept at 50
 - ✅ **v1.10.1:** Batch-Mode default reduced to `batch_max_gap: 50` to avoid inverter register-limit fallback
