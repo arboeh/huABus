@@ -5,7 +5,9 @@
 import logging
 from unittest.mock import patch
 
+import pytest
 from bridge.error_tracker import ConnectionErrorTracker
+from bridge.main import _maybe_reset_on_error  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # TestBasicErrorTracking
@@ -248,3 +250,39 @@ class TestStatusReporting:
         assert status["active_errors"] == 0
         assert status["total_failures"] == 0
         assert status["last_success"] == 1000.0
+
+
+# ---------------------------------------------------------------------------
+# TestErrorTypeMapping
+# ---------------------------------------------------------------------------
+
+
+class TestErrorTypeMapping:
+    """_maybe_reset_on_error maps exception classes to canonical ErrorType strings."""
+
+    @pytest.mark.asyncio
+    async def test_timeout_error_maps_to_timeout(self, mock_config):
+        """TimeoutError produces track_error('timeout', ...)."""
+        with patch("bridge.main.error_tracker") as mock_tracker:
+            await _maybe_reset_on_error(TimeoutError("conn timeout"), mock_config)
+
+        mock_tracker.track_error.assert_called_once_with("timeout", "conn timeout")
+
+    @pytest.mark.asyncio
+    async def test_connection_refused_maps_to_connection_refused(self, mock_config):
+        """ConnectionRefusedError produces track_error('connection_refused', ...)."""
+        with patch("bridge.main.error_tracker") as mock_tracker:
+            await _maybe_reset_on_error(ConnectionRefusedError("refused"), mock_config)
+
+        mock_tracker.track_error.assert_called_once_with("connection_refused", "refused")
+
+    @pytest.mark.asyncio
+    async def test_modbus_exception_maps_to_modbus_exception(self, mock_config):
+        """ModbusException produces track_error('modbus_exception', ...)."""
+        from pymodbus.exceptions import ModbusException
+
+        exc = ModbusException("bad register")
+        with patch("bridge.main.error_tracker") as mock_tracker:
+            await _maybe_reset_on_error(exc, mock_config)
+
+        mock_tracker.track_error.assert_called_once_with("modbus_exception", str(exc))
