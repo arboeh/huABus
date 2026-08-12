@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.4]
+
+### Fixed
+
+- **Modbus connect timeout**: `setup_modbus()` now wraps `AsyncHuaweiSolar.create()` in `asyncio.wait_for()` with a 15-second timeout, preventing indefinite hangs when the TCP handshake stalls. Previously only the slave-ID auto-detection path had a timeout; the final connection create call was unbounded (HA-ASYNC-001).
+
+### Changed
+
+- **Narrowed exception handlers in `run_main_cycle`**: Replaced broad `except Exception` catch-all with explicit `RECOVERABLE_EXCEPTIONS` tuple (`TimeoutError`, `ConnectionRefusedError`, `ModbusException`). `ExceptionResponse` from pymodbus 3.x is excluded at runtime since it is a data class, not a `BaseException` subclass. Truly unexpected errors now propagate to the top-level `main()` handler instead of being silently swallowed. `asyncio.CancelledError` is explicitly re-raised (CC-CLEAN-002).
+- **Typed error categories**: Introduced `ErrorType` Literal (`"timeout"`, `"connection_refused"`, `"modbus_exception"`) in `error_tracker.py`. Replaced `type(e).__name__.lower()` stringification (which produced inconsistent names like `"timeouterror"`) with explicit canonical error type mapping (PY-STYLE-003).
+
 ## [1.10.3] - 2026-06-26
 
 ### Fixed

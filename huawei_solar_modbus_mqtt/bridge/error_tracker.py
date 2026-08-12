@@ -50,7 +50,7 @@ Beispiel-Log-Sequenz:
 
 import logging
 import time
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 logger = logging.getLogger("huawei.errors")
 
@@ -59,6 +59,8 @@ logger = logging.getLogger("huawei.errors")
 # For tests, mock `time.time` with `unittest.mock.patch`; do NOT switch to
 # `asyncio.get_event_loop().time()` here — that would couple logging concerns
 # to the event loop and make the tracker harder to test in isolation.
+
+ErrorType = Literal["timeout", "connection_refused", "modbus_exception"]
 
 
 class ErrorStatus(TypedDict):
@@ -118,7 +120,7 @@ class ConnectionErrorTracker:
         # Timestamp des letzten erfolgreichen Cycles (für Downtime-Berechnung)
         self.last_success_time: float | None = None
 
-    def track_error(self, error_type: str, details: str = "") -> bool:
+    def track_error(self, error_type: ErrorType, details: str = "") -> bool:
         """
         Trackt ein Fehler-Auftreten und entscheidet ob geloggt werden soll.
 
