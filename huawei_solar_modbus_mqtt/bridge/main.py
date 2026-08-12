@@ -46,17 +46,27 @@ from .slave_detector import KNOWN_SLAVE_IDS, detect_slave_id
 from .total_increasing_filter import get_filter, reset_filter
 from .transform import transform_data
 
+MODBUS_EXCEPTIONS: tuple[type, ...] = ()
+
 try:
     from pymodbus.exceptions import ModbusException
     from pymodbus.pdu import ExceptionResponse
 
     MODBUS_EXCEPTIONS = (ModbusException, ExceptionResponse)
 except ImportError:  # pragma: no cover
-    MODBUS_EXCEPTIONS = ()  # type: ignore[assignment]
+    pass
+
+
+RECOVERABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (
+    TimeoutError,
+    ConnectionRefusedError,
+) + tuple(exc for exc in MODBUS_EXCEPTIONS if isinstance(exc, type) and issubclass(exc, BaseException))
 
 
 TRACE = 5  # DEBUG ist 10, INFO ist 20, WARNING ist 30
 logging.addLevelName(TRACE, "TRACE")
+
+MODBUS_CONNECT_TIMEOUT = 15
 
 
 class _TraceLogger(logging.Logger):
@@ -617,10 +627,13 @@ async def setup_modbus(slave_id: int, config: ConfigManager) -> AsyncHuaweiSolar
     """
     try:
         connection_start = time.time()
-        client = await AsyncHuaweiSolar.create(
-            config.modbus_host,
-            config.modbus_port,
-            slave_id,
+        client = await asyncio.wait_for(
+            AsyncHuaweiSolar.create(
+                config.modbus_host,
+                config.modbus_port,
+                slave_id,
+            ),
+            timeout=MODBUS_CONNECT_TIMEOUT,
         )
         connection_time = time.time() - connection_start
         logger.info(
@@ -632,6 +645,14 @@ async def setup_modbus(slave_id: int, config: ConfigManager) -> AsyncHuaweiSolar
         )
         await _state.publish_status("online", config.mqtt_topic)
         return client
+    except TimeoutError:
+        logger.error(
+            "❌ Modbus connection to %s:%s timed out after %ds",
+            config.modbus_host,
+            config.modbus_port,
+            MODBUS_CONNECT_TIMEOUT,
+        )
+        return None
     except Exception as e:
         logger.error("❌ Connection failed: %s", e)
         return None
@@ -674,12 +695,20 @@ async def initialize_bridge(config: ConfigManager) -> AsyncHuaweiSolar | None:
     return client
 
 
-async def _maybe_reset_on_error(e: Exception, config: ConfigManager) -> bool:
-    if isinstance(e, (TimeoutError, ConnectionRefusedError)):
-        error_tracker.track_error(type(e).__name__.lower(), str(e))
+async def _maybe_reset_on_error(e: BaseException, config: ConfigManager) -> bool:
+    if isinstance(e, TimeoutError):
+        error_tracker.track_error("timeout", str(e))
         await _state.publish_status("offline", config.mqtt_topic)
         reset_filter()
-        logger.debug("Filter reset due to %s", type(e).__name__)
+        logger.debug("Filter reset due to TimeoutError")
+        await asyncio.sleep(10)
+        return True
+
+    if isinstance(e, ConnectionRefusedError):
+        error_tracker.track_error("connection_refused", str(e))
+        await _state.publish_status("offline", config.mqtt_topic)
+        reset_filter()
+        logger.debug("Filter reset due to ConnectionRefusedError")
         await asyncio.sleep(10)
         return True
 
@@ -703,15 +732,14 @@ async def run_main_cycle(client: AsyncHuaweiSolar, config: ConfigManager, cycle_
     except KeyboardInterrupt as e:
         logger.info("🛑 Interrupted during cycle")
         raise KeyboardInterrupt from e
-    except Exception as e:
+    except asyncio.CancelledError:
+        raise
+    except RECOVERABLE_EXCEPTIONS as e:
         if await _maybe_reset_on_error(e, config):
             return
-        error_type = type(e).__name__
-        if error_tracker.track_error(error_type, str(e)):
-            logger.error("❌ Unexpected: %s", error_type, exc_info=True)
+        logger.error("❌ Recoverable error not handled: %s", e, exc_info=True)
         await _state.publish_status("offline", config.mqtt_topic)
         reset_filter()
-        logger.debug("Filter reset")
         await asyncio.sleep(10)
         return
 

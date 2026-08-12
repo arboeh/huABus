@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 import bridge.main as main_module
 import pytest
 from bridge.main import (
+    RECOVERABLE_EXCEPTIONS,
     _run,
     determine_slave_id,
     heartbeat,
@@ -22,6 +23,8 @@ from bridge.main import (
     main_once,
     read_registers,
     reset_state,
+    run_main_cycle,
+    setup_modbus,
 )
 
 # ---------------------------------------------------------------------------
@@ -69,7 +72,7 @@ class TestMain:
         old_state = main_module._state
         old_tracker = main_module.error_tracker
         main_module._state.last_success = 123.0
-        main_module.error_tracker.track_error("test", "error")
+        main_module.error_tracker.track_error("timeout", "error")
 
         reset_state()
 
@@ -360,6 +363,125 @@ class TestIsModbusException:
         with patch("huawei_solar_modbus_mqtt.bridge.main.MODBUS_EXCEPTIONS", ()):
             assert not is_modbus_exception(ValueError("any"))
             assert not is_modbus_exception(Exception("test"))
+
+
+# ---------------------------------------------------------------------------
+# TestSetupModbus
+# ---------------------------------------------------------------------------
+
+
+class TestSetupModbus:
+    """Tests for setup_modbus() — connection creation and timeout handling."""
+
+    @pytest.mark.asyncio
+    async def test_successful_connection(self, mock_config):
+        """Returns a connected client on success."""
+        mock_client = AsyncMock()
+        with patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client):
+            result = await setup_modbus(1, mock_config)
+
+        assert result is mock_client
+
+    @pytest.mark.asyncio
+    async def test_timeout_returns_none(self, mock_config, caplog):
+        """TimeoutError from create() returns None and logs the timeout."""
+        with (
+            patch("bridge.main.AsyncHuaweiSolar.create", side_effect=TimeoutError()),
+            patch("bridge.main._state.publish_status", new_callable=AsyncMock),
+        ):
+            result = await setup_modbus(1, mock_config)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_timeout_logs_host_and_port(self, mock_config, caplog):
+        """Timeout error message includes host, port, and timeout value."""
+        with (
+            patch("bridge.main.AsyncHuaweiSolar.create", side_effect=TimeoutError()),
+            patch("bridge.main._state.publish_status", new_callable=AsyncMock),
+        ):
+            await setup_modbus(1, mock_config)
+
+        assert "timed out" in caplog.text
+        assert mock_config.modbus_host in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_connection_refused_returns_none(self, mock_config):
+        """ConnectionRefusedError from create() returns None."""
+        with patch("bridge.main.AsyncHuaweiSolar.create", side_effect=ConnectionRefusedError()):
+            result = await setup_modbus(1, mock_config)
+
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# TestRunMainCycleExceptionHandling
+# ---------------------------------------------------------------------------
+
+
+class TestRunMainCycleExceptionHandling:
+    """Tests for run_main_cycle() error recovery and propagation."""
+
+    @pytest.mark.asyncio
+    async def test_cancelled_error_propagates(self, mock_client, mock_config):
+        """asyncio.CancelledError propagates without filter reset."""
+        with (
+            patch("bridge.main.main_once", side_effect=asyncio.CancelledError()),
+            patch("bridge.main._maybe_reset_on_error") as mock_maybe_reset,
+            patch("bridge.main.reset_filter") as mock_reset_filter,
+        ):
+            with pytest.raises(asyncio.CancelledError):
+                await run_main_cycle(mock_client, mock_config, 1)
+
+        mock_maybe_reset.assert_not_called()
+        mock_reset_filter.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_unexpected_exception_propagates(self, mock_client, mock_config):
+        """Non-recoverable exceptions propagate to caller (fail-fast)."""
+        with patch("bridge.main.main_once", side_effect=ValueError("unexpected")):
+            with pytest.raises(ValueError):
+                await run_main_cycle(mock_client, mock_config, 1)
+
+    @pytest.mark.asyncio
+    async def test_timeout_triggers_filter_reset_in_cycle(self, mock_client, mock_config):
+        """TimeoutError in main_once triggers filter reset via _maybe_reset_on_error."""
+        with (
+            patch("bridge.main._maybe_reset_on_error", return_value=True) as mock_maybe,
+            patch("bridge.main.main_once", side_effect=TimeoutError()),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
+            await run_main_cycle(mock_client, mock_config, 1)
+
+        mock_maybe.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# TestRecoverableExceptionsSanitized
+# ---------------------------------------------------------------------------
+
+
+class TestRecoverableExceptionsSanitized:
+    """RECOVERABLE_EXCEPTIONS contains only real exception classes."""
+
+    def test_all_entries_are_baseclasses(self):
+        """Every class in RECOVERABLE_EXCEPTIONS is a BaseException subclass."""
+        assert isinstance(RECOVERABLE_EXCEPTIONS, tuple)
+        for exc in RECOVERABLE_EXCEPTIONS:
+            assert isinstance(exc, type)
+            assert issubclass(exc, BaseException)
+
+    def test_includes_standard_recoverable(self):
+        assert TimeoutError in RECOVERABLE_EXCEPTIONS
+        assert ConnectionRefusedError in RECOVERABLE_EXCEPTIONS
+
+    def test_only_real_exceptions_included(self):
+        """RECOVERABLE_EXCEPTIONS never includes non-BaseException classes."""
+        import bridge.main as main_module
+
+        for exc in main_module.RECOVERABLE_EXCEPTIONS:
+            assert isinstance(exc, type)
+            assert issubclass(exc, BaseException)
 
 
 # ---------------------------------------------------------------------------
