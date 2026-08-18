@@ -233,6 +233,13 @@ Stable releases on GitHub/PyPI: `v3.0.0`, `v3.0.1`–`v3.0.7`.
 - **run.sh**: Zeigt zur Laufzeit die Python-Version an (Zeile 176: `python3 --version`). Zeigt außerdem `tmodbus` und `paho-mqtt` Versionen an (Zeilen 180-190). Keine Anpassung erforderlich.
 - **requirements.txt**: Alle Pakete (`huawei-solar`, `paho-mqtt`, `tmodbus`, `serialx`, `tenacity`) sind reine Python-Pakete (keine C-Extension-Abhängigkeiten) und kompatibel mit allen unterstützten Architekturen.
 
+### 6.1 Docker-Base-Image und Python 3.14 (CI-Testmatrix-only)
+
+- **Status**: Hinweis festgehalt, keine Code-Änderung.
+- Das `ghcr.io/home-assistant/<arch>-base:latest`-Image (Alpine 3.24) liefert aktuell **Python 3.12** als Laufzeitversion im Produktions-Container.
+- Python **3.14** wird ausschließlich in der CI-Testmatrix (Job `test`) als zusätzliche Test-Zielversion mitgeführt. Sie ist **nicht** die Version, die im Home-Assistant-Addon-Container tatsächlich zur Laufzeit verwendet wird.
+- Vor einer etwaigen Anhebung der Container-Laufzeitversion auf Python 3.14 muss das `home-assistant/base`-Image separat auf 3.14-Kompatibilität geprüft werden (verfügbarer Alpine-Repository-Channel, `apk` Paket-Verfügbarkeit). Dies ist **kein** Bestandteil dieses Tasks.
+
 ## 7. SECURITY.md — Puffer dependency cleanup
 
 - **Status**: Aktualisiert.
