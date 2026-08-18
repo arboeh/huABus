@@ -6,7 +6,7 @@ huawei-solar==2.5.0
     # via huabus
 paho-mqtt==2.1.0
     # via huabus
-pymodbus==3.13.1
+pymodbus==3.15.0
     # via
     #   huabus
     #   huawei-solar
@@ -14,5 +14,5 @@ pyserial==3.5
     # via pyserial-asyncio
 pyserial-asyncio==0.6
     # via huawei-solar
-pytz==2026.2
+pytz==2026.3.post1
     # via huawei-solar
