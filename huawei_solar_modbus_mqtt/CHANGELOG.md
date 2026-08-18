@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.5]
+
+### Changed
+
+- **huawei-solar Bibliotheks-Upgrade 2.5.0 → 3.0.7**: Migration von pyModbus auf tModbus als Transportschicht der Bibliothek. `AsyncHuaweiSolar.create()` → `create_tcp_client()` + `await client.connect()`. `client.stop()` → `client.disconnect()`. Exception-Handling umgestellt von `pymodbus.exceptions` auf `huawei_solar.exceptions` (`ReadException`, `ConnectionException`, `ConnectionInterruptedException`).
+- **Python-Mindestversion angehoben**: `>=3.11` → `>=3.12` (Anforderung der huawei-solar-Bibliothek 3.x).
+- **`ErrorType`-Kategorien erweitert**: `connection_exception`, `connection_interrupted` neu in `error_tracker.py`.
+
+### Fixed
+
+- `pyright`-Importpfad für `RegisterDefinition` korrigiert (`huawei_solar.register_definitions.base`).
+- `CallbackAPIVersion`-Import aus `paho.mqtt.enums` statt `paho.mqtt.client` (behebt `reportPrivateImportUsage`).
+
+### Dependencies
+
+- Entfernt: `pymodbus`, `backoff`, `pyserial-asyncio`, `pyserial`, `pytz`
+- Neu: `tmodbus`, `serialx`, `tenacity`
+
 ## [1.10.4]
 
 ### Fixed
