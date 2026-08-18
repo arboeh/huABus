@@ -26,14 +26,15 @@ import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
-from huawei_solar import AsyncHuaweiSolar
+from huawei_solar import AsyncHuaweiSolarClient, RegisterName, create_tcp_client
+from huawei_solar.exceptions import ConnectionException, ConnectionInterruptedException, ReadException
 
 from .batch_builder import BatchBuilder
 from .config.registers import ESSENTIAL_REGISTERS
 from .config_manager import ConfigManager
-from .error_tracker import ConnectionErrorTracker
+from .error_tracker import ConnectionErrorTracker, ErrorType
 from .logging_utils import get_logger
 from .mqtt_client import (
     connect_mqtt,
@@ -46,21 +47,15 @@ from .slave_detector import KNOWN_SLAVE_IDS, detect_slave_id
 from .total_increasing_filter import get_filter, reset_filter
 from .transform import transform_data
 
-MODBUS_EXCEPTIONS: tuple[type, ...] = ()
-
-try:
-    from pymodbus.exceptions import ModbusException
-    from pymodbus.pdu import ExceptionResponse
-
-    MODBUS_EXCEPTIONS = (ModbusException, ExceptionResponse)
-except ImportError:  # pragma: no cover
-    pass
+MODBUS_EXCEPTIONS: tuple[type, ...] = (ReadException,)
 
 
 RECOVERABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (
     TimeoutError,
     ConnectionRefusedError,
-) + tuple(exc for exc in MODBUS_EXCEPTIONS if isinstance(exc, type) and issubclass(exc, BaseException))
+    ConnectionInterruptedException,
+    ConnectionException,
+) + MODBUS_EXCEPTIONS
 
 
 TRACE = 5  # DEBUG ist 10, INFO ist 20, WARNING ist 30
@@ -137,7 +132,7 @@ def init_logging(log_level: str) -> None:
 
     Konfiguriert drei Logger-Hierarchien:
     1. Root Logger - für alle eigenen Module (huawei.*)
-    2. pymodbus Logger - für Modbus-Library (meist zu verbose)
+    2. tmodbus Logger - für Modbus-Library (meist zu verbose)
     3. huawei_solar Logger - für Inverter-Library
 
     Args:
@@ -145,15 +140,15 @@ def init_logging(log_level: str) -> None:
     """
     level = _parse_log_level(log_level)
     _setup_root_logger(level)
-    _configure_pymodbus(level)
+    _configure_tmodbus(level)
     _configure_huawei_solar(level)
 
     logger.info("📋 Logging initialized: %s", logging.getLevelName(level))
 
     if level <= logging.DEBUG:
         logger.debug(
-            "External loggers: pymodbus=%s, huawei_solar=%s",
-            logging.getLevelName(logging.getLogger("pymodbus").level),
+            "External loggers: tmodbus=%s, huawei_solar=%s",
+            logging.getLevelName(logging.getLogger("tmodbus").level),
             logging.getLevelName(logging.getLogger("huawei_solar").level),
         )
 
@@ -194,16 +189,16 @@ def _setup_root_logger(level: int) -> None:
     root.addHandler(handler)
 
 
-def _configure_pymodbus(level: int) -> None:
-    """Konfiguriert pymodbus Logger."""
-    for logger_name in ["pymodbus", "pymodbus.logging"]:
-        pymodbus_logger = logging.getLogger(logger_name)
+def _configure_tmodbus(level: int) -> None:
+    """Konfiguriert tmodbus Logger (Modbus-Library)."""
+    for logger_name in ["tmodbus", "huawei_solar.modbus_client"]:
+        modbus_logger = logging.getLogger(logger_name)
         if level == TRACE:
-            pymodbus_logger.setLevel(logging.DEBUG)
+            modbus_logger.setLevel(logging.DEBUG)
         elif level == logging.DEBUG:
-            pymodbus_logger.setLevel(logging.INFO)
+            modbus_logger.setLevel(logging.INFO)
         else:
-            pymodbus_logger.setLevel(logging.WARNING)
+            modbus_logger.setLevel(logging.WARNING)
 
 
 def _configure_huawei_solar(level: int) -> None:
@@ -284,14 +279,14 @@ def log_cycle_summary(cycle_num: int, _timings: dict[str, float], data: dict[str
 
 
 async def read_registers(
-    client: AsyncHuaweiSolar,
+    client: AsyncHuaweiSolarClient,
     batch_max_gap: int = 50,
     enable_batching: bool = True,
 ) -> dict[str, Any]:
     """Liest Essential Registers vom Inverter mit optimalem Batching.
 
     Args:
-        client: AsyncHuaweiSolar Client
+        client: AsyncHuaweiSolarClient Client
         batch_max_gap: Maximum address gap within a batch (for smart batching)
         enable_batching: Whether to use smart batching strategy
 
@@ -332,7 +327,7 @@ async def read_registers(
             for batch_num, batch in enumerate(batches, 1):
                 batch_read_start = time.time()
                 try:
-                    values = await client.get_multiple(batch)
+                    values = await client.get_multiple([cast(RegisterName, n) for n in batch])
                     batch_duration = time.time() - batch_read_start
                     batch_timings.append((batch_num, batch_duration))
 
@@ -358,14 +353,14 @@ async def read_registers(
                     # Fall back to sequential for this batch
                     for name in batch:
                         try:
-                            data[name] = await client.get(name)
+                            data[name] = await client.get(cast(RegisterName, name))
                         except Exception:
                             logger.debug("Skipping '%s' (not available)", name)
 
             # Unknown registers (not in library) are always read sequentially
             for name in unknown_registers:
                 try:
-                    data[name] = await client.get(name)
+                    data[name] = await client.get(cast(RegisterName, name))
                 except Exception:
                     logger.debug("Skipping '%s' (not available)", name)
 
@@ -405,7 +400,7 @@ async def read_registers(
     for name in ESSENTIAL_REGISTERS:
         register_start = time.time()
         try:
-            data[name] = await client.get(name)
+            data[name] = await client.get(cast(RegisterName, name))
             register_duration = time.time() - register_start
             register_timings.append((name, register_duration))
             successful += 1
@@ -462,21 +457,21 @@ def is_modbus_exception(exc: Exception) -> bool:
     return isinstance(exc, MODBUS_EXCEPTIONS)
 
 
-async def main_once(client: AsyncHuaweiSolar, config: ConfigManager, cycle_num: int) -> None:
+async def main_once(client: AsyncHuaweiSolarClient, config: ConfigManager, cycle_num: int) -> None:
     """Execute a single read-transform-filter-publish cycle.
 
     Reads essential Modbus registers, transforms and filters the values,
     publishes them to MQTT, and updates cycle summary logging.
 
     Args:
-        client: Connected AsyncHuaweiSolar Modbus client.
+        client: Connected AsyncHuaweiSolarClient Modbus client.
         config: Active configuration instance.
         cycle_num: Sequential cycle counter for logging and filtering.
 
-    Raises:
+     Raises:
         TimeoutError: On Modbus read timeout.
         ConnectionRefusedError: On connection failure.
-        ModbusException: On Modbus protocol errors.
+        ReadException: On Modbus protocol errors.
     """
     _state.cycle_count = cycle_num
     _state.config = config
@@ -615,7 +610,7 @@ async def setup_mqtt(config: ConfigManager) -> bool:
     return True
 
 
-async def setup_modbus(slave_id: int, config: ConfigManager) -> AsyncHuaweiSolar | None:
+async def setup_modbus(slave_id: int, config: ConfigManager) -> AsyncHuaweiSolarClient | None:
     """Create Modbus TCP connection to the inverter.
 
     Args:
@@ -623,18 +618,16 @@ async def setup_modbus(slave_id: int, config: ConfigManager) -> AsyncHuaweiSolar
         config: Configuration instance with connection settings.
 
     Returns:
-        Connected AsyncHuaweiSolar client, or None on failure.
+        Connected AsyncHuaweiSolarClient client, or None on failure.
     """
     try:
         connection_start = time.time()
-        client = await asyncio.wait_for(
-            AsyncHuaweiSolar.create(
-                config.modbus_host,
-                config.modbus_port,
-                slave_id,
-            ),
-            timeout=MODBUS_CONNECT_TIMEOUT,
+        client = create_tcp_client(
+            config.modbus_host,
+            config.modbus_port,
+            unit_id=slave_id,
         )
+        await asyncio.wait_for(client.connect(), timeout=MODBUS_CONNECT_TIMEOUT)
         connection_time = time.time() - connection_start
         logger.info(
             "🔌 Connected to %s:%s (Slave ID: %s, took %.3fs)",
@@ -658,14 +651,14 @@ async def setup_modbus(slave_id: int, config: ConfigManager) -> AsyncHuaweiSolar
         return None
 
 
-async def initialize_bridge(config: ConfigManager) -> AsyncHuaweiSolar | None:
+async def initialize_bridge(config: ConfigManager) -> AsyncHuaweiSolarClient | None:
     """Initialize MQTT, discovery, and Modbus connection.
 
     Args:
         config: Configuration instance.
 
     Returns:
-        Connected AsyncHuaweiSolar client, or None if initialization failed.
+        Connected AsyncHuaweiSolarClient client, or None if initialization failed.
     """
     logger.info("🚀 Huawei Solar → MQTT starting")
     config.log_config()
@@ -696,19 +689,23 @@ async def initialize_bridge(config: ConfigManager) -> AsyncHuaweiSolar | None:
 
 
 async def _maybe_reset_on_error(e: BaseException, config: ConfigManager) -> bool:
-    if isinstance(e, TimeoutError):
-        error_tracker.track_error("timeout", str(e))
+    if isinstance(e, (TimeoutError, ConnectionInterruptedException)):
+        error_type: ErrorType = "timeout" if isinstance(e, TimeoutError) else "connection_interrupted"
+        error_tracker.track_error(error_type, str(e))
         await _state.publish_status("offline", config.mqtt_topic)
         reset_filter()
-        logger.debug("Filter reset due to TimeoutError")
+        logger.debug("Filter reset due to timeout/interruption: %s", type(e).__name__)
         await asyncio.sleep(10)
         return True
 
-    if isinstance(e, ConnectionRefusedError):
-        error_tracker.track_error("connection_refused", str(e))
+    if isinstance(e, (ConnectionRefusedError, ConnectionException)):
+        conn_error_type: ErrorType = (
+            "connection_refused" if isinstance(e, ConnectionRefusedError) else "connection_exception"
+        )
+        error_tracker.track_error(conn_error_type, str(e))
         await _state.publish_status("offline", config.mqtt_topic)
         reset_filter()
-        logger.debug("Filter reset due to ConnectionRefusedError")
+        logger.debug("Filter reset due to connection error: %s", type(e).__name__)
         await asyncio.sleep(10)
         return True
 
@@ -723,7 +720,7 @@ async def _maybe_reset_on_error(e: BaseException, config: ConfigManager) -> bool
     return False
 
 
-async def run_main_cycle(client: AsyncHuaweiSolar, config: ConfigManager, cycle_count: int) -> None:
+async def run_main_cycle(client: AsyncHuaweiSolarClient, config: ConfigManager, cycle_count: int) -> None:
     cycle_start = time.time()
     logger.debug("Cycle #%d", cycle_count)
 

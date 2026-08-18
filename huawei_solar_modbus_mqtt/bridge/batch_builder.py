@@ -8,7 +8,7 @@ import logging
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
-    from huawei_solar.registers import RegisterDefinition
+    from huawei_solar.register_definitions.base import RegisterDefinition
 
 logger = logging.getLogger("huawei.batch_builder")
 

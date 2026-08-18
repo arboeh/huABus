@@ -87,7 +87,7 @@ class TestMain:
         """main() registers SIGTERM cancellation on the running event loop."""
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
-            patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
+            patch("bridge.main.create_tcp_client", return_value=mock_client),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.publish_status", new_callable=AsyncMock),
@@ -130,7 +130,7 @@ class TestMain:
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
             patch("bridge.main.detect_slave_id", return_value=1),
-            patch("bridge.main.AsyncHuaweiSolar.create", side_effect=ConnectionRefusedError()),
+            patch("bridge.main.create_tcp_client", side_effect=ConnectionRefusedError()),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as mock_disconnect,
             patch("bridge.main.publish_status", new_callable=AsyncMock),
@@ -145,7 +145,7 @@ class TestMain:
         """main() shuts down gracefully on KeyboardInterrupt."""
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
-            patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
+            patch("bridge.main.create_tcp_client", return_value=mock_client),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as mock_disconnect,
             patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status,
@@ -166,7 +166,7 @@ class TestMain:
 
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
-            patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
+            patch("bridge.main.create_tcp_client", return_value=mock_client),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as mock_disconnect,
             patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status,
@@ -183,7 +183,7 @@ class TestMain:
         """TimeoutError triggers filter reset and retry."""
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
-            patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
+            patch("bridge.main.create_tcp_client", return_value=mock_client),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status,
             patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
@@ -201,16 +201,16 @@ class TestMain:
 
     @pytest.mark.asyncio
     async def test_modbus_exception_triggers_filter_reset(self, mock_config, mock_client):
-        """ModbusException triggers filter reset and retry."""
-        from pymodbus.exceptions import ModbusException
+        """ReadException triggers filter reset and retry."""
+        from huawei_solar.exceptions import ReadException
 
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
-            patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
+            patch("bridge.main.create_tcp_client", return_value=mock_client),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status,
             patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
-            patch("bridge.main.main_once", side_effect=[ModbusException("error"), KeyboardInterrupt()]),
+            patch("bridge.main.main_once", side_effect=[ReadException("error"), KeyboardInterrupt()]),
             patch("bridge.main.reset_filter") as mock_reset_filter,
             patch("asyncio.sleep", new_callable=AsyncMock),
         ):
@@ -227,7 +227,7 @@ class TestMain:
         """main() waits the remaining poll interval after a successful cycle."""
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
-            patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
+            patch("bridge.main.create_tcp_client", return_value=mock_client),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.publish_status", new_callable=AsyncMock),
@@ -349,9 +349,9 @@ class TestIsModbusException:
     """Tests for is_modbus_exception()."""
 
     def test_returns_true_for_modbus_exception(self):
-        from pymodbus.exceptions import ModbusException
+        from huawei_solar.exceptions import ReadException
 
-        assert is_modbus_exception(ModbusException("error"))
+        assert is_modbus_exception(ReadException("error"))
 
     def test_returns_false_for_value_error(self):
         assert not is_modbus_exception(ValueError("error"))
@@ -360,7 +360,7 @@ class TestIsModbusException:
         assert not is_modbus_exception(TimeoutError())
 
     def test_returns_false_when_modbus_exceptions_empty(self):
-        with patch("huawei_solar_modbus_mqtt.bridge.main.MODBUS_EXCEPTIONS", ()):
+        with patch("bridge.main.MODBUS_EXCEPTIONS", ()):
             assert not is_modbus_exception(ValueError("any"))
             assert not is_modbus_exception(Exception("test"))
 
@@ -377,7 +377,7 @@ class TestSetupModbus:
     async def test_successful_connection(self, mock_config):
         """Returns a connected client on success."""
         mock_client = AsyncMock()
-        with patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client):
+        with patch("bridge.main.create_tcp_client", return_value=mock_client):
             result = await setup_modbus(1, mock_config)
 
         assert result is mock_client
@@ -386,7 +386,7 @@ class TestSetupModbus:
     async def test_timeout_returns_none(self, mock_config, caplog):
         """TimeoutError from create() returns None and logs the timeout."""
         with (
-            patch("bridge.main.AsyncHuaweiSolar.create", side_effect=TimeoutError()),
+            patch("bridge.main.create_tcp_client", side_effect=TimeoutError()),
             patch("bridge.main._state.publish_status", new_callable=AsyncMock),
         ):
             result = await setup_modbus(1, mock_config)
@@ -397,7 +397,7 @@ class TestSetupModbus:
     async def test_timeout_logs_host_and_port(self, mock_config, caplog):
         """Timeout error message includes host, port, and timeout value."""
         with (
-            patch("bridge.main.AsyncHuaweiSolar.create", side_effect=TimeoutError()),
+            patch("bridge.main.create_tcp_client", side_effect=TimeoutError()),
             patch("bridge.main._state.publish_status", new_callable=AsyncMock),
         ):
             await setup_modbus(1, mock_config)
@@ -408,7 +408,7 @@ class TestSetupModbus:
     @pytest.mark.asyncio
     async def test_connection_refused_returns_none(self, mock_config):
         """ConnectionRefusedError from create() returns None."""
-        with patch("bridge.main.AsyncHuaweiSolar.create", side_effect=ConnectionRefusedError()):
+        with patch("bridge.main.create_tcp_client", side_effect=ConnectionRefusedError()):
             result = await setup_modbus(1, mock_config)
 
         assert result is None
@@ -474,6 +474,14 @@ class TestRecoverableExceptionsSanitized:
     def test_includes_standard_recoverable(self):
         assert TimeoutError in RECOVERABLE_EXCEPTIONS
         assert ConnectionRefusedError in RECOVERABLE_EXCEPTIONS
+
+    def test_includes_huawei_solar_exceptions(self):
+        from bridge.main import MODBUS_EXCEPTIONS
+        from huawei_solar.exceptions import ConnectionException, ConnectionInterruptedException, ReadException
+
+        assert ConnectionInterruptedException in RECOVERABLE_EXCEPTIONS
+        assert ConnectionException in RECOVERABLE_EXCEPTIONS
+        assert ReadException in MODBUS_EXCEPTIONS
 
     def test_only_real_exceptions_included(self):
         """RECOVERABLE_EXCEPTIONS never includes non-BaseException classes."""

@@ -278,10 +278,10 @@ class TestErrorTypeMapping:
 
     @pytest.mark.asyncio
     async def test_modbus_exception_maps_to_modbus_exception(self, mock_config):
-        """ModbusException produces track_error('modbus_exception', ...)."""
-        from pymodbus.exceptions import ModbusException
+        """ReadException produces track_error('modbus_exception', ...)."""
+        from huawei_solar.exceptions import ReadException
 
-        exc = ModbusException("bad register")
+        exc = ReadException("bad register")
         with patch("bridge.main.error_tracker") as mock_tracker:
             await _maybe_reset_on_error(exc, mock_config)
 

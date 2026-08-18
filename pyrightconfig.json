@@ -13,7 +13,7 @@
     "huawei_solar_modbus_mqtt",
     "scripts/venv/Lib/site-packages"
   ],
-  "pythonVersion": "3.11",
+  "pythonVersion": "3.12",
   "pythonPlatform": "Windows",
   "typeCheckingMode": "basic",
   "reportMissingImports": "none",

@@ -23,6 +23,7 @@ import time
 from typing import Any
 
 import paho.mqtt.client as mqtt
+from paho.mqtt.enums import CallbackAPIVersion
 
 from .config.sensors_mqtt import NUMERIC_SENSORS, TEXT_SENSORS
 
@@ -63,7 +64,7 @@ def _get_mqtt_client() -> mqtt.Client:
     if _mqtt_client is not None:
         return _mqtt_client
 
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)  # type: ignore[attr-defined]
+    client = mqtt.Client(CallbackAPIVersion.VERSION2)
 
     client.on_connect = _on_connect
     client.on_disconnect = _on_disconnect

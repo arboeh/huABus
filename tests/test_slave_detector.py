@@ -120,23 +120,23 @@ class TestSlaveIdTesting:
         mock_client = AsyncMock()
         mock_client.get.return_value = mock_result
 
-        with patch("bridge.slave_detector.AsyncHuaweiSolar.create", return_value=mock_client):
+        with patch("bridge.slave_detector.create_tcp_client", return_value=mock_client):
             result = await _test_slave_id("192.168.1.100", 502, 1, timeout=5)
 
         assert result is True
         mock_client.get.assert_called_once_with("model_name")
-        mock_client.stop.assert_called_once()
+        mock_client.disconnect.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_returns_false_on_timeout(self):
         """Gibt False zurück bei TimeoutError."""
-        with patch("bridge.slave_detector.AsyncHuaweiSolar.create", side_effect=TimeoutError()):
+        with patch("bridge.slave_detector.create_tcp_client", side_effect=TimeoutError()):
             assert await _test_slave_id("192.168.1.100", 502, 1, timeout=1) is False
 
     @pytest.mark.asyncio
     async def test_returns_false_on_connection_refused(self):
         """Gibt False zurück bei ConnectionRefusedError."""
-        with patch("bridge.slave_detector.AsyncHuaweiSolar.create", side_effect=ConnectionRefusedError()):
+        with patch("bridge.slave_detector.create_tcp_client", side_effect=ConnectionRefusedError()):
             assert await _test_slave_id("192.168.1.100", 502, 1, timeout=1) is False
 
     @pytest.mark.asyncio
@@ -147,11 +147,11 @@ class TestSlaveIdTesting:
         mock_client = AsyncMock()
         mock_client.get.return_value = mock_result
 
-        with patch("bridge.slave_detector.AsyncHuaweiSolar.create", return_value=mock_client):
+        with patch("bridge.slave_detector.create_tcp_client", return_value=mock_client):
             result = await _test_slave_id("192.168.1.100", 502, 1, timeout=5)
 
         assert result is False
-        mock_client.stop.assert_called_once()
+        mock_client.disconnect.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_cleanup_called_even_on_read_error(self):
@@ -159,30 +159,30 @@ class TestSlaveIdTesting:
         mock_client = AsyncMock()
         mock_client.get.side_effect = Exception("Read error")
 
-        with patch("bridge.slave_detector.AsyncHuaweiSolar.create", return_value=mock_client):
+        with patch("bridge.slave_detector.create_tcp_client", return_value=mock_client):
             result = await _test_slave_id("192.168.1.100", 502, 1, timeout=5)
 
         assert result is False
-        mock_client.stop.assert_called_once()
+        mock_client.disconnect.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_hanging_stop_does_not_block(self):
-        """Hängendes stop() blockiert nicht dank wait_for-Timeout."""
+    async def test_hanging_disconnect_does_not_block(self):
+        """Hängendes disconnect() blockiert nicht dank wait_for-Timeout."""
 
         async def hanging_stop():
             await asyncio.sleep(999)
 
         mock_client = AsyncMock()
         mock_client.get.side_effect = Exception("Read error")
-        mock_client.stop = hanging_stop
+        mock_client.disconnect = hanging_stop
 
-        with patch("bridge.slave_detector.AsyncHuaweiSolar.create", return_value=mock_client):
+        with patch("bridge.slave_detector.create_tcp_client", return_value=mock_client):
             assert await _test_slave_id("192.168.1.100", 502, 1, timeout=5) is False
 
     @pytest.mark.asyncio
     async def test_cancelled_error_propagates(self):
         """CancelledError wird nicht geschluckt sondern weitergereicht."""
-        with patch("bridge.slave_detector.AsyncHuaweiSolar.create", side_effect=asyncio.CancelledError()):
+        with patch("bridge.slave_detector.create_tcp_client", side_effect=asyncio.CancelledError()):
             with pytest.raises(asyncio.CancelledError):
                 await _test_slave_id("192.168.1.100", 502, 1, timeout=5)
 
@@ -227,7 +227,7 @@ class TestEdgeCases:
         """Bei vollständigem Fehlschlag wird eine Zusammenfassung geloggt."""
         caplog.set_level(logging.INFO)
 
-        with patch("bridge.slave_detector.AsyncHuaweiSolar.create", side_effect=Exception("fail")):
+        with patch("bridge.slave_detector.create_tcp_client", side_effect=Exception("fail")):
             with patch("bridge.slave_detector.asyncio.sleep", new_callable=AsyncMock):
                 result = await detect_slave_id("192.168.1.100", 502)
 

@@ -12,10 +12,9 @@ description = "Huawei Solar Modbus via MQTT and Auto-Discovery"
 authors = [{ name = "arboeh", email = "arend.boehmer@web.de" }]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
@@ -23,9 +22,7 @@ classifiers = [
     "Topic :: Home Automation",
 ]
 dependencies = [
-    "huawei-solar>=2.5,<2.6", # v3.0 noch nicht auf PyPI; breaking change: AsyncHuaweiSolar → AsyncHuaweiSolarClient
-    # Tracker: https://github.com/wlcrs/huawei-solar-lib/releases
-    "pymodbus>=3.9,<4",
+    "huawei-solar>=3.0,<3.1",
     "paho-mqtt>=2.1,<2.2",
 ]
 
@@ -85,7 +82,7 @@ exclude_lines = [
 
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 explicit_package_bases = true
 warn_return_any = true
 warn_unused_configs = true
@@ -94,11 +91,6 @@ check_untyped_defs = true
 strict_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
-
-
-[[tool.mypy.overrides]]
-module = ["pymodbus.*"]
-ignore_missing_imports = true
 
 
 [tool.ruff]

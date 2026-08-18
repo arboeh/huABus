@@ -95,7 +95,7 @@ For non-critical issues:
 Monitored via Dependabot:
 
 - `huawei-solar`
-- `pymodbus`
+- `tmodbus`
 - `paho-mqtt`
 
 See [requirements.txt](requirements.txt) for full list.
