@@ -33,7 +33,7 @@ from huawei_solar.exceptions import ConnectionException, ConnectionInterruptedEx
 
 from .batch_builder import BatchBuilder
 from .config.registers import ESSENTIAL_REGISTERS
-from .config_manager import ConfigManager
+from .config_manager import ConfigManager, ConfigurationError
 from .error_tracker import ConnectionErrorTracker, ErrorType
 from .logging_utils import get_logger
 from .mqtt_client import (
@@ -57,6 +57,12 @@ RECOVERABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (
     ConnectionException,
 ) + MODBUS_EXCEPTIONS
 
+# Exceptions expected during register reads -- narrowed from bare Exception
+# to catch only expected read/connection failures, letting programming errors
+# propagate.  AttributeError covers register names not present in the
+# huawei_solar library internal register definitions.
+READ_EXCEPTIONS: tuple[type[BaseException], ...] = RECOVERABLE_EXCEPTIONS + (AttributeError,)
+
 
 TRACE = 5  # DEBUG ist 10, INFO ist 20, WARNING ist 30
 logging.addLevelName(TRACE, "TRACE")
@@ -76,7 +82,17 @@ logging.setLoggerClass(_TraceLogger)
 
 
 logger = get_logger("huawei.main")
-error_tracker = ConnectionErrorTracker(log_interval=60)
+_error_tracker = ConnectionErrorTracker(log_interval=60)
+
+
+def get_error_tracker() -> ConnectionErrorTracker:
+    """Return the module-level error tracker instance.
+
+    Provides read-only access to the private _error_tracker singleton
+    so that callers outside this module do not need to reach into a
+    private attribute directly.
+    """
+    return _error_tracker
 
 
 def _register_sigterm_handler(loop: asyncio.AbstractEventLoop, cancel_callback: Callable[[], object]) -> None:
@@ -118,12 +134,12 @@ _state = _BridgeState()
 def reset_state() -> None:
     """Wipe global bridge singletons.
 
-    WARNING: For testing only. Resets runtime state (_state, error_tracker)
+    WARNING: For testing only. Resets runtime state (_state, _error_tracker)
     so tests can start from a clean baseline. Do not call in production.
     """
-    global _state, error_tracker
+    global _state, _error_tracker
     _state = _BridgeState()
-    error_tracker = ConnectionErrorTracker(log_interval=60)
+    _error_tracker = ConnectionErrorTracker(log_interval=60)
 
 
 def init_logging(log_level: str) -> None:
@@ -228,7 +244,7 @@ async def heartbeat(config: ConfigManager) -> None:
 
     if offline_duration > timeout:
         if offline_duration < timeout + 5:
-            error_status = error_tracker.get_status()
+            error_status = _error_tracker.get_status()
             logger.warning(
                 "⚠️ Inverter offline for %ds (timeout: %ss) | Failed attempts: %s | Error types: %s",
                 int(offline_duration),
@@ -278,6 +294,22 @@ def log_cycle_summary(cycle_num: int, _timings: dict[str, float], data: dict[str
         logger.debug("🔍 Filter details: %s", dict(filter_stats))
 
 
+async def _read_single_register(client: AsyncHuaweiSolarClient, name: str) -> tuple[str, Any] | None:
+    """Read a single register, returning (name, value) or None if unavailable.
+
+    In read_registers(), individual registers may not exist on all inverter
+    models. Catching READ_EXCEPTIONS here and returning None preserves the
+    graceful-degradation behavior: unavailable registers are silently
+    skipped with a DEBUG log line instead of aborting the entire read cycle.
+    """
+    try:
+        value = await client.get(cast(RegisterName, name))
+        return name, value
+    except READ_EXCEPTIONS:
+        logger.debug("Skipping '%s' (not available)", name)
+        return None
+
+
 async def read_registers(
     client: AsyncHuaweiSolarClient,
     batch_max_gap: int = 50,
@@ -296,6 +328,13 @@ async def read_registers(
 
     Bei DEBUG-Level werden detaillierte Timing-Informationen pro Register ausgegeben,
     um Performance-Probleme zu diagnostizieren.
+
+    Note: Individual register reads intentionally catch expected failures
+    (ReadException, TimeoutError, connection errors, AttributeError) and
+    skip unavailable registers rather than propagating -- this is deliberate
+    graceful degradation, because not all registers exist on every inverter
+    model.  Programming errors (e.g. TypeError, ValueError) are NOT caught
+    and will propagate normally.
     """
 
     logger.debug(
@@ -342,7 +381,7 @@ async def read_registers(
                         batch_duration,
                     )
 
-                except Exception as e:
+                except READ_EXCEPTIONS as e:
                     logger.debug(
                         "⚠️ Batch %d failed (%s), falling back to sequential "
                         "(if this repeats, try reducing batch_max_gap below %d)",
@@ -352,17 +391,13 @@ async def read_registers(
                     )
                     # Fall back to sequential for this batch
                     for name in batch:
-                        try:
-                            data[name] = await client.get(cast(RegisterName, name))
-                        except Exception:
-                            logger.debug("Skipping '%s' (not available)", name)
+                        if (result := await _read_single_register(client, name)) is not None:
+                            data[result[0]] = result[1]
 
             # Unknown registers (not in library) are always read sequentially
             for name in unknown_registers:
-                try:
-                    data[name] = await client.get(cast(RegisterName, name))
-                except Exception:
-                    logger.debug("Skipping '%s' (not available)", name)
+                if (result := await _read_single_register(client, name)) is not None:
+                    data[result[0]] = result[1]
 
             total_batch_duration = time.time() - batch_start
             successful = len([v for v in data.values() if v is not None])
@@ -386,7 +421,7 @@ async def read_registers(
 
             return data
 
-        except Exception as e:
+        except READ_EXCEPTIONS as e:
             logger.debug("⚠️ Smart batching failed (%s), falling back to sequential mode", e)
             data = {}  # Reset data, will retry sequentially
 
@@ -409,7 +444,7 @@ async def read_registers(
             if register_duration > slow_register_threshold:
                 logger.debug("⏱️ Slow register '%s': %.3fs", name, register_duration)
 
-        except Exception:
+        except READ_EXCEPTIONS:
             register_duration = time.time() - register_start
             register_timings.append((name, register_duration))
             logger.debug("Skipping '%s' (not available, took %.3fs)", name, register_duration)
@@ -554,7 +589,7 @@ async def determine_slave_id(config: ConfigManager) -> int:
         Slave ID to use
 
     Raises:
-        SystemExit: If Slave ID cannot be determined
+        ConfigurationError: If Slave ID cannot be determined
     """
     if config.modbus_auto_detect_slave_id:
         detected_id = await detect_slave_id(
@@ -565,28 +600,21 @@ async def determine_slave_id(config: ConfigManager) -> int:
         if detected_id is not None:
             return detected_id
         else:
-            logger.error(
-                "❌ Auto-detection failed. Please set 'modbus.auto_detect_slave_id: false' "
-                "and configure 'modbus.slave_id' manually in the add-on configuration."
+            raise ConfigurationError(
+                "Auto-detection failed. Please set 'modbus.auto_detect_slave_id: false' "
+                "and configure 'modbus.slave_id' manually in the add-on configuration. "
+                f"Tested Slave IDs: {KNOWN_SLAVE_IDS} on {config.modbus_host}:{config.modbus_port}"
             )
-            logger.error(
-                "❌ Tested Slave IDs: %s on %s:%s",
-                KNOWN_SLAVE_IDS,
-                config.modbus_host,
-                config.modbus_port,
-            )
-            sys.exit(1)
 
     else:
         # Manual Slave ID
         manual_slave_id = config.slave_id
 
         if manual_slave_id is None:
-            logger.error(
-                "❌ Auto-detection is disabled but no manual 'slave_id' configured. "
+            raise ConfigurationError(
+                "Auto-detection is disabled but no manual 'slave_id' configured. "
                 "Please set 'modbus.slave_id' in the add-on configuration."
             )
-            sys.exit(1)
 
         logger.debug("Using manual Slave ID: %s", manual_slave_id)
         return manual_slave_id
@@ -604,7 +632,7 @@ async def setup_mqtt(config: ConfigManager) -> bool:
     try:
         await connect_mqtt()
         await asyncio.sleep(1)
-    except Exception as e:
+    except (OSError, ConnectionError) as e:
         logger.error("❌ MQTT connect failed: %s", e)
         return False
     return True
@@ -646,7 +674,7 @@ async def setup_modbus(slave_id: int, config: ConfigManager) -> AsyncHuaweiSolar
             MODBUS_CONNECT_TIMEOUT,
         )
         return None
-    except Exception as e:
+    except (OSError, ConnectionError) as e:
         logger.error("❌ Connection failed: %s", e)
         return None
 
@@ -691,7 +719,7 @@ async def initialize_bridge(config: ConfigManager) -> AsyncHuaweiSolarClient | N
 async def _maybe_reset_on_error(e: BaseException, config: ConfigManager) -> bool:
     if isinstance(e, (TimeoutError, ConnectionInterruptedException)):
         error_type: ErrorType = "timeout" if isinstance(e, TimeoutError) else "connection_interrupted"
-        error_tracker.track_error(error_type, str(e))
+        _error_tracker.track_error(error_type, str(e))
         await _state.publish_status("offline", config.mqtt_topic)
         reset_filter()
         logger.debug("Filter reset due to timeout/interruption: %s", type(e).__name__)
@@ -702,7 +730,7 @@ async def _maybe_reset_on_error(e: BaseException, config: ConfigManager) -> bool
         conn_error_type: ErrorType = (
             "connection_refused" if isinstance(e, ConnectionRefusedError) else "connection_exception"
         )
-        error_tracker.track_error(conn_error_type, str(e))
+        _error_tracker.track_error(conn_error_type, str(e))
         await _state.publish_status("offline", config.mqtt_topic)
         reset_filter()
         logger.debug("Filter reset due to connection error: %s", type(e).__name__)
@@ -710,7 +738,7 @@ async def _maybe_reset_on_error(e: BaseException, config: ConfigManager) -> bool
         return True
 
     if MODBUS_EXCEPTIONS and isinstance(e, MODBUS_EXCEPTIONS):
-        error_tracker.track_error("modbus_exception", str(e))
+        _error_tracker.track_error("modbus_exception", str(e))
         await _state.publish_status("offline", config.mqtt_topic)
         reset_filter()
         logger.debug("Filter reset due to modbus exception")
@@ -740,7 +768,7 @@ async def run_main_cycle(client: AsyncHuaweiSolarClient, config: ConfigManager, 
         await asyncio.sleep(10)
         return
 
-    error_tracker.mark_success()
+    _error_tracker.mark_success()
     await _state.publish_status("online", config.mqtt_topic)
 
     elapsed = time.time() - cycle_start
@@ -773,7 +801,11 @@ async def main() -> None:
     init_logging(config.log_level)
     _state.config = config
 
-    client = await initialize_bridge(config)
+    try:
+        client = await initialize_bridge(config)
+    except ConfigurationError as e:
+        logger.error("❌ %s", e)
+        sys.exit(1)
     if client is None:
         return
 

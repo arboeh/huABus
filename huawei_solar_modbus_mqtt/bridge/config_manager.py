@@ -22,6 +22,10 @@ from .batch_builder import BatchBuilder
 logger = logging.getLogger(__name__)
 
 
+class ConfigurationError(Exception):
+    """Raised when the bridge configuration is invalid or incomplete."""
+
+
 class ConfigManager:
     """Manage add-on configuration with validation."""
 

@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **huawei-solar Bibliotheks-Upgrade 2.5.0 → 3.0.7**: Migration von pyModbus auf tModbus als Transportschicht der Bibliothek. `AsyncHuaweiSolar.create()` → `create_tcp_client()` + `await client.connect()`. `client.stop()` → `client.disconnect()`. Exception-Handling umgestellt von `pymodbus.exceptions` auf `huawei_solar.exceptions` (`ReadException`, `ConnectionException`, `ConnectionInterruptedException`).
 - **Python-Mindestversion angehoben**: `>=3.11` → `>=3.12` (Anforderung der huawei-solar-Bibliothek 3.x).
 - **`ErrorType`-Kategorien erweitert**: `connection_exception`, `connection_interrupted` neu in `error_tracker.py`.
+- **Exception handling narrowed in `read_registers()`**: Bare `except Exception` replaced with `READ_EXCEPTIONS` (ReadException, TimeoutError, connection errors, AttributeError). Programming errors (TypeError, KeyError, etc.) now propagate instead of triggering silent sequential fallback. This is an intentional behavioral change: `build_batches()` is pure-Python batch construction that should fail fast on programming errors, not silently degrade.
+- **Code quality refactors** (no functional change):
+  - `error_tracker` privatized to `_error_tracker` with `get_error_tracker()` accessor (CC-CLEAN-001).
+  - Extracted `_read_single_register()` helper to eliminate duplicated try/except blocks (CC-CLEAN-003).
+  - `ConfigurationError` raised by `determine_slave_id()` instead of `sys.exit(1)`, enabling testability (HA-ASYNC-002).
+  - `setup_mqtt()` and `setup_modbus()` narrowed `except Exception` to `except (OSError, ConnectionError)` (CC-CLEAN-002).
 
 ### Fixed
 

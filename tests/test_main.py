@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import bridge.main as main_module
 import pytest
+from bridge.config_manager import ConfigurationError
 from bridge.main import (
     RECOVERABLE_EXCEPTIONS,
     _run,
@@ -26,6 +27,7 @@ from bridge.main import (
     run_main_cycle,
     setup_modbus,
 )
+from huawei_solar.exceptions import ReadException
 
 # ---------------------------------------------------------------------------
 # Module-level test data for log_cycle_summary tests
@@ -70,14 +72,14 @@ class TestMain:
     def test_reset_state_recreates_runtime_singletons(self):
         """reset_state() isolates runtime state between tests."""
         old_state = main_module._state
-        old_tracker = main_module.error_tracker
+        old_tracker = main_module._error_tracker
         main_module._state.last_success = 123.0
-        main_module.error_tracker.track_error("timeout", "error")
+        main_module._error_tracker.track_error("timeout", "error")
 
         reset_state()
 
         assert main_module._state is not old_state
-        assert main_module.error_tracker is not old_tracker
+        assert main_module._error_tracker is not old_tracker
         assert main_module._state.last_success == 0.0
         assert main_module._state.config is None
         assert main_module._state.cycle_count == 0
@@ -232,7 +234,7 @@ class TestMain:
             patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.publish_status", new_callable=AsyncMock),
             patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
-            patch("bridge.main.error_tracker"),
+            patch("bridge.main._error_tracker"),
             patch("bridge.main.main_once", side_effect=[None, KeyboardInterrupt()]),
             patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
         ):
@@ -246,11 +248,11 @@ class TestMain:
 
     @pytest.mark.asyncio
     async def test_mqtt_connection_failure_exits(self, mock_config):
-        """main() returns cleanly (no SystemExit) on MQTT connection failure."""
+        """main() returns cleanly (no ConfigurationError) on MQTT connection failure."""
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
             patch("bridge.main.detect_slave_id", return_value=1),
-            patch("bridge.main.connect_mqtt", new_callable=AsyncMock, side_effect=Exception("MQTT failed")),
+            patch("bridge.main.connect_mqtt", new_callable=AsyncMock, side_effect=ConnectionError("MQTT failed")),
             patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as mock_disconnect,
             patch("bridge.main.publish_status", new_callable=AsyncMock),
             patch("asyncio.sleep", new_callable=AsyncMock),
@@ -276,7 +278,7 @@ class TestDetermineSlaveId:
     @pytest.mark.asyncio
     async def test_manual_mode_none_exits(self):
         config = Mock(modbus_auto_detect_slave_id=False, slave_id=None)
-        with pytest.raises(SystemExit):
+        with pytest.raises(ConfigurationError):
             await determine_slave_id(config)
 
     @pytest.mark.asyncio
@@ -292,7 +294,7 @@ class TestDetermineSlaveId:
         config = Mock(modbus_auto_detect_slave_id=True, modbus_host="192.168.1.100", modbus_port=502)
         with (
             patch("bridge.main.detect_slave_id", return_value=None),
-            pytest.raises(SystemExit),
+            pytest.raises(ConfigurationError),
         ):
             await determine_slave_id(config)
 
@@ -622,7 +624,7 @@ class TestReadRegisters:
     @pytest.mark.asyncio
     async def test_batch_failure_falls_back_to_sequential(self, mock_client):
         """Falls back to sequential reads when batch call fails."""
-        mock_client.get_multiple.side_effect = Exception("Did not recognize register names")
+        mock_client.get_multiple.side_effect = ReadException("Did not recognize register names")
         mock_client.get = AsyncMock(side_effect=lambda name: {"reg1": 100, "reg2": 200, "reg3": 300}[name])
         with (
             patch("bridge.main.ESSENTIAL_REGISTERS", ["reg1", "reg2", "reg3"]),
@@ -630,6 +632,19 @@ class TestReadRegisters:
         ):
             result = await read_registers(mock_client)
         assert result == {"reg1": 100, "reg2": 200, "reg3": 300}
+
+    @pytest.mark.asyncio
+    async def test_programming_error_in_build_batches_propagates(self, mock_client):
+        """Test that non-READ_EXCEPTIONS propagate."""
+        with (
+            patch(
+                "bridge.batch_builder.BatchBuilder.build_batches",
+                side_effect=TypeError("Unexpected register structure"),
+            ),
+            patch("bridge.main.ESSENTIAL_REGISTERS", ["reg1", "reg2", "reg3"]),
+        ):
+            with pytest.raises(TypeError, match="Unexpected register structure"):
+                await read_registers(mock_client)
 
     @pytest.mark.asyncio
     async def test_batching_disabled_uses_sequential(self, mock_client):

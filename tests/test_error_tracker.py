@@ -263,7 +263,7 @@ class TestErrorTypeMapping:
     @pytest.mark.asyncio
     async def test_timeout_error_maps_to_timeout(self, mock_config):
         """TimeoutError produces track_error('timeout', ...)."""
-        with patch("bridge.main.error_tracker") as mock_tracker:
+        with patch("bridge.main._error_tracker") as mock_tracker:
             await _maybe_reset_on_error(TimeoutError("conn timeout"), mock_config)
 
         mock_tracker.track_error.assert_called_once_with("timeout", "conn timeout")
@@ -271,7 +271,7 @@ class TestErrorTypeMapping:
     @pytest.mark.asyncio
     async def test_connection_refused_maps_to_connection_refused(self, mock_config):
         """ConnectionRefusedError produces track_error('connection_refused', ...)."""
-        with patch("bridge.main.error_tracker") as mock_tracker:
+        with patch("bridge.main._error_tracker") as mock_tracker:
             await _maybe_reset_on_error(ConnectionRefusedError("refused"), mock_config)
 
         mock_tracker.track_error.assert_called_once_with("connection_refused", "refused")
@@ -282,7 +282,7 @@ class TestErrorTypeMapping:
         from huawei_solar.exceptions import ReadException
 
         exc = ReadException("bad register")
-        with patch("bridge.main.error_tracker") as mock_tracker:
+        with patch("bridge.main._error_tracker") as mock_tracker:
             await _maybe_reset_on_error(exc, mock_config)
 
         mock_tracker.track_error.assert_called_once_with("modbus_exception", str(exc))
