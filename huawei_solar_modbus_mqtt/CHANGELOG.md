@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Pyright import path**: Corrected `RegisterDefinition` import path (`huawei_solar.register_definitions.base`).
 - **`CallbackAPIVersion` import**: Moved from `paho.mqtt.client` to `paho.mqtt.enums` (fixes `reportPrivateImportUsage`).
 - **Register name mapping**: Fixed `storage_unit_1_soc`/`storage_unit_2_soc`/`storage_unit_3_soc` to use correct library API names `storage_unit_1_state_of_capacity`/`storage_unit_2_state_of_capacity`. `storage_unit_3` has no library equivalent and was removed.
+- **Smart batching stability**: Smart-batched Modbus reads now split batches that would exceed the Modbus FC03/FC04 hard limit of 125 registers per read (address span measured as last register end minus first register start). This prevents the `ValueError: Quantity must be between 1 and 125.` from the underlying tModbus PDU constructor. A local `ValueError` safety-net in `read_registers()` falls back to sequential single-register reads when an oversized batch slips through, preventing fatal bridge termination.
 
 ### Dependencies
 

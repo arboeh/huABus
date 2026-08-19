@@ -365,6 +365,14 @@ async def read_registers(
 
             for batch_num, batch in enumerate(batches, 1):
                 batch_read_start = time.time()
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "📦 Reading batch %d/%d: %d registers: %s",
+                        batch_num,
+                        len(batches),
+                        len(batch),
+                        batch,
+                    )
                 try:
                     values = await client.get_multiple([cast(RegisterName, n) for n in batch])
                     batch_duration = time.time() - batch_read_start
@@ -381,7 +389,17 @@ async def read_registers(
                         batch_duration,
                     )
 
-                except READ_EXCEPTIONS as e:
+                except READ_EXCEPTIONS + (ValueError,) as e:
+                    # ValueError is caught here *only* as a local safety-net.
+                    # The underlying tModbus PDU constructor raises
+                    # ValueError("Quantity must be between 1 and 125.") when a
+                    # batch's effective register quantity exceeds the Modbus
+                    # FC03/FC04 hard limit of 125 registers per read.  The
+                    # BatchBuilder normally prevents this via MAX_MODBUS_QUANTITY,
+                    # but if a library update or configuration drift causes an
+                    # oversized batch to slip through, we degrade gracefully by
+                    # falling back to sequential single-register reads instead of
+                    # letting a single bad batch crash the entire bridge.
                     logger.debug(
                         "⚠️ Batch %d failed (%s), falling back to sequential "
                         "(if this repeats, try reducing batch_max_gap below %d)",

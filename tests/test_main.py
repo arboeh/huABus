@@ -634,6 +634,19 @@ class TestReadRegisters:
         assert result == {"reg1": 100, "reg2": 200, "reg3": 300}
 
     @pytest.mark.asyncio
+    async def test_batch_quantity_value_error_falls_back_to_sequential(self, mock_client):
+        """ValueError from get_multiple (oversized Modbus batch) falls back to sequential reads."""
+        mock_client.get_multiple.side_effect = ValueError("Quantity must be between 1 and 125.")
+        mock_client.get = AsyncMock(side_effect=lambda name: {"reg1": 100, "reg2": 200, "reg3": 300}[name])
+        with (
+            patch("bridge.main.ESSENTIAL_REGISTERS", ["reg1", "reg2", "reg3"]),
+            patch("bridge.batch_builder._get_huawei_registers", return_value=None),
+        ):
+            result = await read_registers(mock_client)
+        assert result == {"reg1": 100, "reg2": 200, "reg3": 300}
+        assert mock_client.get.call_count == 3
+
+    @pytest.mark.asyncio
     async def test_programming_error_in_build_batches_propagates(self, mock_client):
         """Test that non-READ_EXCEPTIONS propagate."""
         with (
