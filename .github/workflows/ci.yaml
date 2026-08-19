@@ -1,8 +1,13 @@
-# .github/workflows/ci.yml
+# .github/workflows/ci.yaml
 
 name: CI
 permissions:
   contents: read
+
+# Prevent overlapping CI runs on the same ref; cancel stale runs on new pushes
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 on:
   push:
@@ -15,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
@@ -36,7 +41,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - uses: astral-sh/setup-uv@v10.0.1
         with:
           python-version: ${{ matrix.python-version }}
@@ -66,9 +71,10 @@ jobs:
 
       - name: Upload coverage (Python 3.12 only)
         if: matrix.python-version == '3.12' && steps.python_changes.outputs.changed == 'true'
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@v7.0.0
         with:
           files: ./coverage.xml
+          # fail_ci_if_error: false — coverage upload failures do not block the build
           fail_ci_if_error: false
           flags: unittests
           disable_search: true
@@ -77,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - uses: astral-sh/setup-uv@v10.0.1
         with:
           python-version: "3.12"
@@ -88,13 +94,15 @@ jobs:
         run: |
           uv sync --dev
           uv run mypy huawei_solar_modbus_mqtt/bridge --ignore-missing-imports
+        # continue-on-error: true — type checking is non-blocking; although type-check
+        # is listed in ci-success.needs, the job always reports success
         continue-on-error: true
 
   validate-config:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - uses: astral-sh/setup-uv@v10.0.1
         with:
           python-version: "3.12"
@@ -117,7 +125,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Install ShellCheck
         env:
@@ -136,7 +144,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Install BATS
         env:
@@ -152,20 +160,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@v4.3.0
 
       - name: Generate requirements.txt for Docker
         run: uv export --no-dev --no-hashes --no-emit-project -o huawei_solar_modbus_mqtt/requirements.txt
 
       - name: Build Docker image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@v7.3.0
         with:
           context: ./huawei_solar_modbus_mqtt
           push: false
