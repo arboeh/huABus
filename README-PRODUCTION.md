@@ -37,7 +37,7 @@
 - **Batch Reading (v1.10.1+):** Optional mode for up to 75% faster Modbus cycles with automatic fallback and safer default batching.
 - **Performance Diagnostics:** Per-register timing analysis at DEBUG level to identify bottlenecks
 - **TRACE Log Level:** Ultra-detailed debugging with Modbus byte arrays
-- **Comprehensive Test Suite:** 89% code coverage
+- **Comprehensive Test Suite:** 93% code coverage
 - **Performance:** ~2-5s read cycle, configurable poll interval (30-60s recommended)
 - **Cross-Platform:** All major architectures (aarch64, amd64, armhf, armv7, i386)
 - **Multi Architecture:** Home Assistant add-on builds via explicit `build.yaml` base image mapping
@@ -158,16 +158,11 @@ Both share the same limitation - only **ONE Modbus connection**. To use both sim
 **Debug Mode:** Set `log_level: DEBUG`
 
 ## Latest Updates
-
 See [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) for detailed release notes.
 
-- ✅ **v1.10.4:** Modbus connection timeout on `setup_modbus()`, narrowed exception handlers in `run_main_cycle` to explicit `RECOVERABLE_EXCEPTIONS`, typed `ErrorType` in error tracker
-- ✅ **v1.10.3:** Async-safety fix - eliminated blocking `wait_for_publish()` and `time.sleep()` polling in MQTT hotpath and connection setup
-- ✅ **v1.10.2:** Runtime-state cleanup, safer Modbus auto-detection, uv-managed runtime dependencies, and `batch_max_gap` kept at 50
-- ✅ **v1.10.1:** Batch-Mode default reduced to `batch_max_gap: 50` to avoid inverter register-limit fallback
-- ✅ **v1.10.0:** Batch reading mode for up to 75% faster Modbus cycles (opt-in beta)
-- ✅ **v1.9.0:** Performance diagnostics with per-register timing analysis at DEBUG level
-- ✅ **v1.8.5:** Added multi-architecture build configuration and simplified the Dockerfile
+- **v1.10.5:** Library upgrade to huawei-solar 3.0.7 (tModbus transport), Python >=3.12, narrowed exception handling to READ_EXCEPTIONS, ConfigurationError in determine_slave_id(), _read_single_register() helper extracted, error_tracker privatized with accessor, test coverage for get_error_tracker() accessor
+- ✅ **v1.10.4:** Modbus connection timeout on setup_modbus(), narrowed exception handlers in run_main_cycle to explicit RECOVERABLE_EXCEPTIONS, typed ErrorType in error tracker
+
 
 ## Credits
 

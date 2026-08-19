@@ -34,5 +34,5 @@ with automatic Home Assistant discovery.
 - **Intelligent error tracking** with downtime aggregation and recovery logging
 - **MQTT Auto-Discovery** — all entities appear automatically under a single device
 - **Auto MQTT credentials** — uses Home Assistant MQTT Service by default
-- **Comprehensive test suite** — 89% coverage with unit, integration, and E2E tests
+- **Comprehensive test suite** — 93% coverage with unit, integration, and E2E tests
 - **Multi-architecture support** (aarch64, amd64, armhf, armv7, i386)
