@@ -13,6 +13,7 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.0.1
@@ -28,6 +29,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         python-version: ["3.12", "3.13", "3.14"]
@@ -73,6 +75,7 @@ jobs:
 
   type-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.0.1
@@ -89,6 +92,7 @@ jobs:
 
   validate-config:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.0.1
@@ -111,11 +115,16 @@ jobs:
 
   test-bash:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
 
       - name: Install ShellCheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
 
       - name: ShellCheck run.sh
         run: shellcheck huawei_solar_modbus_mqtt/run.sh
@@ -125,10 +134,13 @@ jobs:
 
   test-bash-advanced:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
 
       - name: Install BATS
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
           sudo apt-get install -y bats
@@ -138,6 +150,7 @@ jobs:
 
   test-docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 
@@ -170,6 +183,7 @@ jobs:
 
   ci-success:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs:
       [
         lint,
