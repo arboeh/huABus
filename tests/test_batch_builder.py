@@ -24,6 +24,12 @@ def _mock_register(address: int, length: int = 1):
     return type("MockRegister", (), {"register": address, "length": length})()
 
 
+def _batch_span(batch, register_map):
+    first = register_map[batch[0]]
+    last = register_map[batch[-1]]
+    return (last.register + last.length) - first.register
+
+
 # ---------------------------------------------------------------------------
 # TestBatchBuilder
 # ---------------------------------------------------------------------------
@@ -149,17 +155,13 @@ class TestBatchBuilderIntegration:
             batches, unknown = BatchBuilder(batch_max_gap=gap, enable_batching=True).build_batches(registers)
             assert set(_all_regs(batches, unknown)) == set(registers)
 
-    def test_default_gap_stays_within_inverter_limit(self):
-        from huawei_solar_modbus_mqtt.bridge.config.registers import ESSENTIAL_REGISTERS
-
-        builder = BatchBuilder()
-        assert builder.batch_max_gap == 50
-        batches, _ = builder.build_batches(ESSENTIAL_REGISTERS)
-        for batch in batches:
-            assert len(batch) <= 125, f"Batch too large: {len(batch)} registers"
-
     def test_essential_register_batches_within_modbus_quantity_limit(self):
-        """Every essential-register batch span must be <= MAX_MODBUS_QUANTITY (125)."""
+        """Every essential-register batch span must be <= MAX_MODBUS_QUANTITY (125).
+
+        The Modbus protocol limits a single read-multiple-registers request
+        to 125 registers. This is measured by the address span
+        (last_end - first_start), not by the count of register entries.
+        """
         from huawei_solar.registers import REGISTERS
 
         from huawei_solar_modbus_mqtt.bridge.batch_builder import MAX_MODBUS_QUANTITY
@@ -168,13 +170,15 @@ class TestBatchBuilderIntegration:
         builder = BatchBuilder()
         batches, _ = builder.build_batches(ESSENTIAL_REGISTERS)
         for batch in batches:
-            first = REGISTERS[batch[0]]
-            last = REGISTERS[batch[-1]]
-            span = (last.register + last.length) - first.register
+            span = _batch_span(batch, REGISTERS)
             assert span <= MAX_MODBUS_QUANTITY, f"Batch span {span} exceeds Modbus limit {MAX_MODBUS_QUANTITY}: {batch}"
 
     def test_batch_splits_when_modbus_quantity_limit_would_be_exceeded(self):
-        """Registers whose span exceeds 125 within one gap-group are split."""
+        """Registers whose span exceeds 125 within one gap-group are split.
+
+        The Modbus limit is on the address span / quantity requested, not on
+        the raw count of register entries in a batch.
+        """
         from huawei_solar_modbus_mqtt.bridge.batch_builder import MAX_MODBUS_QUANTITY
 
         # Six registers, each 1 register long, spaced 30 apart.
@@ -200,9 +204,7 @@ class TestBatchBuilderIntegration:
         assert len(batches) >= 2, "Expected split due to span exceeding 125"
 
         for batch in batches:
-            first = mock_registers[batch[0]]
-            last = mock_registers[batch[-1]]
-            span = (last.register + last.length) - first.register
+            span = _batch_span(batch, mock_registers)
             assert span <= MAX_MODBUS_QUANTITY, f"Batch span {span} exceeds {MAX_MODBUS_QUANTITY}: {batch}"
 
         # All registers must still be present
