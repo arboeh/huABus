@@ -4,7 +4,9 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.8.x   | :white_check_mark: |
+| 1.11.x  | :white_check_mark: |
+| 1.10.x  | :white_check_mark: |
+| 1.8.x   | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -48,7 +50,7 @@ For non-critical issues:
 ### Development Security
 
 - **Pre-commit Hooks**: Automatic code quality checks (ruff)
-- **Test Coverage**: 86% code coverage with security-focused tests
+- **Test Coverage**: 93% code coverage with security-focused tests
 - **Type Checking**: MyPy static analysis
 
 ---
@@ -98,7 +100,7 @@ Monitored via Dependabot:
 - `tmodbus`
 - `paho-mqtt`
 
-See [requirements.txt](requirements.txt) for full list.
+See [pyproject.toml](pyproject.toml) for full list.
 
 ---
 

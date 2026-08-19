@@ -116,7 +116,6 @@ ESSENTIAL_REGISTERS = [
     "storage_maximum_discharge_power",  # Max Discharge Power
     #
     # Multi-Modul Batterie (optional)
-    "storage_unit_1_soc",  # Nur bei Multi-Modul
-    "storage_unit_2_soc",
-    "storage_unit_3_soc",
+    "storage_unit_1_state_of_capacity",  # Nur bei Multi-Modul
+    "storage_unit_2_state_of_capacity",
 ]

@@ -72,9 +72,8 @@ REGISTER_MAPPING: dict[str, str] = {
     "storage_running_status": "battery_status",
     "storage_maximum_charge_power": "battery_max_charge_power",
     "storage_maximum_discharge_power": "battery_max_discharge_power",
-    "storage_unit_1_soc": "battery_unit1_soc",
-    "storage_unit_2_soc": "battery_unit2_soc",
-    "storage_unit_3_soc": "battery_unit3_soc",
+    "storage_unit_1_state_of_capacity": "battery_unit1_soc",
+    "storage_unit_2_state_of_capacity": "battery_unit2_soc",
     #
     # Inverter status & diagnostics
     "device_status": "inverter_status",

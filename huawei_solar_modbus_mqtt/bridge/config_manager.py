@@ -200,7 +200,7 @@ class ConfigManager:
         """Enable smart batching strategy (v1.10.0+).
 
         When True, registers are intelligently grouped by Modbus address proximity.
-        Reduces number of TCP calls from 67 individual reads to typically 3-5 batches.
+        Reduces number of TCP calls from 66 individual reads to typically 3-5 batches.
         """
         return cast(bool, self._config.get("enable_batching", True))
 
