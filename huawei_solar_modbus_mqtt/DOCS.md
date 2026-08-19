@@ -265,7 +265,7 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
 
 **Symptom:** `WARNING - Cycle 52.1s > 80% poll_interval` or very slow cycle times (>30s for 64 registers)
 
-**Root Cause:** Registers are read sequentially. High network latency or slow inverter responses are multiplied 67× (one per register).
+**Root Cause:** Registers are read sequentially. High network latency or slow inverter responses are multiplied 66× (one per register).
 
 **Quick Diagnosis:**
 
@@ -298,7 +298,7 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
 
 - **Smart Batching (v1.10.0+):** Automatically enabled (default: `enable_batching: true`)
   - Intelligently groups registers by Modbus address proximity
-  - Reduces 67 individual reads to typically 3-5 batch requests
+  - Reduces 66 individual reads to typically 3-5 batch requests
   - Typical reduction: 17.4s → 3.9-6.7s per cycle (77% improvement)
   - Falls back to sequential reads on batch failures
   - Configurable: `batch_max_gap: 100` (max address gap per batch)

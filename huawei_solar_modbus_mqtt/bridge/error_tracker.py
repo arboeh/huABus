@@ -60,7 +60,13 @@ logger = logging.getLogger("huawei.errors")
 # `asyncio.get_event_loop().time()` here — that would couple logging concerns
 # to the event loop and make the tracker harder to test in isolation.
 
-ErrorType = Literal["timeout", "connection_refused", "modbus_exception"]
+ErrorType = Literal[
+    "timeout",
+    "connection_refused",
+    "connection_exception",
+    "connection_interrupted",
+    "modbus_exception",
+]
 
 
 class ErrorStatus(TypedDict):

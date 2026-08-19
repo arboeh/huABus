@@ -2,15 +2,23 @@
 
 """
 Smart register batch grouping for optimized Modbus reads.
+
+Modbus function code 3 (Read Holding Registers) and function code 4
+(Read Input Registers) allow a maximum of 125 registers per request.
+Each batch produced by this module must therefore stay within that
+limit when measured as the address span from the first register's
+start address to the last register's end address.
 """
 
 import logging
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
-    from huawei_solar.registers import RegisterDefinition
+    from huawei_solar.register_definitions.base import RegisterDefinition
 
 logger = logging.getLogger("huawei.batch_builder")
+
+MAX_MODBUS_QUANTITY = 125
 
 
 def _get_huawei_registers() -> "dict[str, RegisterDefinition] | None":
@@ -41,6 +49,11 @@ class BatchBuilder:
         Sorts registers by Modbus address and groups by proximity so each batch
         satisfies the get_multiple() monotonically-increasing-address requirement.
 
+        Additionally enforces the hard Modbus FC03/FC04 limit of at most
+        ``MAX_MODBUS_QUANTITY`` (125) registers per single read request: a batch
+        whose address span would exceed 125 registers is split so no individual
+        get_multiple() call requests more than 125 registers.
+
         Returns:
             (batches, unknown): batches to read with get_multiple(),
                                 unknown = registers not in the library (read sequentially)
@@ -70,22 +83,59 @@ class BatchBuilder:
         if not self.enable_batching:
             return [[name for name, _ in known]], unknown
 
-        # Group by address proximity: new batch when gap > batch_max_gap
+        # Group by address proximity: new batch when gap > batch_max_gap.
+        # Also enforce the hard Modbus limit: the address span of any single
+        # batch (last register end address - first register start address)
+        # must not exceed MAX_MODBUS_QUANTITY (125) registers, otherwise the
+        # underlying tModbus PDU constructor raises
+        # ValueError("Quantity must be between 1 and 125.").
         batches: list[list[str]] = []
         current_batch: list[str] = []
         prev_end: int | None = None
+        batch_start_address: int | None = None
 
         for name, reg in known:
-            if prev_end is not None:
-                gap = reg.register - prev_end
-                if gap > self.batch_max_gap:
+            reg_end = reg.register + reg.length
+
+            # Split on large address gap
+            if prev_end is not None and (reg.register - prev_end) > self.batch_max_gap:
+                batches.append(current_batch)
+                current_batch = []
+                batch_start_address = None
+
+            # Split on Modbus quantity limit
+            if batch_start_address is not None:
+                span = reg_end - batch_start_address
+                if span > MAX_MODBUS_QUANTITY:
                     batches.append(current_batch)
                     current_batch = []
+                    batch_start_address = reg.register
+
+            if not current_batch:
+                batch_start_address = reg.register
+
             current_batch.append(name)
-            prev_end = reg.register + reg.length
+            prev_end = reg_end
 
         if current_batch:
             batches.append(current_batch)
+
+        # DEBUG: log each batch's composition so the register span /
+        # effective Modbus quantity can be verified at runtime.
+        if logger.isEnabledFor(logging.DEBUG):
+            for idx, batch in enumerate(batches, 1):
+                first_reg = huawei_registers[batch[0]]
+                last_reg = huawei_registers[batch[-1]]
+                span = (last_reg.register + last_reg.length) - first_reg.register
+                logger.debug(
+                    "BatchBuilder batch %d/%d: addr %d-%d, span=%d, names=%s",
+                    idx,
+                    len(batches),
+                    first_reg.register,
+                    last_reg.register + last_reg.length,
+                    span,
+                    batch,
+                )
 
         return batches, unknown
 

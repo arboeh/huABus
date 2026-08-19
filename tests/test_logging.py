@@ -102,10 +102,12 @@ class TestTraceLoggingBehavior:
 
         caplog.set_level(TRACE)
 
-        with patch("bridge.slave_detector.AsyncHuaweiSolar") as mock:
+        with patch("bridge.slave_detector.create_tcp_client") as mock:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(side_effect=TimeoutError())
-            mock.create = AsyncMock(return_value=mock_client)
+            mock_client.connect = AsyncMock()
+            mock_client.disconnect = AsyncMock()
+            mock.return_value = mock_client
 
             result = await detect_slave_id("192.168.0.1", 502)
 

@@ -17,7 +17,7 @@
 [![armv7](https://img.shields.io/badge/armv7-yes-green.svg)](https://github.com/arboeh/huABus)
 [![i386](https://img.shields.io/badge/i386-yes-green.svg)](https://github.com/arboeh/huABus)
 
-**67 essenzielle Register * 68 Entitäten * optionaler MQTT-Heartbeat * 30s Polling**  
+**66 essenzielle Register * 67 Entitäten * optionaler MQTT-Heartbeat * 30s Polling**  
 **Changelog:** [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md)
 
 > **⚠️ WICHTIG: Nur EINE Modbus-Verbindung möglich**
@@ -30,14 +30,14 @@
 ## Features
 
 - **Automatische Slave ID-Erkennung:** Probiert automatisch gängige Werte (1, 2, 100)
-- **Modbus TCP → MQTT:** 68 Entitäten mit Auto-Discovery
+- **Modbus TCP → MQTT:** 67 Entitäten mit Auto-Discovery
 - **Vollständiges Monitoring:** Batterie, PV (1-4), Netz (3-Phasen), Energie-Counter
 - **Total Increasing Filter:** Verhindert falsche Counter-Resets in Energie-Statistiken
 - **Auto MQTT-Konfiguration:** Nutzt automatisch Home Assistant MQTT-Zugangsdaten
 - **Batch-Modus (v1.10.1+):** Optionaler Modus für bis zu 75% schnellere Modbus-Zyklen mit automatischem Fallback und sicherem Standard-Batching.
 - **Performance-Diagnostik:** Per-Register-Timing-Analyse im DEBUG-Modus zur Engpass-Identifikation
 - **TRACE Log Level:** Ultra-detailliertes Debugging mit Modbus-Byte-Arrays
-- **Umfassende Test-Suite:** 89% Code-Coverage
+- **Umfassende Test-Suite:** 93% Code-Coverage
 - **Performance:** ~2-5s Lesezyklus, konfigurierbares Poll-Intervall (30-60s empfohlen)
 - **Plattformübergreifend:** Alle gängigen Architekturen (aarch64, amd64, armhf, armv7, i386)
 - **Multi-Architektur:** Home-Assistant-Add-ons werden über eine explizite `build.yaml`-Basisabbildzuordnung erstellt
@@ -56,7 +56,7 @@
 
 ## Batch-Lesemodus (v1.10.1+)
 
-Liest alle 67 Register in 3-5 Batches statt einzeln. **Performance-Verbesserung:** bis zu 75% schneller bei hoher Latenz. Automatisches Fallback zum sequenziellen Modus bei Fehlern.
+Liest alle 66 Register in 3-5 Batches statt einzeln. **Performance-Verbesserung:** bis zu 75% schneller bei hoher Latenz. Automatisches Fallback zum sequenziellen Modus bei Fehlern.
 
 **Konfiguration:**
 ```yaml
@@ -65,7 +65,7 @@ batch_max_gap: 50             # Max. Adresslücke pro Batch (Standard: 50, empfo
 ```
 
 **Details:**
-- `enable_batching: true` - Gruppiert Register intelligent nach Modbus-Adress-Nähe. Reduziert 67 einzelne Reads auf typisch 3-5 Batch-Anfragen.
+- `enable_batching: true` - Gruppiert Register intelligent nach Modbus-Adress-Nähe. Reduziert 66 einzelne Reads auf typisch 3-5 Batch-Anfragen.
 - `batch_max_gap: 50` - Maximale Adress-Lücke (in Modbus-Einheiten) innerhalb eines Batches. Kleinere Werte erzeugen mehr Batches mit weniger Risiko, das Inverter-Limit (~125 Register pro Batch) zu überschreiten. Größere Werte reduzieren die Batch-Anzahl, erhöhen aber das Risiko von Batch-Fehlern.
 - **Empfohlen:** `30-50` für die meisten Installationen. Nur bei stabilen, schnellen Netzwerken auf `100` erhöhen.
 - Deaktivieren (`enable_batching: false`), falls wiederholt Batch-Fehler auftreten.
@@ -158,16 +158,11 @@ Beide teilen die gleiche Limitierung - nur **EINE Modbus-Verbindung**. Für glei
 **Debug-Modus:** `log_level: DEBUG` setzen
 
 ## Aktuelle Updates
-
 Siehe [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) für detaillierte Release-Notes.
 
-- ✅ **v1.10.4:** Modbus-Verbindungs-Timeout in `setup_modbus()`, verengte Exception-Handler in `run_main_cycle` auf explizite `RECOVERABLE_EXCEPTIONS`, typisierte `ErrorType` im Error-Tracker
-- ✅ **v1.10.3:** Async-Sicherheitsfix - blockierende `wait_for_publish()`- und `time.sleep()`-Aufrufe im MQTT-Hotpath und Connection-Setup eliminiert
-- ✅ **v1.10.2:** Runtime-State-Bereinigung, sicherere Modbus-Auto-Detection, uv-verwaltete Laufzeit-Abhängigkeiten und `batch_max_gap` bleibt bei 50
-- ✅ **v1.10.1:** Batch-Modus-Standard auf `batch_max_gap: 50` reduziert, um Inverter-Registerlimit-Fallbacks zu vermeiden
-- ✅ **v1.10.0:** Batch-Modus für bis zu 75% schnellere Modbus-Zyklen (Opt-in Beta)
-- ✅ **v1.9.0:** Performance-Diagnostik mit Per-Register-Timing-Analyse im DEBUG-Modus
-- ✅ **v1.8.5:** Multi-Arch-Build-Konfiguration ergänzt und Dockerfile vereinfacht
+- **v1.11.0:** Bibliotheks-Upgrade auf huawei-solar 3.0.7 (tModbus-Transport), Python >=3.12, verengtes Exception-Handling auf READ_EXCEPTIONS, `get_error_tracker()`-Accessor, Test-Abdeckung 93,23% → 93,33%, SECURITY.md aktualisiert, Abhängigkeiten geändert
+- ✅ **v1.10.4:** Modbus-Verbindungs-Timeout im setup_modbus(), verengte Exception-Handler in run_main_cycle auf explizite RECOVERABLE_EXCEPTIONS, typisierter ErrorType im Error-Tracker
+
 
 ## Credits
 

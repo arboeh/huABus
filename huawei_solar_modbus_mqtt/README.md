@@ -28,11 +28,13 @@ with automatic Home Assistant discovery.
 ## Features
 
 - **Batch Reading Mode** — reduces cycle time by up to 75% on high-latency networks
-- **67 Essential Registers** for complete inverter monitoring
+- **66 Essential Registers** for complete inverter monitoring
 - **Automatic Slave ID Detection** — tries common values (1, 2, 100) automatically
 - **Total Increasing Filter** — prevents false counter resets, active from first cycle
 - **Intelligent error tracking** with downtime aggregation and recovery logging
 - **MQTT Auto-Discovery** — all entities appear automatically under a single device
 - **Auto MQTT credentials** — uses Home Assistant MQTT Service by default
-- **Comprehensive test suite** — 89% coverage with unit, integration, and E2E tests
+- **Comprehensive test suite** — 93% coverage with unit, integration, and E2E tests
+- **Batch Reading Mode** (optional) — up to 75% faster Modbus cycles with automatic fallback to sequential mode
 - **Multi-architecture support** (aarch64, amd64, armhf, armv7, i386)
+- **Performance**: ~2-5s read cycle, configurable poll interval (30-60s recommended)

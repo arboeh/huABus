@@ -124,7 +124,7 @@ INFO - 📊 Published - PV: 4500W | AC Out: 4200W | ...
 ### Batch-Konfiguration (Performance-Optimierung)
 
 - **enable_batching** (Standard: `true`): Intelligente Gruppenbildung von Registern nach Modbus-Adress-Nähe
-  - Reduziert TCP-Calls von 67 einzelnen Reads auf typisch 3-5 Batch-Anfragen
+  - Reduziert TCP-Calls von 66 einzelnen Reads auf typisch 3-5 Batch-Anfragen
   - Automatischer Fallback auf sequentielle Reads bei Batch-Fehlern
   - Deaktivieren (`false`), falls Probleme mit bestimmten Register-Kombinationen auftreten
 - **batch_max_gap** (Standard: `50`, Range: 1-10000): Maximale Adress-Lücke (in Modbus-Einheiten) innerhalb eines Batches
@@ -280,7 +280,7 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
 
 **Symptom:** `WARNING - Cycle 52.1s > 80% poll_interval` oder sehr langsame Zykluszeiten (>30s für 64 Register)
 
-**Root Cause:** Register werden sequentiell gelesen. Hohe Netzwerk-Latenz oder langsame Inverter-Antworten werden 67× multipliziert (einmal pro Register).
+**Root Cause:** Register werden sequentiell gelesen. Hohe Netzwerk-Latenz oder langsame Inverter-Antworten werden 66× multipliziert (einmal pro Register).
 
 **Schnelle Diagnose:**
 
@@ -313,7 +313,7 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
 
 - **Smart Batching (v1.10.0+):** Automatisch aktiviert (default: `enable_batching: true`)
   - Gruppiert Register intelligent nach Modbus-Adress-Nähe
-  - Reduziert 67 einzelne Reads auf typisch 3-5 Batch-Anfragen
+  - Reduziert 66 einzelne Reads auf typisch 3-5 Batch-Anfragen
   - Typische Reduktion: 17.4s → 3.9-6.7s pro Cycle (77% Verbesserung)
   - Fallback auf sequentielle Reads bei Batch-Fehlern
   - Konfigurierbar: `batch_max_gap: 100` (max. Adress-Gap pro Batch)

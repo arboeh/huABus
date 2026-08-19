@@ -26,6 +26,9 @@ updates:
           - "patch"
 
   # GitHub Actions
+  # Hinweis: Bewusst kein update-types-Filter (anders als bei pip) —
+  # Action-Updates (inkl. Major) werden einzeln vorgeschlagen, da Reviews
+  # hier schnell und risikoarm sind.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
