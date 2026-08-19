@@ -35,4 +35,6 @@ with automatic Home Assistant discovery.
 - **MQTT Auto-Discovery** — all entities appear automatically under a single device
 - **Auto MQTT credentials** — uses Home Assistant MQTT Service by default
 - **Comprehensive test suite** — 93% coverage with unit, integration, and E2E tests
+- **Batch Reading Mode** (optional) — up to 75% faster Modbus cycles with automatic fallback to sequential mode
 - **Multi-architecture support** (aarch64, amd64, armhf, armv7, i386)
+- **Performance**: ~2-5s read cycle, configurable poll interval (30-60s recommended)

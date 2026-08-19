@@ -160,7 +160,7 @@ Both share the same limitation - only **ONE Modbus connection**. To use both sim
 ## Latest Updates
 See [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) for detailed release notes.
 
-- **v1.10.5:** Library upgrade to huawei-solar 3.0.7 (tModbus transport), Python >=3.12, narrowed exception handling to READ_EXCEPTIONS, ConfigurationError in determine_slave_id(), _read_single_register() helper extracted, error_tracker privatized with accessor, test coverage for get_error_tracker() accessor
+- **v1.11.0:** Library upgrade to huawei-solar 3.0.7 (tModbus transport), Python >=3.12, narrowed exception handling to READ_EXCEPTIONS, `get_error_tracker()` accessor, test coverage 93.23% → 93.33%, SECURITY.md updated (supported versions, 93% coverage), dependency changes (removed pymodbus/backoff/pytz, added tmodbus/serialx/tenacity)
 - ✅ **v1.10.4:** Modbus connection timeout on setup_modbus(), narrowed exception handlers in run_main_cycle to explicit RECOVERABLE_EXCEPTIONS, typed ErrorType in error tracker
 
 

@@ -5,30 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.10.5]
+## [1.11.0] - 2026-08-19
+
+### Added
+
+- **`get_error_tracker()`** accessor function: Exposes the module-level `_error_tracker` singleton for testing and integration diagnostics (closes coverage gap for the `ErrorTracker` reset path).
+- **`test_get_error_tracker_returns_module_singleton`**: Unit test verifying that `get_error_tracker()` returns the same `ErrorTracker` instance across calls.
+- **`test_get_error_tracker_reflects_reset_state`**: Unit test verifying that the tracker state reflects resets (downtime counters, error counts).
 
 ### Changed
 
-- **huawei-solar Bibliotheks-Upgrade 2.5.0 -> 3.0.7**: Migration von pyModbus auf tModbus als Transportschicht der Bibliothek. `AsyncHuaweiSolar.create()` -> `create_tcp_client()` + `await client.connect()`. `client.stop()` -> `client.disconnect()`. Exception-Handling umgestellt von `pymodbus.exceptions` auf `huawei_solar.exceptions` (`ReadException`, `ConnectionException`, `ConnectionInterruptedException`).
-- **Python-Mindestversion angehoben**: `>=3.11` -> `>=3.12` (Anforderung der huawei-solar-Bibliothek 3.x).
-- **`ErrorType`-Kategorien erweitert**: `connection_exception`, `connection_interrupted` neu in `error_tracker.py`.
-- **Exception handling narrowed in `read_registers()`**: Bare `except Exception` replaced with `READ_EXCEPTIONS` (ReadException, TimeoutError, connection errors, AttributeError). Programming errors (TypeError, KeyError, etc.) now propagate instead of triggering silent sequential fallback. This is an intentional behavioral change: `build_batches()` is pure-Python batch construction that should fail fast on programming errors, not silently degrade.
+- **huawei-solar library upgrade 2.5.0 -> 3.0.7**: Migration from `pyModbus` to `tModbus` as transport layer. `AsyncHuaweiSolar.create()` changed to `create_tcp_client()` + `await client.connect()`. `client.stop()` changed to `client.disconnect()`. Exception handling switched from `pymodbus.exceptions` to `huawei_solar.exceptions` (`ReadException`, `ConnectionException`, `ConnectionInterruptedException`).
+- **Narrowed exception handling in `read_registers()`**: Bare `except Exception` replaced with `READ_EXCEPTIONS` (ReadException, TimeoutError, connection errors, AttributeError). Programming errors (TypeError, KeyError, etc.) now propagate instead of triggering silent sequential fallback. This is an intentional behavioral change: `build_batches()` is pure-Python batch construction that should fail fast on programming errors, not silently degrade.
+- **Error type categorization**: Introduced `ErrorType` Literal (`connection_exception`, `connection_interrupted`) in `error_tracker.py` for canonical error type mapping.
 - **Code quality refactors** (no functional change):
   - `error_tracker` privatized to `_error_tracker` with `get_error_tracker()` accessor (CC-CLEAN-001).
   - Extracted `_read_single_register()` helper to eliminate duplicated try/except blocks (CC-CLEAN-003).
   - `ConfigurationError` raised by `determine_slave_id()` instead of `sys.exit(1)`, enabling testability (HA-ASYNC-002).
   - `setup_mqtt()` and `setup_modbus()` narrowed `except Exception` to `except (OSError, ConnectionError)` (CC-CLEAN-002).
-- **Test coverage improved**: Added `test_get_error_tracker_returns_module_singleton` and `test_get_error_tracker_reflects_reset_state` to close coverage gap for the `_error_tracker` accessor function. Overall coverage improved from 93.23% to 93.33%.
+- **Test coverage**: 93.23% → 93.33% (0.10% absolute improvement from error-tracker accessor tests).
 
 ### Fixed
 
-- `pyright`-Importpfad für `RegisterDefinition` korrigiert (`huawei_solar.register_definitions.base`).
-- `CallbackAPIVersion`-Import aus `paho.mqtt.enums` statt `paho.mqtt.client` (behebt `reportPrivateImportUsage`).
+- **Pyright import path**: Corrected `RegisterDefinition` import path (`huawei_solar.register_definitions.base`).
+- **`CallbackAPIVersion` import**: Moved from `paho.mqtt.client` to `paho.mqtt.enums` (fixes `reportPrivateImportUsage`).
 
 ### Dependencies
 
-- Entfernt: `pymodbus`, `backoff`, `pyserial-asyncio`, `pyserial`, `pytz`
-- Neu: `tmodbus`, `serialx`, `tenacity`
+**Removed:** `pymodbus`, `backoff`, `pyserial-asyncio`, `pyserial`, `pytz`
+**Added:** `tmodbus`, `serialx`, `tenacity`
 
 ## [1.10.4]
 

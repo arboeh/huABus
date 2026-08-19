@@ -158,9 +158,10 @@ Beide teilen die gleiche Limitierung - nur **EINE Modbus-Verbindung**. Für glei
 **Debug-Modus:** `log_level: DEBUG` setzen
 
 ## Aktuelle Updates
-Siehe [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) fur detaillierte Release-Notes.
+Siehe [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) für detaillierte Release-Notes.
 
-- **v1.10.5:** Bibliotheks-Upgrade auf huawei-solar 3.0.7 (tModbus-Transport), Python >=3.12, verengtes Exception-Handling auf READ_EXCEPTIONS, ConfigurationError in determine_slave_id(), _read_single_register()-Helfer extrahiert, error_tracker privatisiert mit Accessor, Test-Abdeckung fur get_error_tracker()-Accessor hinzugefugt
+- **v1.11.0:** Bibliotheks-Upgrade auf huawei-solar 3.0.7 (tModbus-Transport), Python >=3.12, verengtes Exception-Handling auf READ_EXCEPTIONS, `get_error_tracker()`-Accessor, Test-Abdeckung 93,23% → 93,33%, SECURITY.md aktualisiert, Abhängigkeiten geändert
+- ✅ **v1.10.4:** Modbus-Verbindungs-Timeout im setup_modbus(), verengte Exception-Handler in run_main_cycle auf explizite RECOVERABLE_EXCEPTIONS, typisierter ErrorType im Error-Tracker
 
 
 ## Credits
