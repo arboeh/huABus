@@ -177,16 +177,16 @@ bashio::log.info "    - Python: $(python3 --version | cut -d' ' -f2)" # Get vers
 
 # Get package versions - using pip show with fallback
 HUAWEI_SOLAR_VERSION=$(pip3 show huawei-solar 2> /dev/null | grep "Version:" | awk '{print $2}')
-PYMODBUS_VERSION=$(pip3 show pymodbus 2> /dev/null | grep "Version:" | awk '{print $2}')
+TMODUBUS_VERSION=$(pip3 show tmodbus 2> /dev/null | grep "Version:" | awk '{print $2}')
 PAHO_VERSION=$(pip3 show paho-mqtt 2> /dev/null | grep "Version:" | awk '{print $2}')
 
 # Fallback to "unknown" if empty
 HUAWEI_SOLAR_VERSION="${HUAWEI_SOLAR_VERSION:-unknown}"
-PYMODBUS_VERSION="${PYMODBUS_VERSION:-unknown}"
+TMODUBUS_VERSION="${TMODUBUS_VERSION:-unknown}"
 PAHO_VERSION="${PAHO_VERSION:-unknown}"
 
 bashio::log.info "    - huawei-solar: ${HUAWEI_SOLAR_VERSION}"
-bashio::log.info "    - pymodbus: ${PYMODBUS_VERSION}"
+bashio::log.info "    - tmodbus: ${TMODUBUS_VERSION}"
 bashio::log.info "    - paho-mqtt: ${PAHO_VERSION}"
 bashio::log.info "    - Architecture: $(uname -m)"
 

@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2026-08-19
+
+### Added
+
+- **`get_error_tracker()`** accessor function: Exposes the module-level `_error_tracker` singleton for testing and integration diagnostics (closes coverage gap for the `ErrorTracker` reset path).
+- **`test_get_error_tracker_returns_module_singleton`**: Unit test verifying that `get_error_tracker()` returns the same `ErrorTracker` instance across calls.
+- **`test_get_error_tracker_reflects_reset_state`**: Unit test verifying that the tracker state reflects resets (downtime counters, error counts).
+
+### Changed
+
+- **huawei-solar library upgrade 2.5.0 -> 3.0.7**: Migration from `pyModbus` to `tModbus` as transport layer. `AsyncHuaweiSolar.create()` changed to `create_tcp_client()` + `await client.connect()`. `client.stop()` changed to `client.disconnect()`. Exception handling switched from `pymodbus.exceptions` to `huawei_solar.exceptions` (`ReadException`, `ConnectionException`, `ConnectionInterruptedException`).
+- **Narrowed exception handling in `read_registers()`**: Bare `except Exception` replaced with `READ_EXCEPTIONS` (ReadException, TimeoutError, connection errors, AttributeError). Programming errors (TypeError, KeyError, etc.) now propagate instead of triggering silent sequential fallback. This is an intentional behavioral change: `build_batches()` is pure-Python batch construction that should fail fast on programming errors, not silently degrade.
+- **Error type categorization**: Introduced `ErrorType` Literal (`connection_exception`, `connection_interrupted`) in `error_tracker.py` for canonical error type mapping.
+- **Code quality refactors** (no functional change):
+  - `error_tracker` privatized to `_error_tracker` with `get_error_tracker()` accessor (CC-CLEAN-001).
+  - Extracted `_read_single_register()` helper to eliminate duplicated try/except blocks (CC-CLEAN-003).
+  - `ConfigurationError` raised by `determine_slave_id()` instead of `sys.exit(1)`, enabling testability (HA-ASYNC-002).
+  - `setup_mqtt()` and `setup_modbus()` narrowed `except Exception` to `except (OSError, ConnectionError)` (CC-CLEAN-002).
+- **Test coverage**: 93.23% → 93.33% (0.10% absolute improvement from error-tracker accessor tests).
+
+### Fixed
+
+- **Pyright import path**: Corrected `RegisterDefinition` import path (`huawei_solar.register_definitions.base`).
+- **`CallbackAPIVersion` import**: Moved from `paho.mqtt.client` to `paho.mqtt.enums` (fixes `reportPrivateImportUsage`).
+- **Register name mapping**: Fixed `storage_unit_1_soc`/`storage_unit_2_soc`/`storage_unit_3_soc` to use correct library API names `storage_unit_1_state_of_capacity`/`storage_unit_2_state_of_capacity`. `storage_unit_3` has no library equivalent and was removed.
+- **Smart batching stability**: Smart-batched Modbus reads now split batches that would exceed the Modbus FC03/FC04 hard limit of 125 registers per read (address span measured as last register end minus first register start). This prevents the `ValueError: Quantity must be between 1 and 125.` from the underlying tModbus PDU constructor. A local `ValueError` safety-net in `read_registers()` falls back to sequential single-register reads when an oversized batch slips through, preventing fatal bridge termination.
+
+### Dependencies
+
+**Removed:** `pymodbus`, `backoff`, `pyserial-asyncio`, `pyserial`, `pytz`
+**Added:** `tmodbus`, `serialx`, `tenacity`
+
 ## [1.10.4]
 
 ### Fixed
@@ -71,7 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Smart Batch Grouping**: New `enable_batching` and `batch_max_gap` configuration options
   - `enable_batching` (default: `true`): Enable intelligent grouping of registers by Modbus address proximity
   - `batch_max_gap` (default: `100`): Maximum address gap (in Modbus units) within a batch
-  - Reduces TCP calls from 67 individual reads to typically 3-5 batch requests
+  - Reduces TCP calls from 66 individual reads to typically 3-5 batch requests
   - Automatically groups related registers together to optimize network utilization
   - Falls back gracefully to sequential reads if batching fails
   - Configurable per-deployment to tune for specific network conditions

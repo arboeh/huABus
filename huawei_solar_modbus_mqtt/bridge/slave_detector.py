@@ -3,8 +3,9 @@
 """Auto-detection of Modbus Slave ID for Huawei inverters."""
 
 import asyncio
+from typing import cast
 
-from huawei_solar import AsyncHuaweiSolar
+from huawei_solar import RegisterName, create_tcp_client
 
 from .logging_utils import get_logger
 
@@ -83,17 +84,11 @@ async def _test_slave_id(host: str, port: int, slave_id: int, timeout: int) -> b
 
     try:
         # Create client with timeout
-        client = await asyncio.wait_for(
-            AsyncHuaweiSolar.create(
-                host=host,
-                port=port,
-                slave_id=slave_id,
-            ),
-            timeout=timeout,
-        )
+        client = create_tcp_client(host=host, port=port, unit_id=slave_id)
+        await asyncio.wait_for(client.connect(), timeout=timeout)
 
         # Try to read test register
-        result = await asyncio.wait_for(client.get(TEST_REGISTER), timeout=timeout)
+        result = await asyncio.wait_for(client.get(cast(RegisterName, TEST_REGISTER)), timeout=timeout)
 
         # Success if we got a value
         if result and result.value:
@@ -115,9 +110,9 @@ async def _test_slave_id(host: str, port: int, slave_id: int, timeout: int) -> b
         # client never blocks the next attempt indefinitely.
         if client:
             try:
-                await asyncio.wait_for(client.stop(), timeout=2.0)
+                await asyncio.wait_for(client.disconnect(), timeout=2.0)
             except Exception as cleanup_exc:
-                logger.debug("client.stop() failed during cleanup: %s", cleanup_exc)
+                logger.debug("client.disconnect() failed during cleanup: %s", cleanup_exc)
 
     return False
 

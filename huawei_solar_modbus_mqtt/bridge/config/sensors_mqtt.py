@@ -626,17 +626,6 @@ NUMERIC_SENSORS: list[dict[str, Any]] = [
         "enabled": False,
         "entity_category": "diagnostic",
     },
-    {
-        "name": "Battery Unit 3 SOC",
-        "key": "battery_unit3_soc",
-        "unit_of_measurement": "%",
-        "device_class": "battery",
-        "state_class": "measurement",
-        "icon": "mdi:battery-70",
-        "value_template": "{{ value_json.battery_unit3_soc | default(0) }}",
-        "enabled": False,
-        "entity_category": "diagnostic",
-    },
     # === Optimizer Monitoring ===
     {
         "name": "Optimizers Total",

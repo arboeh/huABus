@@ -1,6 +1,6 @@
 # tests\fixtures\mock_inverter.py
 
-"""Mock für AsyncHuaweiSolar mit Test-Szenarien"""
+"""Mock für AsyncHuaweiSolarClient mit Test-Szenarien"""
 
 from pathlib import Path
 from typing import Any, cast
@@ -18,13 +18,13 @@ class MockRegisterValue:
 
 class ModbusException(Exception):  # noqa: N818
     """Mock für Modbus-Exception — NUR für Szenario-Simulation.
-    Für Tests von is_modbus_exception() die echte pymodbus-Exception verwenden."""
+    Für Tests von is_modbus_exception() die echte huawei_solar.exceptions.ReadException verwenden."""
 
     pass
 
 
 class MockHuaweiSolar:
-    """Mock für AsyncHuaweiSolar mit konfigurierbaren Szenarien"""
+    """Mock für AsyncHuaweiSolarClient mit konfigurierbaren Szenarien"""
 
     def __init__(self, scenario_file: str | None = None):
         if scenario_file is None:

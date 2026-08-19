@@ -17,7 +17,7 @@
 [![armv7](https://img.shields.io/badge/armv7-yes-green.svg)](https://github.com/arboeh/huABus)
 [![i386](https://img.shields.io/badge/i386-yes-green.svg)](https://github.com/arboeh/huABus)
 
-**67 Essential Registers * 68 Entities * Optional MQTT Heartbeat * 30s Polling**  
+**66 Essential Registers * 67 Entities * Optional MQTT Heartbeat * 30s Polling**  
 **Changelog:** [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md)
 
 > **⚠️ IMPORTANT: Single Modbus Connection Limit**
@@ -30,14 +30,14 @@
 ## Features
 
 - **Automatic Slave ID Detection:** Tries common values (1, 2, 100) automatically
-- **Modbus TCP → MQTT:** 68 entities with Auto-Discovery
+- **Modbus TCP → MQTT:** 67 entities with Auto-Discovery
 - **Complete Monitoring:** Battery, PV (1-4), Grid (3-phase), Energy counters
 - **Total Increasing Filter:** Prevents false counter resets in energy statistics
 - **Auto MQTT Configuration:** Automatically uses Home Assistant MQTT credentials
 - **Batch Reading (v1.10.1+):** Optional mode for up to 75% faster Modbus cycles with automatic fallback and safer default batching.
 - **Performance Diagnostics:** Per-register timing analysis at DEBUG level to identify bottlenecks
 - **TRACE Log Level:** Ultra-detailed debugging with Modbus byte arrays
-- **Comprehensive Test Suite:** 89% code coverage
+- **Comprehensive Test Suite:** 93% code coverage
 - **Performance:** ~2-5s read cycle, configurable poll interval (30-60s recommended)
 - **Cross-Platform:** All major architectures (aarch64, amd64, armhf, armv7, i386)
 - **Multi Architecture:** Home Assistant add-on builds via explicit `build.yaml` base image mapping
@@ -56,7 +56,7 @@
 
 ## Batch Reading Mode (v1.10.1+)
 
-Reads all 67 registers in 3-5 batches instead of individually. **Performance improvement:** up to 75% faster on high-latency networks. Automatic fallback to sequential mode if batching fails.
+Reads all 66 registers in 3-5 batches instead of individually. **Performance improvement:** up to 75% faster on high-latency networks. Automatic fallback to sequential mode if batching fails.
 
 **Configuration:**
 ```yaml
@@ -65,7 +65,7 @@ batch_max_gap: 50             # Max address gap per batch (recommended: 30-50)
 ```
 
 **Details:**
-- `enable_batching: true` - Groups registers by Modbus address proximity, reducing 67 individual reads to typically 3-5 batch requests.
+- `enable_batching: true` - Groups registers by Modbus address proximity, reducing 66 individual reads to typically 3-5 batch requests.
 - `batch_max_gap: 50` - Maximum address gap (in Modbus units) within a batch. Smaller values create more batches with less risk of exceeding the inverter's internal limit (~125 registers per batch). Larger values reduce batch count but increase the risk of batch failures.
 - **Recommended:** `30-50` for most installations. Only increase to `100` if you have a stable, high-performance network.
 - Disable (`enable_batching: false`) if you experience repeated batch failures.
@@ -158,16 +158,11 @@ Both share the same limitation - only **ONE Modbus connection**. To use both sim
 **Debug Mode:** Set `log_level: DEBUG`
 
 ## Latest Updates
-
 See [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) for detailed release notes.
 
-- ✅ **v1.10.4:** Modbus connection timeout on `setup_modbus()`, narrowed exception handlers in `run_main_cycle` to explicit `RECOVERABLE_EXCEPTIONS`, typed `ErrorType` in error tracker
-- ✅ **v1.10.3:** Async-safety fix - eliminated blocking `wait_for_publish()` and `time.sleep()` polling in MQTT hotpath and connection setup
-- ✅ **v1.10.2:** Runtime-state cleanup, safer Modbus auto-detection, uv-managed runtime dependencies, and `batch_max_gap` kept at 50
-- ✅ **v1.10.1:** Batch-Mode default reduced to `batch_max_gap: 50` to avoid inverter register-limit fallback
-- ✅ **v1.10.0:** Batch reading mode for up to 75% faster Modbus cycles (opt-in beta)
-- ✅ **v1.9.0:** Performance diagnostics with per-register timing analysis at DEBUG level
-- ✅ **v1.8.5:** Added multi-architecture build configuration and simplified the Dockerfile
+- **v1.11.0:** Library upgrade to huawei-solar 3.0.7 (tModbus transport), Python >=3.12, narrowed exception handling to READ_EXCEPTIONS, `get_error_tracker()` accessor, test coverage 93.23% → 93.33%, SECURITY.md updated (supported versions, 93% coverage), dependency changes (removed pymodbus/backoff/pytz, added tmodbus/serialx/tenacity)
+- ✅ **v1.10.4:** Modbus connection timeout on setup_modbus(), narrowed exception handlers in run_main_cycle to explicit RECOVERABLE_EXCEPTIONS, typed ErrorType in error tracker
+
 
 ## Credits
 

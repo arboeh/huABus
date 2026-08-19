@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import bridge.main as main_module
 import pytest
+from bridge.config_manager import ConfigurationError
 from bridge.main import (
     RECOVERABLE_EXCEPTIONS,
     _run,
@@ -26,6 +27,7 @@ from bridge.main import (
     run_main_cycle,
     setup_modbus,
 )
+from huawei_solar.exceptions import ReadException
 
 # ---------------------------------------------------------------------------
 # Module-level test data for log_cycle_summary tests
@@ -70,14 +72,14 @@ class TestMain:
     def test_reset_state_recreates_runtime_singletons(self):
         """reset_state() isolates runtime state between tests."""
         old_state = main_module._state
-        old_tracker = main_module.error_tracker
+        old_tracker = main_module._error_tracker
         main_module._state.last_success = 123.0
-        main_module.error_tracker.track_error("timeout", "error")
+        main_module._error_tracker.track_error("timeout", "error")
 
         reset_state()
 
         assert main_module._state is not old_state
-        assert main_module.error_tracker is not old_tracker
+        assert main_module._error_tracker is not old_tracker
         assert main_module._state.last_success == 0.0
         assert main_module._state.config is None
         assert main_module._state.cycle_count == 0
@@ -87,7 +89,7 @@ class TestMain:
         """main() registers SIGTERM cancellation on the running event loop."""
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
-            patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
+            patch("bridge.main.create_tcp_client", return_value=mock_client),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.publish_status", new_callable=AsyncMock),
@@ -130,7 +132,7 @@ class TestMain:
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
             patch("bridge.main.detect_slave_id", return_value=1),
-            patch("bridge.main.AsyncHuaweiSolar.create", side_effect=ConnectionRefusedError()),
+            patch("bridge.main.create_tcp_client", side_effect=ConnectionRefusedError()),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as mock_disconnect,
             patch("bridge.main.publish_status", new_callable=AsyncMock),
@@ -145,7 +147,7 @@ class TestMain:
         """main() shuts down gracefully on KeyboardInterrupt."""
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
-            patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
+            patch("bridge.main.create_tcp_client", return_value=mock_client),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as mock_disconnect,
             patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status,
@@ -166,7 +168,7 @@ class TestMain:
 
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
-            patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
+            patch("bridge.main.create_tcp_client", return_value=mock_client),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as mock_disconnect,
             patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status,
@@ -183,7 +185,7 @@ class TestMain:
         """TimeoutError triggers filter reset and retry."""
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
-            patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
+            patch("bridge.main.create_tcp_client", return_value=mock_client),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status,
             patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
@@ -201,16 +203,16 @@ class TestMain:
 
     @pytest.mark.asyncio
     async def test_modbus_exception_triggers_filter_reset(self, mock_config, mock_client):
-        """ModbusException triggers filter reset and retry."""
-        from pymodbus.exceptions import ModbusException
+        """ReadException triggers filter reset and retry."""
+        from huawei_solar.exceptions import ReadException
 
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
-            patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
+            patch("bridge.main.create_tcp_client", return_value=mock_client),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.publish_status", new_callable=AsyncMock) as mock_status,
             patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
-            patch("bridge.main.main_once", side_effect=[ModbusException("error"), KeyboardInterrupt()]),
+            patch("bridge.main.main_once", side_effect=[ReadException("error"), KeyboardInterrupt()]),
             patch("bridge.main.reset_filter") as mock_reset_filter,
             patch("asyncio.sleep", new_callable=AsyncMock),
         ):
@@ -227,12 +229,12 @@ class TestMain:
         """main() waits the remaining poll interval after a successful cycle."""
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
-            patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client),
+            patch("bridge.main.create_tcp_client", return_value=mock_client),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.publish_status", new_callable=AsyncMock),
             patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
-            patch("bridge.main.error_tracker"),
+            patch("bridge.main._error_tracker"),
             patch("bridge.main.main_once", side_effect=[None, KeyboardInterrupt()]),
             patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
         ):
@@ -246,11 +248,11 @@ class TestMain:
 
     @pytest.mark.asyncio
     async def test_mqtt_connection_failure_exits(self, mock_config):
-        """main() returns cleanly (no SystemExit) on MQTT connection failure."""
+        """main() returns cleanly (no ConfigurationError) on MQTT connection failure."""
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
             patch("bridge.main.detect_slave_id", return_value=1),
-            patch("bridge.main.connect_mqtt", new_callable=AsyncMock, side_effect=Exception("MQTT failed")),
+            patch("bridge.main.connect_mqtt", new_callable=AsyncMock, side_effect=ConnectionError("MQTT failed")),
             patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as mock_disconnect,
             patch("bridge.main.publish_status", new_callable=AsyncMock),
             patch("asyncio.sleep", new_callable=AsyncMock),
@@ -276,7 +278,7 @@ class TestDetermineSlaveId:
     @pytest.mark.asyncio
     async def test_manual_mode_none_exits(self):
         config = Mock(modbus_auto_detect_slave_id=False, slave_id=None)
-        with pytest.raises(SystemExit):
+        with pytest.raises(ConfigurationError):
             await determine_slave_id(config)
 
     @pytest.mark.asyncio
@@ -292,7 +294,7 @@ class TestDetermineSlaveId:
         config = Mock(modbus_auto_detect_slave_id=True, modbus_host="192.168.1.100", modbus_port=502)
         with (
             patch("bridge.main.detect_slave_id", return_value=None),
-            pytest.raises(SystemExit),
+            pytest.raises(ConfigurationError),
         ):
             await determine_slave_id(config)
 
@@ -349,9 +351,9 @@ class TestIsModbusException:
     """Tests for is_modbus_exception()."""
 
     def test_returns_true_for_modbus_exception(self):
-        from pymodbus.exceptions import ModbusException
+        from huawei_solar.exceptions import ReadException
 
-        assert is_modbus_exception(ModbusException("error"))
+        assert is_modbus_exception(ReadException("error"))
 
     def test_returns_false_for_value_error(self):
         assert not is_modbus_exception(ValueError("error"))
@@ -360,7 +362,7 @@ class TestIsModbusException:
         assert not is_modbus_exception(TimeoutError())
 
     def test_returns_false_when_modbus_exceptions_empty(self):
-        with patch("huawei_solar_modbus_mqtt.bridge.main.MODBUS_EXCEPTIONS", ()):
+        with patch("bridge.main.MODBUS_EXCEPTIONS", ()):
             assert not is_modbus_exception(ValueError("any"))
             assert not is_modbus_exception(Exception("test"))
 
@@ -377,7 +379,7 @@ class TestSetupModbus:
     async def test_successful_connection(self, mock_config):
         """Returns a connected client on success."""
         mock_client = AsyncMock()
-        with patch("bridge.main.AsyncHuaweiSolar.create", return_value=mock_client):
+        with patch("bridge.main.create_tcp_client", return_value=mock_client):
             result = await setup_modbus(1, mock_config)
 
         assert result is mock_client
@@ -386,7 +388,7 @@ class TestSetupModbus:
     async def test_timeout_returns_none(self, mock_config, caplog):
         """TimeoutError from create() returns None and logs the timeout."""
         with (
-            patch("bridge.main.AsyncHuaweiSolar.create", side_effect=TimeoutError()),
+            patch("bridge.main.create_tcp_client", side_effect=TimeoutError()),
             patch("bridge.main._state.publish_status", new_callable=AsyncMock),
         ):
             result = await setup_modbus(1, mock_config)
@@ -397,7 +399,7 @@ class TestSetupModbus:
     async def test_timeout_logs_host_and_port(self, mock_config, caplog):
         """Timeout error message includes host, port, and timeout value."""
         with (
-            patch("bridge.main.AsyncHuaweiSolar.create", side_effect=TimeoutError()),
+            patch("bridge.main.create_tcp_client", side_effect=TimeoutError()),
             patch("bridge.main._state.publish_status", new_callable=AsyncMock),
         ):
             await setup_modbus(1, mock_config)
@@ -408,7 +410,7 @@ class TestSetupModbus:
     @pytest.mark.asyncio
     async def test_connection_refused_returns_none(self, mock_config):
         """ConnectionRefusedError from create() returns None."""
-        with patch("bridge.main.AsyncHuaweiSolar.create", side_effect=ConnectionRefusedError()):
+        with patch("bridge.main.create_tcp_client", side_effect=ConnectionRefusedError()):
             result = await setup_modbus(1, mock_config)
 
         assert result is None
@@ -474,6 +476,14 @@ class TestRecoverableExceptionsSanitized:
     def test_includes_standard_recoverable(self):
         assert TimeoutError in RECOVERABLE_EXCEPTIONS
         assert ConnectionRefusedError in RECOVERABLE_EXCEPTIONS
+
+    def test_includes_huawei_solar_exceptions(self):
+        from bridge.main import MODBUS_EXCEPTIONS
+        from huawei_solar.exceptions import ConnectionException, ConnectionInterruptedException, ReadException
+
+        assert ConnectionInterruptedException in RECOVERABLE_EXCEPTIONS
+        assert ConnectionException in RECOVERABLE_EXCEPTIONS
+        assert ReadException in MODBUS_EXCEPTIONS
 
     def test_only_real_exceptions_included(self):
         """RECOVERABLE_EXCEPTIONS never includes non-BaseException classes."""
@@ -614,7 +624,7 @@ class TestReadRegisters:
     @pytest.mark.asyncio
     async def test_batch_failure_falls_back_to_sequential(self, mock_client):
         """Falls back to sequential reads when batch call fails."""
-        mock_client.get_multiple.side_effect = Exception("Did not recognize register names")
+        mock_client.get_multiple.side_effect = ReadException("Did not recognize register names")
         mock_client.get = AsyncMock(side_effect=lambda name: {"reg1": 100, "reg2": 200, "reg3": 300}[name])
         with (
             patch("bridge.main.ESSENTIAL_REGISTERS", ["reg1", "reg2", "reg3"]),
@@ -622,6 +632,32 @@ class TestReadRegisters:
         ):
             result = await read_registers(mock_client)
         assert result == {"reg1": 100, "reg2": 200, "reg3": 300}
+
+    @pytest.mark.asyncio
+    async def test_batch_quantity_value_error_falls_back_to_sequential(self, mock_client):
+        """ValueError from get_multiple (oversized Modbus batch) falls back to sequential reads."""
+        mock_client.get_multiple.side_effect = ValueError("Quantity must be between 1 and 125.")
+        mock_client.get = AsyncMock(side_effect=lambda name: {"reg1": 100, "reg2": 200, "reg3": 300}[name])
+        with (
+            patch("bridge.main.ESSENTIAL_REGISTERS", ["reg1", "reg2", "reg3"]),
+            patch("bridge.batch_builder._get_huawei_registers", return_value=None),
+        ):
+            result = await read_registers(mock_client)
+        assert result == {"reg1": 100, "reg2": 200, "reg3": 300}
+        assert mock_client.get.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_programming_error_in_build_batches_propagates(self, mock_client):
+        """Test that non-READ_EXCEPTIONS propagate."""
+        with (
+            patch(
+                "bridge.batch_builder.BatchBuilder.build_batches",
+                side_effect=TypeError("Unexpected register structure"),
+            ),
+            patch("bridge.main.ESSENTIAL_REGISTERS", ["reg1", "reg2", "reg3"]),
+        ):
+            with pytest.raises(TypeError, match="Unexpected register structure"):
+                await read_registers(mock_client)
 
     @pytest.mark.asyncio
     async def test_batching_disabled_uses_sequential(self, mock_client):
@@ -819,3 +855,15 @@ class TestLogCycleSummaryDebugBranch:
         with patch("bridge.main.get_filter", return_value=mock_filter):
             log_cycle_summary(1, TIMINGS, DATA)
         assert "Filter details" not in caplog.text
+
+    def test_get_error_tracker_returns_module_singleton(self):
+        """get_error_tracker returns the private _error_tracker singleton."""
+        assert main_module.get_error_tracker() is main_module._error_tracker
+
+    def test_get_error_tracker_reflects_reset_state(self):
+        """After reset_state the accessor yields the new instance."""
+        old_tracker = main_module.get_error_tracker()
+        reset_state()
+        new_tracker = main_module.get_error_tracker()
+        assert new_tracker is not old_tracker
+        assert new_tracker is main_module._error_tracker
