@@ -842,3 +842,15 @@ class TestLogCycleSummaryDebugBranch:
         with patch("bridge.main.get_filter", return_value=mock_filter):
             log_cycle_summary(1, TIMINGS, DATA)
         assert "Filter details" not in caplog.text
+
+    def test_get_error_tracker_returns_module_singleton(self):
+        """get_error_tracker returns the private _error_tracker singleton."""
+        assert main_module.get_error_tracker() is main_module._error_tracker
+
+    def test_get_error_tracker_reflects_reset_state(self):
+        """After reset_state the accessor yields the new instance."""
+        old_tracker = main_module.get_error_tracker()
+        reset_state()
+        new_tracker = main_module.get_error_tracker()
+        assert new_tracker is not old_tracker
+        assert new_tracker is main_module._error_tracker
