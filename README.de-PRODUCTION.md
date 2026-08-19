@@ -17,7 +17,7 @@
 [![armv7](https://img.shields.io/badge/armv7-yes-green.svg)](https://github.com/arboeh/huABus)
 [![i386](https://img.shields.io/badge/i386-yes-green.svg)](https://github.com/arboeh/huABus)
 
-**67 essenzielle Register * 68 Entitäten * optionaler MQTT-Heartbeat * 30s Polling**  
+**66 essenzielle Register * 67 Entitäten * optionaler MQTT-Heartbeat * 30s Polling**  
 **Changelog:** [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md)
 
 > **⚠️ WICHTIG: Nur EINE Modbus-Verbindung möglich**
@@ -30,7 +30,7 @@
 ## Features
 
 - **Automatische Slave ID-Erkennung:** Probiert automatisch gängige Werte (1, 2, 100)
-- **Modbus TCP → MQTT:** 68 Entitäten mit Auto-Discovery
+- **Modbus TCP → MQTT:** 67 Entitäten mit Auto-Discovery
 - **Vollständiges Monitoring:** Batterie, PV (1-4), Netz (3-Phasen), Energie-Counter
 - **Total Increasing Filter:** Verhindert falsche Counter-Resets in Energie-Statistiken
 - **Auto MQTT-Konfiguration:** Nutzt automatisch Home Assistant MQTT-Zugangsdaten
@@ -56,7 +56,7 @@
 
 ## Batch-Lesemodus (v1.10.1+)
 
-Liest alle 67 Register in 3-5 Batches statt einzeln. **Performance-Verbesserung:** bis zu 75% schneller bei hoher Latenz. Automatisches Fallback zum sequenziellen Modus bei Fehlern.
+Liest alle 66 Register in 3-5 Batches statt einzeln. **Performance-Verbesserung:** bis zu 75% schneller bei hoher Latenz. Automatisches Fallback zum sequenziellen Modus bei Fehlern.
 
 **Konfiguration:**
 ```yaml
@@ -65,7 +65,7 @@ batch_max_gap: 50             # Max. Adresslücke pro Batch (Standard: 50, empfo
 ```
 
 **Details:**
-- `enable_batching: true` - Gruppiert Register intelligent nach Modbus-Adress-Nähe. Reduziert 67 einzelne Reads auf typisch 3-5 Batch-Anfragen.
+- `enable_batching: true` - Gruppiert Register intelligent nach Modbus-Adress-Nähe. Reduziert 66 einzelne Reads auf typisch 3-5 Batch-Anfragen.
 - `batch_max_gap: 50` - Maximale Adress-Lücke (in Modbus-Einheiten) innerhalb eines Batches. Kleinere Werte erzeugen mehr Batches mit weniger Risiko, das Inverter-Limit (~125 Register pro Batch) zu überschreiten. Größere Werte reduzieren die Batch-Anzahl, erhöhen aber das Risiko von Batch-Fehlern.
 - **Empfohlen:** `30-50` für die meisten Installationen. Nur bei stabilen, schnellen Netzwerken auf `100` erhöhen.
 - Deaktivieren (`enable_batching: false`), falls wiederholt Batch-Fehler auftreten.
