@@ -1,8 +1,8 @@
+[🇬🇧 English](README.md) | 🇩🇪 **Deutsch**
+
 <img src="images/heading.svg" alt="huABus" height="40"/>
 
-### Huawei Solar Modbus zu Home Assistant via MQTT + Auto-Discovery
-
-[🇬🇧 English](README.md) | 🇩🇪 **Deutsch**
+#
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Add--on-41BDF5?logo=home-assistant)](https://www.home-assistant.io/)
 [![release](https://img.shields.io/github/v/release/arboeh/huABus?display_name=tag)](https://github.com/arboeh/huABus/releases/latest)
@@ -16,6 +16,8 @@
 [![armhf](https://img.shields.io/badge/armhf-yes-green.svg)](https://github.com/arboeh/huABus)
 [![armv7](https://img.shields.io/badge/armv7-yes-green.svg)](https://github.com/arboeh/huABus)
 [![i386](https://img.shields.io/badge/i386-yes-green.svg)](https://github.com/arboeh/huABus)
+
+### Huawei Solar Modbus zu Home Assistant via MQTT + Auto-Discovery
 
 **66 essenzielle Register * 67 Entitäten * optionaler MQTT-Heartbeat * 30s Polling**  
 **Changelog:** [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md)
