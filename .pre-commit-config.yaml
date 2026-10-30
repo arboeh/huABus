@@ -44,6 +44,15 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+      - id: check-dependency-sync
+        name: Check dependency synchronization
+        entry: python scripts/check_dependency_sync.py
+        language: python
+        additional_dependencies: [packaging]
+        pass_filenames: false
+        files: ^(pyproject\.toml|huawei_solar_modbus_mqtt/requirements\.txt)$
+        stages: [pre-commit]
+
       - id: sync-version
         name: Sync version from config.yaml
         entry: python scripts/update_version.py

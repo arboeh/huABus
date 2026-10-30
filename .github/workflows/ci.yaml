@@ -32,6 +32,9 @@ jobs:
       - name: Format check
         run: uv tool run ruff format --check huawei_solar_modbus_mqtt/bridge tests/
 
+      - name: Dependency sync check
+        run: uv run --no-project --with packaging python scripts/check_dependency_sync.py
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
