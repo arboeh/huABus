@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MQTT connect cleanup**: after a timeout or error the network thread and client are stopped and reset, so the next attempt starts cleanly.
 - **Modbus setup**: `ModbusConnectionError` is caught during setup instead of aborting the start.
 - **Shutdown during startup**: SIGTERM while waiting for broker or inverter ends the add-on cleanly.
+- **Deprecated bashio call**: `run.sh` uses `bashio::app.version` instead of the deprecated `bashio::addon.version`, which logged a warning at every start.
 
 ### Changed
 
