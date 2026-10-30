@@ -32,6 +32,7 @@ with automatic Home Assistant discovery.
 - **Automatic Slave ID Detection** — tries common values (1, 2, 100) automatically
 - **Total Increasing Filter** — prevents false counter resets, active from first cycle
 - **Intelligent error tracking** with downtime aggregation and recovery logging
+- **Resilient startup and runtime** — retries broker and inverter connections with backoff, keeps running through broker outages
 - **MQTT Auto-Discovery** — all entities appear automatically under a single device
 - **Auto MQTT credentials** — uses Home Assistant MQTT Service by default
 - **Comprehensive test suite** — 93% coverage with unit, integration, and E2E tests

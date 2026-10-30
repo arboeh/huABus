@@ -18,6 +18,7 @@ from bridge.main import (
     determine_slave_id,
     heartbeat,
     init_logging,
+    initialize_bridge,
     is_modbus_exception,
     log_cycle_summary,
     main,
@@ -27,7 +28,9 @@ from bridge.main import (
     run_main_cycle,
     setup_modbus,
 )
+from bridge.mqtt_client import MqttNotConnectedError, MqttPublishError
 from huawei_solar.exceptions import ReadException
+from tmodbus.exceptions import ModbusConnectionError
 
 # ---------------------------------------------------------------------------
 # Module-level test data for log_cycle_summary tests
@@ -125,18 +128,42 @@ class TestMain:
         coro.close()
 
     @pytest.mark.asyncio
-    async def test_connection_retry_on_failure(self, mock_config):
-        """main() calls disconnect_mqtt exactly once on Modbus connection failure."""
-        mock_config.modbus_auto_detect_slave_id = True  # override für diesen Test
+    async def test_inverter_unreachable_at_start_retries_until_available(self, mock_config, mock_client):
+        """Inverter down at start: main() retries with backoff, connects, runs. No exit."""
+        create_client = MagicMock(
+            side_effect=[ModbusConnectionError("refused"), ModbusConnectionError("refused"), mock_client]
+        )
 
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
-            patch("bridge.main.detect_slave_id", return_value=1),
-            patch("bridge.main.create_tcp_client", side_effect=ConnectionRefusedError()),
+            patch("bridge.main.create_tcp_client", create_client),
+            patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
+            patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock),
+            patch("bridge.main.publish_status", new_callable=AsyncMock),
+            patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
+            patch("bridge.main.main_once", side_effect=KeyboardInterrupt()) as mock_main_once,
+            patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        ):
+            await main()
+
+        assert create_client.call_count == 3
+        sleeps = [call.args[0] for call in mock_sleep.call_args_list]
+        assert 5 in sleeps
+        assert 10 in sleeps
+        mock_main_once.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_shutdown_during_startup_retry_exits_cleanly(self, mock_config):
+        """SIGTERM while waiting for the inverter ends main() and disconnects MQTT."""
+        with (
+            patch("bridge.main.ConfigManager", return_value=mock_config),
+            patch("bridge.main.create_tcp_client", side_effect=ModbusConnectionError("refused")),
             patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as mock_disconnect,
             patch("bridge.main.publish_status", new_callable=AsyncMock),
             patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
+            # 1st sleep: MQTT stabilisation, 2nd: backoff after the failed Modbus attempt
+            patch("asyncio.sleep", new_callable=AsyncMock, side_effect=[None, asyncio.CancelledError()]),
         ):
             await main()
 
@@ -235,7 +262,7 @@ class TestMain:
             patch("bridge.main.publish_status", new_callable=AsyncMock),
             patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
             patch("bridge.main._error_tracker"),
-            patch("bridge.main.main_once", side_effect=[None, KeyboardInterrupt()]),
+            patch("bridge.main.main_once", side_effect=[True, KeyboardInterrupt()]),
             patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
         ):
             try:
@@ -247,19 +274,65 @@ class TestMain:
             assert any(arg > 0 for arg in sleep_args)
 
     @pytest.mark.asyncio
-    async def test_mqtt_connection_failure_exits(self, mock_config):
-        """main() returns cleanly (no ConfigurationError) on MQTT connection failure."""
+    async def test_broker_unreachable_at_start_retries_until_available(self, mock_config, mock_client):
+        """Broker down at start: main() retries connect with backoff and then runs. No exit."""
+        connect = AsyncMock(side_effect=[ConnectionError("MQTT failed"), OSError("unreachable"), None])
+
         with (
             patch("bridge.main.ConfigManager", return_value=mock_config),
-            patch("bridge.main.detect_slave_id", return_value=1),
-            patch("bridge.main.connect_mqtt", new_callable=AsyncMock, side_effect=ConnectionError("MQTT failed")),
-            patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as mock_disconnect,
+            patch("bridge.main.create_tcp_client", return_value=mock_client),
+            patch("bridge.main.connect_mqtt", connect),
+            patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock),
             patch("bridge.main.publish_status", new_callable=AsyncMock),
+            patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
+            patch("bridge.main.main_once", side_effect=KeyboardInterrupt()) as mock_main_once,
+            patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        ):
+            await main()
+
+        assert connect.await_count == 3
+        sleeps = [call.args[0] for call in mock_sleep.call_args_list]
+        assert sleeps[:2] == [5, 10]
+        mock_main_once.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_unconfigured_broker_exits_with_error(self, mock_config):
+        """A missing broker host is a configuration error: exit 1, no retry loop."""
+        with (
+            patch("bridge.main.ConfigManager", return_value=mock_config),
+            patch(
+                "bridge.main.connect_mqtt",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("MQTT broker not configured"),
+            ),
+            patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock),
+            patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                await main()
+
+        assert exc_info.value.code == 1
+        mock_sleep.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_mqtt_outage_in_operation_does_not_exit(self, mock_config, mock_client):
+        """Broker drops mid-run: the cycle is skipped and the next cycle runs."""
+        with (
+            patch("bridge.main.ConfigManager", return_value=mock_config),
+            patch("bridge.main.create_tcp_client", return_value=mock_client),
+            patch("bridge.main.connect_mqtt", new_callable=AsyncMock),
+            patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock),
+            patch("bridge.main.publish_status", new_callable=AsyncMock),
+            patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
+            patch(
+                "bridge.main.main_once",
+                side_effect=[MqttNotConnectedError("down"), MqttPublishError("lost"), KeyboardInterrupt()],
+            ) as mock_main_once,
             patch("asyncio.sleep", new_callable=AsyncMock),
         ):
             await main()
 
-        mock_disconnect.assert_not_called()
+        assert mock_main_once.call_count == 3
 
 
 # ---------------------------------------------------------------------------
@@ -415,6 +488,28 @@ class TestSetupModbus:
 
         assert result is None
 
+    @pytest.mark.asyncio
+    async def test_modbus_connection_error_returns_none(self, mock_config):
+        """tmodbus wraps refused/unreachable in ModbusConnectionError (not an OSError)."""
+        mock_client = AsyncMock()
+        mock_client.connect.side_effect = ModbusConnectionError("Connection refused")
+        with patch("bridge.main.create_tcp_client", return_value=mock_client):
+            result = await setup_modbus(1, mock_config)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_successful_connection_does_not_publish_online(self, mock_config):
+        """'online' is published only after confirmed data, not on TCP connect."""
+        main_module._state.config = mock_config
+        with (
+            patch("bridge.main.create_tcp_client", return_value=AsyncMock()),
+            patch("bridge.main._state.publish_status", new_callable=AsyncMock) as mock_status,
+        ):
+            await setup_modbus(1, mock_config)
+
+        mock_status.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # TestRunMainCycleExceptionHandling
@@ -456,6 +551,114 @@ class TestRunMainCycleExceptionHandling:
             await run_main_cycle(mock_client, mock_config, 1)
 
         mock_maybe.assert_called_once()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("error", [MqttNotConnectedError("down"), MqttPublishError("not confirmed")])
+    async def test_mqtt_error_is_recoverable_without_filter_reset(self, mock_client, mock_config, error):
+        """MQTT failures skip the cycle: tracked, no raise, no filter reset, no status publish."""
+        with (
+            patch("bridge.main.main_once", side_effect=error),
+            patch("bridge.main.reset_filter") as mock_reset_filter,
+            patch("bridge.main._state.publish_status", new_callable=AsyncMock) as mock_status,
+            patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        ):
+            await run_main_cycle(mock_client, mock_config, 1)
+
+        assert "mqtt_unavailable" in main_module._error_tracker.errors
+        mock_reset_filter.assert_not_called()
+        mock_status.assert_not_called()
+        mock_sleep.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_published_cycle_marks_success_and_publishes_online(self, mock_client, mock_config):
+        main_module._error_tracker.track_error("mqtt_unavailable", "down")
+        with (
+            patch("bridge.main.main_once", return_value=True),
+            patch("bridge.main._state.publish_status", new_callable=AsyncMock) as mock_status,
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
+            await run_main_cycle(mock_client, mock_config, 1)
+
+        assert main_module._error_tracker.errors == {}
+        mock_status.assert_awaited_once_with("online", mock_config.mqtt_topic)
+
+    @pytest.mark.asyncio
+    async def test_cycle_without_data_neither_marks_success_nor_publishes_online(self, mock_client, mock_config):
+        main_module._error_tracker.track_error("timeout", "no data")
+        with (
+            patch("bridge.main.main_once", return_value=False),
+            patch("bridge.main._state.publish_status", new_callable=AsyncMock) as mock_status,
+            patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        ):
+            await run_main_cycle(mock_client, mock_config, 1)
+
+        assert "timeout" in main_module._error_tracker.errors
+        mock_status.assert_not_called()
+        mock_sleep.assert_awaited_once()  # poll interval is still kept (no busy loop)
+
+
+# ---------------------------------------------------------------------------
+# TestInitializeBridge
+# ---------------------------------------------------------------------------
+
+
+class TestInitializeBridge:
+    """initialize_bridge(): retries at start instead of exiting."""
+
+    @pytest.fixture
+    def startup_mocks(self):
+        with (
+            patch("bridge.main.connect_mqtt", new_callable=AsyncMock) as connect,
+            patch("bridge.main.publish_status", new_callable=AsyncMock),
+            patch("bridge.main.publish_discovery_configs", new_callable=AsyncMock),
+            patch("bridge.main.disconnect_mqtt", new_callable=AsyncMock) as disconnect,
+            patch("asyncio.sleep", new_callable=AsyncMock) as sleep,
+        ):
+            yield {"connect": connect, "disconnect": disconnect, "sleep": sleep}
+
+    @pytest.mark.asyncio
+    async def test_returns_client_on_first_attempt(self, mock_config, mock_client, startup_mocks):
+        with patch("bridge.main.create_tcp_client", return_value=mock_client):
+            result = await initialize_bridge(mock_config)
+
+        assert result is mock_client
+        assert [c.args[0] for c in startup_mocks["sleep"].call_args_list] == [1]  # only MQTT stabilisation
+
+    @pytest.mark.asyncio
+    async def test_inverter_failure_does_not_disconnect_mqtt(self, mock_config, mock_client, startup_mocks):
+        """Modbus retries keep the MQTT connection (no churn on the broker)."""
+        create_client = MagicMock(side_effect=[TimeoutError(), ModbusConnectionError("refused"), mock_client])
+        with patch("bridge.main.create_tcp_client", create_client):
+            result = await initialize_bridge(mock_config)
+
+        assert result is mock_client
+        assert startup_mocks["connect"].await_count == 1
+        startup_mocks["disconnect"].assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_auto_detect_is_retried_until_inverter_answers(self, mock_config, mock_client, startup_mocks):
+        mock_config.modbus_auto_detect_slave_id = True
+        with (
+            patch("bridge.main.detect_slave_id", side_effect=[None, None, 3]) as mock_detect,
+            patch("bridge.main.create_tcp_client", return_value=mock_client) as mock_create,
+        ):
+            await initialize_bridge(mock_config)
+
+        assert mock_detect.call_count == 3
+        assert mock_create.call_args.kwargs["unit_id"] == 3
+        sleeps = [c.args[0] for c in startup_mocks["sleep"].call_args_list]
+        assert sleeps[:2] == [5, 10]
+
+    @pytest.mark.asyncio
+    async def test_missing_manual_slave_id_fails_immediately(self, mock_config, startup_mocks):
+        mock_config.modbus_auto_detect_slave_id = False
+        mock_config.slave_id = None
+
+        with pytest.raises(ConfigurationError):
+            await initialize_bridge(mock_config)
+
+        startup_mocks["sleep"].assert_not_called()
+        startup_mocks["connect"].assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -516,8 +719,9 @@ class TestMainOnce:
             mock_filter.filter.return_value = {"power_active": 4500}
             mock_get_filter.return_value = mock_filter
 
-            await main_once(mock_client, mock_config, 1)
+            result = await main_once(mock_client, mock_config, 1)
 
+            assert result is True
             assert mock_read.call_count == 1
             assert mock_transform.call_count == 1
             assert mock_filter.filter.call_count == 1
@@ -525,13 +729,34 @@ class TestMainOnce:
 
     @pytest.mark.asyncio
     async def test_empty_data_skips_publish(self, mock_client, mock_config):
-        """Returns early without publishing when read returns empty data."""
+        """Returns False without publishing or touching last_success when read returns empty data."""
+        main_module._state.last_success = 0.0
         with (
             patch("bridge.main.read_registers", return_value={}),
             patch("bridge.main.publish_data", new_callable=AsyncMock) as mock_publish,
         ):
-            await main_once(mock_client, mock_config, 1)
-            assert mock_publish.call_count == 0
+            result = await main_once(mock_client, mock_config, 1)
+
+        assert result is False
+        assert mock_publish.call_count == 0
+        assert main_module._state.last_success == 0.0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("error", [MqttNotConnectedError("down"), MqttPublishError("not confirmed")])
+    async def test_unconfirmed_publish_does_not_update_last_success(self, mock_client, mock_config, error):
+        """A publish the broker did not take counts as failure: error propagates, no heartbeat refresh."""
+        main_module._state.last_success = 0.0
+        with (
+            patch("bridge.main.read_registers", return_value={"power_active": 4500}),
+            patch("bridge.main.transform_data", return_value={"power_active": 4500}),
+            patch("bridge.main.publish_data", new_callable=AsyncMock, side_effect=error),
+            patch("bridge.main.get_filter") as mock_get_filter,
+        ):
+            mock_get_filter.return_value.filter.return_value = {"power_active": 4500}
+            with pytest.raises(type(error)):
+                await main_once(mock_client, mock_config, 1)
+
+        assert main_module._state.last_success == 0.0
 
     @pytest.mark.asyncio
     async def test_updates_last_success_timestamp(self, mock_client, mock_config):

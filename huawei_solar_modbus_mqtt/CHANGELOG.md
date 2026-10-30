@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-10-30
+
+### Fixed
+
+- **Start without broker or inverter**: MQTT connection, Modbus connection and Slave ID auto-detection are retried with backoff (5 s, doubling, max 60 s) instead of exiting with code 1. Configuration errors (missing broker host, invalid port) still exit immediately.
+- **Broker outage during operation**: huABus no longer exits. The affected cycle is skipped, the error is tracked as `mqtt_unavailable`, the filter state is kept and paho reconnects in the background.
+- **Status `online`**: only published after data was read and the broker confirmed the publish. Empty data or an unconfirmed publish no longer sets `online`.
+- **MQTT connect cleanup**: after a timeout or error the network thread and client are stopped and reset, so the next attempt starts cleanly.
+- **Modbus setup**: `ModbusConnectionError` is caught during setup instead of aborting the start.
+- **Shutdown during startup**: SIGTERM while waiting for broker or inverter ends the add-on cleanly.
+
+### Changed
+
+- **`publish_data`**: no longer modifies the dictionary passed in.
+
 ## [1.11.0] - 2026-08-19
 
 ### Added

@@ -15,7 +15,7 @@ repos:
     hooks:
       - id: mypy
         args: [--ignore-missing-imports, --check-untyped-defs]
-        additional_dependencies: [types-paho-mqtt, types-PyYAML]
+        additional_dependencies: ["paho-mqtt>=2.1,<2.2", types-PyYAML]
         files: ^(huawei_solar_modbus_mqtt/bridge|tests)/.*\.py$
 
   # Pre-Commit Hooks - Standard Checks

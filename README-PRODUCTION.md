@@ -33,6 +33,7 @@
 - **Modbus TCP → MQTT:** 67 entities with Auto-Discovery
 - **Complete Monitoring:** Battery, PV (1-4), Grid (3-phase), Energy counters
 - **Total Increasing Filter:** Prevents false counter resets in energy statistics
+- **Resilient startup and runtime:** retries broker and inverter connections with backoff, keeps running through broker outages
 - **Auto MQTT Configuration:** Automatically uses Home Assistant MQTT credentials
 - **Batch Reading (v1.10.1+):** Optional mode for up to 75% faster Modbus cycles with automatic fallback and safer default batching.
 - **Performance Diagnostics:** Per-register timing analysis at DEBUG level to identify bottlenecks

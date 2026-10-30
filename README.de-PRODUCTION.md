@@ -33,6 +33,7 @@
 - **Modbus TCP → MQTT:** 67 Entitäten mit Auto-Discovery
 - **Vollständiges Monitoring:** Batterie, PV (1-4), Netz (3-Phasen), Energie-Counter
 - **Total Increasing Filter:** Verhindert falsche Counter-Resets in Energie-Statistiken
+- **Robuster Start und Betrieb:** Verbindungen zu Broker und Inverter werden mit wachsender Wartezeit wiederholt, huABus läuft bei Broker-Ausfällen weiter
 - **Auto MQTT-Konfiguration:** Nutzt automatisch Home Assistant MQTT-Zugangsdaten
 - **Batch-Modus (v1.10.1+):** Optionaler Modus für bis zu 75% schnellere Modbus-Zyklen mit automatischem Fallback und sicherem Standard-Batching.
 - **Performance-Diagnostik:** Per-Register-Timing-Analyse im DEBUG-Modus zur Engpass-Identifikation
