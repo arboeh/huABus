@@ -161,7 +161,8 @@ Both share the same limitation - only **ONE Modbus connection**. To use both sim
 ## Latest Updates
 See [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) for detailed release notes.
 
-- **v1.11.0:** Library upgrade to huawei-solar 3.0.7 (tModbus transport), Python >=3.12, narrowed exception handling to READ_EXCEPTIONS, `get_error_tracker()` accessor, test coverage 93.23% → 93.33%, SECURITY.md updated (supported versions, 93% coverage), dependency changes (removed pymodbus/backoff/pytz, added tmodbus/serialx/tenacity)
+- **v1.12.0:** Start without broker or inverter no longer exits: MQTT, Modbus and Slave ID detection are retried with backoff (5 s, doubling, max 60 s). Broker outage during operation skips the cycle instead of exiting, status `online` only after confirmed publish, clean MQTT connect cleanup, `ModbusConnectionError` handled during setup, clean shutdown on SIGTERM during startup
+- ✅ **v1.11.0:** Library upgrade to huawei-solar 3.0.7 (tModbus transport), Python >=3.12, narrowed exception handling to READ_EXCEPTIONS, `get_error_tracker()` accessor, test coverage 93.23% → 93.33%, SECURITY.md updated (supported versions, 93% coverage), dependency changes (removed pymodbus/backoff/pytz, added tmodbus/serialx/tenacity)
 - ✅ **v1.10.4:** Modbus connection timeout on setup_modbus(), narrowed exception handlers in run_main_cycle to explicit RECOVERABLE_EXCEPTIONS, typed ErrorType in error tracker
 
 
