@@ -24,6 +24,7 @@ from typing import Any
 
 import paho.mqtt.client as mqtt
 from paho.mqtt.enums import CallbackAPIVersion
+from paho.mqtt.reasoncodes import ReasonCode
 
 from .config.sensors_mqtt import NUMERIC_SENSORS, TEXT_SENSORS
 
@@ -38,14 +39,31 @@ _is_connected = False
 # Thread-safe event for connection establishment (paho callbacks run in their own thread)
 _connected_event = threading.Event()
 
+# Last refused CONNACK code of the current connect attempt (None = no CONNACK refusal seen).
+# Separates "wrong credentials" from "broker unreachable" in the timeout message.
+_last_connack_rc: ReasonCode | int | None = None
+
+CONNECT_TIMEOUT = 10.0
+DATA_PUBLISH_TIMEOUT = 2.0
+STATUS_PUBLISH_TIMEOUT = 1.0
+
+
+class MqttNotConnectedError(ConnectionError):
+    """Raised when publishing is attempted without an active broker connection."""
+
+
+class MqttPublishError(Exception):
+    """Raised when the broker did not confirm a publish."""
+
 
 def _on_connect(client, userdata, flags, rc, properties=None):
     """Callback when MQTT connection is established."""
-    global _is_connected
+    global _is_connected, _last_connack_rc
     if rc == 0:
         _is_connected = True
         _connected_event.set()
     else:
+        _last_connack_rc = rc
         logger.error(f"❌ MQTT connection failed: {rc}")
 
 
@@ -85,34 +103,82 @@ def _get_mqtt_client() -> mqtt.Client:
     return client
 
 
-async def _wait_for_publish(result, timeout: float) -> None:
-    """Offload blocking wait_for_publish to executor."""
+async def _wait_for_publish(result, timeout: float) -> bool:
+    """Offload blocking wait_for_publish to executor.
+
+    Returns:
+        True if the broker confirmed the publish, False on timeout.
+
+    Raises:
+        RuntimeError, ValueError: paho reports a failed publish (no connection, queue full).
+    """
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, result.wait_for_publish, timeout)
+    return bool(result.is_published())
+
+
+async def _discard_client() -> None:
+    """Stop the network thread of the current client and drop it.
+
+    A failed connect attempt must not leave a running loop thread behind;
+    the next attempt then starts with a fresh client.
+    """
+    global _mqtt_client
+    client, _mqtt_client = _mqtt_client, None
+    if client is None:
+        return
+
+    loop = asyncio.get_running_loop()
+    try:
+        await loop.run_in_executor(None, client.loop_stop)
+        await loop.run_in_executor(None, client.disconnect)
+    except Exception as e:
+        logger.debug(f"MQTT cleanup after failed connect: {e}")
+
+
+def _parse_port(raw: str) -> int:
+    """Return the broker port or raise RuntimeError for an invalid value."""
+    try:
+        port = int(raw)
+    except ValueError:
+        port = 0
+    if not 1 <= port <= 65535:
+        logger.error(f"🚨 Invalid MQTT port: {raw!r}")
+        raise RuntimeError(f"Invalid MQTT port: {raw!r} (expected 1-65535)")
+    return port
 
 
 async def connect_mqtt() -> None:
-    """Connect to MQTT broker and wait for connection via thread-safe event."""
-    client = _get_mqtt_client()
-    broker = os.environ.get("HUAWEI_MQTT_HOST")
-    port = int(os.environ.get("HUAWEI_MQTT_PORT", "1883"))
+    """Connect to MQTT broker and wait for connection via thread-safe event.
 
+    Raises:
+        RuntimeError: Broker host is missing or the port is not a valid number.
+        OSError: Broker is not reachable (DNS, refused, ...).
+        ConnectionError: No CONNACK within CONNECT_TIMEOUT.
+    """
+    global _last_connack_rc
+    broker = os.environ.get("HUAWEI_MQTT_HOST")
     if not broker:
         logger.error("🚨 MQTT broker not configured")
         raise RuntimeError("MQTT broker not configured")
 
+    port = _parse_port(os.environ.get("HUAWEI_MQTT_PORT", "1883"))
+    client = _get_mqtt_client()
+
     logger.debug(f"Connecting MQTT to {broker}:{port}")
     _connected_event.clear()
-    client.connect(broker, port, 60)
-    client.loop_start()
+    _last_connack_rc = None
 
     try:
-        loop = asyncio.get_event_loop()
-        connected = await loop.run_in_executor(None, _connected_event.wait, 10.0)
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, client.connect, broker, port, 60)
+        client.loop_start()
+        connected = await loop.run_in_executor(None, _connected_event.wait, CONNECT_TIMEOUT)
         if not connected:
-            raise ConnectionError("MQTT connection timeout after 10s")
-    except asyncio.CancelledError:
-        client.loop_stop()
+            refused = f", last CONNACK: {_last_connack_rc}" if _last_connack_rc is not None else ""
+            raise ConnectionError(f"MQTT connection timeout after {CONNECT_TIMEOUT:.0f}s{refused}")
+    except (Exception, asyncio.CancelledError):
+        await _discard_client()
         raise
 
     logger.debug("MQTT connection stable")
@@ -128,7 +194,7 @@ async def disconnect_mqtt() -> None:
         topic = os.environ.get("HUAWEI_MQTT_TOPIC")
         if topic and _is_connected:
             result = _mqtt_client.publish(f"{topic}/status", "offline", qos=1, retain=True)
-            await _wait_for_publish(result, 1.0)
+            await _wait_for_publish(result, STATUS_PUBLISH_TIMEOUT)
 
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, _mqtt_client.loop_stop)
@@ -193,7 +259,8 @@ async def _publish_sensor_configs(
         config = _build_sensor_config(sensor, base_topic, device_config)
         topic = f"homeassistant/sensor/huawei_solar/{sensor['key']}/config"
         result = client.publish(topic, json.dumps(config), qos=1, retain=True)
-        await _wait_for_publish(result, 1.0)
+        if not await _wait_for_publish(result, STATUS_PUBLISH_TIMEOUT):
+            logger.warning(f"⚠️ Discovery not confirmed by broker: {topic}")
         count += 1
     return count
 
@@ -241,32 +308,50 @@ async def _publish_status_sensor(client: mqtt.Client, base_topic: str, device_co
         qos=1,
         retain=True,
     )
-    await _wait_for_publish(result, 1.0)
+    if not await _wait_for_publish(result, STATUS_PUBLISH_TIMEOUT):
+        logger.warning("⚠️ Status sensor discovery not confirmed by broker")
 
 
 async def publish_data(data: dict[str, Any], topic: str) -> None:
-    """Publish sensor data to MQTT."""
+    """Publish sensor data to MQTT.
+
+    The passed dict is not modified; ``last_update`` is added to a copy.
+
+    Raises:
+        MqttNotConnectedError: No active broker connection.
+        MqttPublishError: Publish failed or was not confirmed by the broker.
+    """
     if not _is_connected:
         logger.warning("⚠️ MQTT not connected, cannot publish data")
-        raise ConnectionError("🚨 MQTT not connected")
+        raise MqttNotConnectedError("🚨 MQTT not connected")
 
     client = _get_mqtt_client()
-    data["last_update"] = int(time.time())
+    payload = {**data, "last_update": int(time.time())}
+    body = json.dumps(payload)
 
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug(
-            f"Publishing: Solar={data.get('power_active', 'N/A')}W, "
-            f"Grid={data.get('meter_power_active', 'N/A')}W, "
-            f"Battery={data.get('battery_power', 'N/A')}W"
+            f"Publishing: Solar={payload.get('power_active', 'N/A')}W, "
+            f"Grid={payload.get('meter_power_active', 'N/A')}W, "
+            f"Battery={payload.get('battery_power', 'N/A')}W"
         )
 
     try:
-        result = client.publish(topic, json.dumps(data), qos=1, retain=True)
-        await _wait_for_publish(result, 2.0)
-        logger.debug(f"Data published: {len(data)} keys")
+        result = client.publish(topic, body, qos=1, retain=True)
+        confirmed = await _wait_for_publish(result, DATA_PUBLISH_TIMEOUT)
+    except (RuntimeError, ValueError) as e:
+        # paho signals a lost connection (rc > 0) or a full queue this way.
+        logger.error(f"❌ MQTT publish failed: {e}")
+        raise MqttPublishError(f"MQTT publish failed: {e}") from e
     except Exception as e:
         logger.error(f"❌ MQTT publish failed: {e}")
         raise
+
+    if not confirmed:
+        logger.warning(f"⚠️ MQTT publish not confirmed within {DATA_PUBLISH_TIMEOUT:.0f}s")
+        raise MqttPublishError(f"MQTT publish not confirmed within {DATA_PUBLISH_TIMEOUT:.0f}s")
+
+    logger.debug(f"Data published: {len(payload)} keys")
 
 
 async def publish_status(status: str, topic: str) -> None:
@@ -280,7 +365,9 @@ async def publish_status(status: str, topic: str) -> None:
 
     try:
         result = client.publish(status_topic, status, qos=1, retain=True)
-        await _wait_for_publish(result, 1.0)
-        logger.debug(f"Status: '{status}' → {status_topic}")
+        if await _wait_for_publish(result, STATUS_PUBLISH_TIMEOUT):
+            logger.debug(f"Status: '{status}' → {status_topic}")
+        else:
+            logger.warning(f"⚠️ Status '{status}' not confirmed by broker")
     except Exception as e:
         logger.error(f"❌ Status publish failed: {e}")

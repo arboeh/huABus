@@ -66,6 +66,7 @@ ErrorType = Literal[
     "connection_exception",
     "connection_interrupted",
     "modbus_exception",
+    "mqtt_unavailable",
 ]
 
 
