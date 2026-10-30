@@ -27,6 +27,21 @@ class TestBasicErrorTracking:
         assert "Connection error: timeout" in caplog.text
         assert "ERROR" in caplog.text
 
+    def test_mqtt_unavailable_is_tracked_and_recovered(self, caplog):
+        """mqtt_unavailable aggregiert wie die übrigen Fehlertypen und wird per mark_success gelöscht."""
+        caplog.set_level(logging.INFO, logger="huawei.errors")
+        tracker = ConnectionErrorTracker(log_interval=60)
+
+        assert tracker.track_error("mqtt_unavailable", "MQTT not connected") is True
+        assert tracker.track_error("mqtt_unavailable", "MQTT not connected") is False
+        assert tracker.get_status()["total_failures"] == 2
+        assert "Connection error: mqtt_unavailable" in caplog.text
+
+        tracker.mark_success()
+
+        assert tracker.get_status()["active_errors"] == 0
+        assert "Connection restored" in caplog.text
+
     def test_repeated_error_within_interval_not_logged(self, caplog):
         """Gleicher Fehler innerhalb des Intervals wird nicht nochmal geloggt."""
         tracker = ConnectionErrorTracker(log_interval=60)

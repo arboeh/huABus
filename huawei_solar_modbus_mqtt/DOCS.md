@@ -251,6 +251,15 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
 - Enable Modbus TCP in inverter web interface
 - Check firewall rules
 
+### Broker or Inverter Not Reachable
+
+huABus keeps running while the MQTT broker or the inverter is unavailable:
+
+- **At start:** Broker and inverter connections are retried with increasing wait (5 s, doubling, max 60 s). Example log: `⏳ MQTT broker core-mosquitto:1883 not available (attempt 3), retrying in 20s`
+- **During operation:** A failed MQTT publish skips the cycle. paho reconnects to the broker in the background. No restart needed.
+- **Status:** `online` is only sent after a confirmed publish.
+- **Configuration errors** (e.g. missing MQTT host, invalid port) still stop the add-on immediately.
+
 ### MQTT Connection Error
 
 **Symptom:** `ERROR - MQTT publish failed`
