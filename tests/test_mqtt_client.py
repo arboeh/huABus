@@ -8,6 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from bridge.mqtt_client import (
+    MqttNotConnectedError,
+    MqttPublishError,
     _build_sensor_config,
     _get_mqtt_client,
     _load_numeric_sensors,
@@ -52,10 +54,12 @@ def reset_mqtt_globals():
 
     mqtt_module._mqtt_client = None
     mqtt_module._is_connected = False
+    mqtt_module._last_connack_rc = None
     mqtt_module._connected_event.clear()
     yield
     mqtt_module._mqtt_client = None
     mqtt_module._is_connected = False
+    mqtt_module._last_connack_rc = None
     mqtt_module._connected_event.clear()
 
 
@@ -164,6 +168,15 @@ class TestConnect:
             await connect_mqtt()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("raw_port", ["abc", "", "0", "70000", "-1"])
+    async def test_connect_mqtt_raises_on_invalid_port(self, mock_mqtt_client, mqtt_env_vars, monkeypatch, raw_port):
+        """An invalid port is a configuration error (RuntimeError), not a raw ValueError."""
+        monkeypatch.setenv("HUAWEI_MQTT_PORT", raw_port)
+        with pytest.raises(RuntimeError, match="Invalid MQTT port"):
+            await connect_mqtt()
+        mock_mqtt_client.connect.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_connect_mqtt_raises_on_timeout(self, mock_mqtt_client, mqtt_env_vars):
         import bridge.mqtt_client as mqtt_module
 
@@ -171,6 +184,65 @@ class TestConnect:
             mock_client.return_value = mock_mqtt_client
             with patch.object(mqtt_module._connected_event, "wait", return_value=False):
                 with pytest.raises(ConnectionError, match="MQTT connection timeout"):
+                    await connect_mqtt()
+
+    @pytest.mark.asyncio
+    async def test_connect_mqtt_timeout_stops_loop_and_resets_client(self, mock_mqtt_client, mqtt_env_vars):
+        """A failed attempt stops the network thread and drops the client (no thread leak)."""
+        import bridge.mqtt_client as mqtt_module
+
+        with patch("bridge.mqtt_client.mqtt.Client") as mock_client:
+            mock_client.return_value = mock_mqtt_client
+            with patch.object(mqtt_module._connected_event, "wait", return_value=False):
+                with pytest.raises(ConnectionError):
+                    await connect_mqtt()
+
+        mock_mqtt_client.loop_stop.assert_called_once()
+        assert mqtt_module._mqtt_client is None
+
+    @pytest.mark.asyncio
+    async def test_connect_mqtt_retry_uses_fresh_client(self, mock_mqtt_client, mqtt_env_vars):
+        """After a timeout the next attempt creates a new paho client."""
+        import bridge.mqtt_client as mqtt_module
+
+        with patch("bridge.mqtt_client.mqtt.Client") as mock_client:
+            mock_client.return_value = mock_mqtt_client
+            with patch.object(mqtt_module._connected_event, "wait", return_value=False):
+                with pytest.raises(ConnectionError):
+                    await connect_mqtt()
+                with pytest.raises(ConnectionError):
+                    await connect_mqtt()
+
+            assert mock_client.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_connect_mqtt_unreachable_broker_does_not_start_loop(self, mock_mqtt_client, mqtt_env_vars):
+        """OSError from connect() propagates, no loop thread is started, client is reset."""
+        import bridge.mqtt_client as mqtt_module
+
+        mock_mqtt_client.connect.side_effect = ConnectionRefusedError("refused")
+        with patch("bridge.mqtt_client.mqtt.Client") as mock_client:
+            mock_client.return_value = mock_mqtt_client
+            with pytest.raises(OSError):
+                await connect_mqtt()
+
+        mock_mqtt_client.loop_start.assert_not_called()
+        assert mqtt_module._mqtt_client is None
+
+    @pytest.mark.asyncio
+    async def test_connect_mqtt_timeout_reports_refused_connack(self, mock_mqtt_client, mqtt_env_vars):
+        """The timeout message names the last refused CONNACK (e.g. bad credentials)."""
+        import bridge.mqtt_client as mqtt_module
+
+        with patch("bridge.mqtt_client.mqtt.Client") as mock_client:
+            mock_client.return_value = mock_mqtt_client
+
+            def refuse(*args):
+                _on_connect(None, None, None, 5)
+
+            mock_mqtt_client.connect.side_effect = refuse
+            with patch.object(mqtt_module._connected_event, "wait", return_value=False):
+                with pytest.raises(ConnectionError, match="last CONNACK: 5"):
                     await connect_mqtt()
 
 
@@ -276,6 +348,72 @@ class TestPublishing:
             await publish_data({"test": 123}, "test/topic")
 
     @pytest.mark.asyncio
+    async def test_publish_data_not_connected_raises_dedicated_error(self):
+        """MqttNotConnectedError is a ConnectionError subclass."""
+        import bridge.mqtt_client as mqtt_module
+
+        mqtt_module._is_connected = False
+        with pytest.raises(MqttNotConnectedError) as exc_info:
+            await publish_data({"test": 123}, "test/topic")
+
+        assert isinstance(exc_info.value, ConnectionError)
+
+    @pytest.mark.asyncio
+    async def test_publish_data_unconfirmed_raises_publish_error(self, mock_mqtt_client, mqtt_env_vars):
+        """No broker confirmation within the timeout is a failure, not a success."""
+        import bridge.mqtt_client as mqtt_module
+
+        mqtt_module._mqtt_client = mock_mqtt_client
+        mqtt_module._is_connected = True
+        mock_mqtt_client.publish.return_value.is_published.return_value = False
+
+        with pytest.raises(MqttPublishError, match="not confirmed"):
+            await publish_data({"test": 123}, "test/topic")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "paho_error",
+        [RuntimeError("The client is not currently connected."), ValueError("Queue full")],
+    )
+    async def test_publish_data_maps_paho_errors_to_publish_error(self, mock_mqtt_client, mqtt_env_vars, paho_error):
+        """paho raises RuntimeError/ValueError on lost connection or full queue."""
+        import bridge.mqtt_client as mqtt_module
+
+        mqtt_module._mqtt_client = mock_mqtt_client
+        mqtt_module._is_connected = True
+        mock_mqtt_client.publish.return_value.wait_for_publish.side_effect = paho_error
+
+        with pytest.raises(MqttPublishError) as exc_info:
+            await publish_data({"test": 123}, "test/topic")
+
+        assert exc_info.value.__cause__ is paho_error
+
+    @pytest.mark.asyncio
+    async def test_publish_data_programming_error_is_not_mapped(self, mock_mqtt_client, mqtt_env_vars):
+        """Non-serializable payload (TypeError) propagates unchanged."""
+        import bridge.mqtt_client as mqtt_module
+
+        mqtt_module._mqtt_client = mock_mqtt_client
+        mqtt_module._is_connected = True
+
+        with pytest.raises(TypeError):
+            await publish_data({"test": object()}, "test/topic")
+
+        mock_mqtt_client.publish.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_publish_data_does_not_modify_input(self, mock_mqtt_client, mqtt_env_vars):
+        import bridge.mqtt_client as mqtt_module
+
+        mqtt_module._mqtt_client = mock_mqtt_client
+        mqtt_module._is_connected = True
+        data = {"power_input": 4500}
+
+        await publish_data(data, "test/topic")
+
+        assert data == {"power_input": 4500}
+
+    @pytest.mark.asyncio
     async def test_publish_data_propagates_exception(self, mock_mqtt_client, mqtt_env_vars):
         import bridge.mqtt_client as mqtt_module
 
@@ -312,6 +450,20 @@ class TestPublishing:
         await publish_status("online", "test/topic")
 
         mock_mqtt_client.publish.assert_called_once_with("test/topic/status", "online", qos=1, retain=True)
+
+    @pytest.mark.asyncio
+    async def test_publish_status_unconfirmed_logs_warning_without_raising(
+        self, mock_mqtt_client, mqtt_env_vars, caplog
+    ):
+        import bridge.mqtt_client as mqtt_module
+
+        mqtt_module._mqtt_client = mock_mqtt_client
+        mqtt_module._is_connected = True
+        mock_mqtt_client.publish.return_value.is_published.return_value = False
+
+        await publish_status("online", "test/topic")
+
+        assert "not confirmed" in caplog.text
 
     @pytest.mark.asyncio
     async def test_publish_status_skips_when_not_connected(self, mock_mqtt_client):
@@ -354,6 +506,22 @@ class TestDiscovery:
             with patch("bridge.mqtt_client._load_text_sensors", return_value=[]):
                 await publish_discovery_configs("test/topic")
                 assert mock_mqtt_client.publish.call_count >= 2
+
+    @pytest.mark.asyncio
+    async def test_publish_discovery_unconfirmed_logs_warning_without_raising(
+        self, mock_mqtt_client, mqtt_env_vars, caplog
+    ):
+        import bridge.mqtt_client as mqtt_module
+
+        mqtt_module._mqtt_client = mock_mqtt_client
+        mqtt_module._is_connected = True
+        mock_mqtt_client.publish.return_value.is_published.return_value = False
+
+        with patch("bridge.mqtt_client._load_numeric_sensors", return_value=[{"name": "Test", "key": "test"}]):
+            with patch("bridge.mqtt_client._load_text_sensors", return_value=[]):
+                await publish_discovery_configs("test/topic")
+
+        assert "not confirmed" in caplog.text
 
     @pytest.mark.asyncio
     async def test_publish_discovery_skips_when_not_connected(self, mock_mqtt_client):

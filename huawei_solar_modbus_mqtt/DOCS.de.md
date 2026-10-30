@@ -266,6 +266,15 @@ INFO - Connection restored after 47s (3 failed attempts, 2 error types)
 - Modbus TCP im Inverter-Webinterface aktivieren
 - Firewall-Regeln prüfen
 
+### Broker oder Inverter nicht erreichbar
+
+huABus bleibt aktiv, solange MQTT-Broker oder Inverter nicht erreichbar sind:
+
+- **Beim Start:** Verbindungen zu Broker und Inverter werden mit wachsender Wartezeit wiederholt (5 s, Verdopplung, maximal 60 s). Beispiel-Log: `⏳ MQTT broker core-mosquitto:1883 not available (attempt 3), retrying in 20s`
+- **Im Betrieb:** Ein fehlgeschlagenes Veröffentlichen überspringt den Zyklus. paho baut die Broker-Verbindung im Hintergrund neu auf. Kein Neustart nötig.
+- **Status:** `online` wird nur nach bestätigter Veröffentlichung gesendet.
+- **Konfigurationsfehler** (z. B. fehlender MQTT-Host, ungültiger Port) beenden das Add-on weiterhin sofort.
+
 ### MQTT-Verbindungsfehler
 
 **Symptom:** `ERROR - MQTT publish failed`

@@ -30,6 +30,7 @@ from typing import Any, cast
 
 from huawei_solar import AsyncHuaweiSolarClient, RegisterName, create_tcp_client
 from huawei_solar.exceptions import ConnectionException, ConnectionInterruptedException, ReadException
+from tmodbus.exceptions import ModbusConnectionError
 
 from .batch_builder import BatchBuilder
 from .config.registers import ESSENTIAL_REGISTERS
@@ -37,12 +38,15 @@ from .config_manager import ConfigManager, ConfigurationError
 from .error_tracker import ConnectionErrorTracker, ErrorType
 from .logging_utils import get_logger
 from .mqtt_client import (
+    MqttNotConnectedError,
+    MqttPublishError,
     connect_mqtt,
     disconnect_mqtt,
     publish_data,
     publish_discovery_configs,
     publish_status,
 )
+from .retry import retry_with_backoff
 from .slave_detector import KNOWN_SLAVE_IDS, detect_slave_id
 from .total_increasing_filter import get_filter, reset_filter
 from .transform import transform_data
@@ -68,6 +72,7 @@ TRACE = 5  # DEBUG ist 10, INFO ist 20, WARNING ist 30
 logging.addLevelName(TRACE, "TRACE")
 
 MODBUS_CONNECT_TIMEOUT = 15
+MQTT_RETRY_DELAY = 10  # seconds to wait after a failed MQTT publish before the next cycle
 
 
 class _TraceLogger(logging.Logger):
@@ -510,7 +515,7 @@ def is_modbus_exception(exc: Exception) -> bool:
     return isinstance(exc, MODBUS_EXCEPTIONS)
 
 
-async def main_once(client: AsyncHuaweiSolarClient, config: ConfigManager, cycle_num: int) -> None:
+async def main_once(client: AsyncHuaweiSolarClient, config: ConfigManager, cycle_num: int) -> bool:
     """Execute a single read-transform-filter-publish cycle.
 
     Reads essential Modbus registers, transforms and filters the values,
@@ -521,10 +526,16 @@ async def main_once(client: AsyncHuaweiSolarClient, config: ConfigManager, cycle
         config: Active configuration instance.
         cycle_num: Sequential cycle counter for logging and filtering.
 
-     Raises:
+    Returns:
+        True if data was read and confirmed by the broker, False if the
+        read returned no data (nothing published).
+
+    Raises:
         TimeoutError: On Modbus read timeout.
         ConnectionRefusedError: On connection failure.
         ReadException: On Modbus protocol errors.
+        MqttNotConnectedError: Broker connection is down.
+        MqttPublishError: Broker did not confirm the publish.
     """
     _state.cycle_count = cycle_num
     _state.config = config
@@ -550,7 +561,7 @@ async def main_once(client: AsyncHuaweiSolarClient, config: ConfigManager, cycle
 
     if not data:
         logger.warning("⚠️ No data")
-        return
+        return False
 
     # === PHASE 2: Transform ===
     transform_start: float = time.time()
@@ -594,6 +605,8 @@ async def main_once(client: AsyncHuaweiSolarClient, config: ConfigManager, cycle
     # === PHASE 7: Performance-Check ===
     if cycle_duration > config.poll_interval * 0.8:  # ← direkt config nutzen, nicht _state.config
         logger.warning("⚠️ Cycle %.1fs > 80%% poll_interval (%ds)", cycle_duration, config.poll_interval)
+
+    return True
 
 
 async def determine_slave_id(config: ConfigManager) -> int:
@@ -650,7 +663,7 @@ async def setup_mqtt(config: ConfigManager) -> bool:
     try:
         await connect_mqtt()
         await asyncio.sleep(1)
-    except (OSError, ConnectionError) as e:
+    except OSError as e:
         logger.error("❌ MQTT connect failed: %s", e)
         return False
     return True
@@ -682,7 +695,6 @@ async def setup_modbus(slave_id: int, config: ConfigManager) -> AsyncHuaweiSolar
             slave_id,
             connection_time,
         )
-        await _state.publish_status("online", config.mqtt_topic)
         return client
     except TimeoutError:
         logger.error(
@@ -692,28 +704,69 @@ async def setup_modbus(slave_id: int, config: ConfigManager) -> AsyncHuaweiSolar
             MODBUS_CONNECT_TIMEOUT,
         )
         return None
-    except (OSError, ConnectionError) as e:
+    except (OSError, ModbusConnectionError) as e:
         logger.error("❌ Connection failed: %s", e)
         return None
 
 
-async def initialize_bridge(config: ConfigManager) -> AsyncHuaweiSolarClient | None:
+async def _resolve_slave_id(config: ConfigManager) -> int:
+    """Determine the Slave ID, retrying auto-detection while the inverter is silent.
+
+    A missing manual ``slave_id`` is a configuration error and still raises
+    ConfigurationError immediately.
+    """
+    if not config.modbus_auto_detect_slave_id:
+        return await determine_slave_id(config)
+
+    async def attempt() -> int | None:
+        try:
+            return await determine_slave_id(config)
+        except ConfigurationError as e:
+            logger.debug("Slave ID auto-detection failed: %s", e)
+            return None
+
+    return await retry_with_backoff(
+        attempt, f"Inverter {config.modbus_host}:{config.modbus_port} (Slave ID auto-detection)"
+    )
+
+
+async def _connect_mqtt_with_retry(config: ConfigManager) -> None:
+    """Connect to the broker, retrying with backoff until it is reachable.
+
+    Raises:
+        ConfigurationError: MQTT broker host is not configured.
+    """
+
+    async def attempt() -> bool | None:
+        try:
+            return True if await setup_mqtt(config) else None
+        except RuntimeError as e:
+            raise ConfigurationError(str(e)) from e
+
+    await retry_with_backoff(attempt, f"MQTT broker {config.mqtt_host}:{config.mqtt_port}")
+
+
+async def initialize_bridge(config: ConfigManager) -> AsyncHuaweiSolarClient:
     """Initialize MQTT, discovery, and Modbus connection.
+
+    MQTT broker and inverter may be unavailable at start. Both connections
+    are retried with backoff until they succeed or the task is cancelled.
 
     Args:
         config: Configuration instance.
 
     Returns:
-        Connected AsyncHuaweiSolarClient client, or None if initialization failed.
+        Connected AsyncHuaweiSolarClient client.
+
+    Raises:
+        ConfigurationError: Invalid configuration (retrying cannot help).
     """
     logger.info("🚀 Huawei Solar → MQTT starting")
     config.log_config()
 
-    slave_id = await determine_slave_id(config)
+    slave_id = await _resolve_slave_id(config)
 
-    mqtt_connected = await setup_mqtt(config)
-    if not mqtt_connected:
-        return None
+    await _connect_mqtt_with_retry(config)
 
     await publish_status("offline", config.mqtt_topic)
 
@@ -723,10 +776,10 @@ async def initialize_bridge(config: ConfigManager) -> AsyncHuaweiSolarClient | N
     except Exception as e:
         logger.error("❌ Discovery failed: %s", e)
 
-    client = await setup_modbus(slave_id, config)
-    if client is None:
-        await disconnect_mqtt()
-        return None
+    client = await retry_with_backoff(
+        lambda: setup_modbus(slave_id, config),
+        f"Inverter {config.modbus_host}:{config.modbus_port}",
+    )
 
     get_filter()
     logger.info("🛡️ Total Increasing Filter initialized")
@@ -771,12 +824,18 @@ async def run_main_cycle(client: AsyncHuaweiSolarClient, config: ConfigManager, 
     logger.debug("Cycle #%d", cycle_count)
 
     try:
-        await main_once(client, config, cycle_count)
+        published = await main_once(client, config, cycle_count)
     except KeyboardInterrupt as e:
         logger.info("🛑 Interrupted during cycle")
         raise KeyboardInterrupt from e
     except asyncio.CancelledError:
         raise
+    except (MqttNotConnectedError, MqttPublishError) as e:
+        # Broker problem, Modbus data is fine: no filter reset, no status publish
+        # (it would fail too). paho reconnects in the background.
+        _error_tracker.track_error("mqtt_unavailable", str(e))
+        await asyncio.sleep(MQTT_RETRY_DELAY)
+        return
     except RECOVERABLE_EXCEPTIONS as e:
         if await _maybe_reset_on_error(e, config):
             return
@@ -786,8 +845,9 @@ async def run_main_cycle(client: AsyncHuaweiSolarClient, config: ConfigManager, 
         await asyncio.sleep(10)
         return
 
-    _error_tracker.mark_success()
-    await _state.publish_status("online", config.mqtt_topic)
+    if published:
+        _error_tracker.mark_success()
+        await _state.publish_status("online", config.mqtt_topic)
 
     elapsed = time.time() - cycle_start
     wait = max(0.0, config.poll_interval - elapsed)
@@ -824,7 +884,9 @@ async def main() -> None:
     except ConfigurationError as e:
         logger.error("❌ %s", e)
         sys.exit(1)
-    if client is None:
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        logger.info("🛑 Shutdown during startup")
+        await disconnect_mqtt()
         return
 
     # === Main Loop ===

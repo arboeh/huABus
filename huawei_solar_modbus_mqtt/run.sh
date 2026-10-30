@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 # shellcheck disable=SC1008
 
-VERSION=$(bashio::addon.version)
+VERSION=$(bashio::app.version)
 
 # Banner IMMER anzeigen
 echo "$(date +"%Y-%m-%dT%H:%M:%S") INFO: =========================================================="

@@ -12,7 +12,7 @@ setup() {
     export TEST_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 
     # Mock ALLE bashio functions
-    bashio::addon.version() {
+    bashio::app.version() {
         echo "1.0.0"
     }
 
@@ -76,7 +76,7 @@ setup() {
     }
 
     # Export alle Mock-Funktionen
-    export -f bashio::addon.version
+    export -f bashio::app.version
     export -f bashio::config
     export -f bashio::config.has_value
     export -f bashio::services.available
@@ -106,7 +106,7 @@ teardown() {
 @test "get_required_config returns value when config exists" {
     run bash -c "
         export BATS_TEST_MODE=true
-        $(declare -f bashio::addon.version bashio::config bashio::config.has_value bashio::services.available bashio::services bashio::log.fatal bashio::log.warning bashio::log.info bashio::log.level)
+        $(declare -f bashio::app.version bashio::config bashio::config.has_value bashio::services.available bashio::services bashio::log.fatal bashio::log.warning bashio::log.info bashio::log.level)
         source huawei_solar_modbus_mqtt/run.sh && get_required_config 'modbus_host'
     "
     [ "$status" -eq 0 ]
@@ -116,7 +116,7 @@ teardown() {
 @test "get_required_config uses default when provided" {
     run bash -c "
         export BATS_TEST_MODE=true
-        $(declare -f bashio::addon.version bashio::config bashio::config.has_value bashio::services.available bashio::services bashio::log.fatal bashio::log.warning bashio::log.info bashio::log.level)
+        $(declare -f bashio::app.version bashio::config bashio::config.has_value bashio::services.available bashio::services bashio::log.fatal bashio::log.warning bashio::log.info bashio::log.level)
         source huawei_solar_modbus_mqtt/run.sh && get_required_config 'modbus_port' '502'
     "
     [ "$status" -eq 0 ]
