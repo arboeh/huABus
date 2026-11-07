@@ -19,7 +19,7 @@
 
 ### Huawei Solar Modbus zu Home Assistant via MQTT + Auto-Discovery
 
-**66 essenzielle Register * 67 Entitäten * optionaler MQTT-Heartbeat * 30s Polling**  
+**66 essenzielle Register * 80 Entitäten * optionaler MQTT-Heartbeat * 30s Polling**  
 **Changelog:** [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md)
 
 > **⚠️ WICHTIG: Nur EINE Modbus-Verbindung möglich**
@@ -32,8 +32,10 @@
 ## Features
 
 - **Automatische Slave ID-Erkennung:** Probiert automatisch gängige Werte (1, 2, 100)
-- **Modbus TCP → MQTT:** 67 Entitäten mit Auto-Discovery
+- **Modbus TCP → MQTT:** 80 Entitäten mit Auto-Discovery
 - **Vollständiges Monitoring:** Batterie, PV (1-4), Netz (3-Phasen), Energie-Counter
+- **Abgeleitete Werte:** Hausverbrauch, Autarkie- und Eigenverbrauchsquote, PV-Leistung je String, Batterie-Laden und -Entladen getrennt
+- **Bridge-Diagnose:** Fehleranzahl, Zyklusdauer, Uptime und Batch-Modus als Diagnose-Entitäten
 - **Total Increasing Filter:** Verhindert falsche Counter-Resets in Energie-Statistiken
 - **Robuster Start und Betrieb:** Verbindungen zu Broker und Inverter werden mit wachsender Wartezeit wiederholt, huABus läuft bei Broker-Ausfällen weiter
 - **Auto MQTT-Konfiguration:** Nutzt automatisch Home Assistant MQTT-Zugangsdaten
@@ -163,6 +165,7 @@ Beide teilen die gleiche Limitierung - nur **EINE Modbus-Verbindung**. Für glei
 ## Aktuelle Updates
 Siehe [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) für detaillierte Release-Notes.
 
+- **v1.13.0:** Abgeleitete Sensoren (Hausverbrauch, Autarkie, Eigenverbrauch, PV-Leistung je String, Batterie-Laden/-Entladen getrennt) und Bridge-Diagnose-Entitäten (Fehler, Zyklusdauer, Uptime, Batch-Modus). Keine zusätzlichen Modbus-Reads
 - **v1.12.0:** Start ohne Broker oder Wechselrichter beendet sich nicht mehr: MQTT, Modbus und Slave-ID-Erkennung werden mit Backoff wiederholt (5 s, verdoppelnd, max. 60 s). Broker-Ausfall im Betrieb überspringt den Zyklus statt zu beenden, Status `online` erst nach bestätigtem Publish, sauberes MQTT-Connect-Cleanup, `ModbusConnectionError` wird im Setup abgefangen, sauberes Beenden bei SIGTERM während des Starts
 - ✅ **v1.11.0:** Bibliotheks-Upgrade auf huawei-solar 3.0.7 (tModbus-Transport), Python >=3.12, verengtes Exception-Handling auf READ_EXCEPTIONS, `get_error_tracker()`-Accessor, Test-Abdeckung 93,23% → 93,33%, SECURITY.md aktualisiert, Abhängigkeiten geändert
 - ✅ **v1.10.4:** Modbus-Verbindungs-Timeout im setup_modbus(), verengte Exception-Handler in run_main_cycle auf explizite RECOVERABLE_EXCEPTIONS, typisierter ErrorType im Error-Tracker

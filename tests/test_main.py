@@ -87,6 +87,17 @@ class TestMain:
         assert main_module._state.config is None
         assert main_module._state.cycle_count == 0
 
+    def test_reset_state_resets_diagnostic_state(self):
+        """start_time und batch_mode werden von reset_state() neu gesetzt."""
+        main_module._state.batch_mode = "fallback"
+        main_module._state.start_time = 1.0
+
+        before = time.monotonic()
+        reset_state()
+
+        assert main_module._state.batch_mode == "sequential"
+        assert main_module._state.start_time >= before
+
     @pytest.mark.asyncio
     async def test_registers_sigterm_handler_for_current_task(self, mock_config, mock_client):
         """main() registers SIGTERM cancellation on the running event loop."""
@@ -728,6 +739,45 @@ class TestMainOnce:
             assert mock_publish.call_count == 1
 
     @pytest.mark.asyncio
+    async def test_publishes_bridge_diagnostics_after_filter(self, mock_client, mock_config):
+        """bridge_* Keys landen im Payload, werden aber erst nach dem Filter gemischt."""
+        main_module._error_tracker.track_error("timeout", "x")
+        main_module._state.batch_mode = "fallback"
+        main_module._state.start_time = time.monotonic() - 120
+        transformed = {"power_active": 4500, "power_house": 4000.0}
+        filter_instance = main_module.get_filter()  # Singleton, echter TotalIncreasingFilter
+
+        with (
+            patch("bridge.main.read_registers", return_value={"power_active": 4500}),
+            patch("bridge.main.transform_data", return_value=transformed),
+            patch("bridge.main.publish_data", new_callable=AsyncMock) as mock_publish,
+            patch("bridge.main.log_cycle_summary"),
+            patch.object(filter_instance, "filter", wraps=filter_instance.filter) as spy_filter,
+        ):
+            await main_once(mock_client, mock_config, 1)
+
+        # Filter bekommt nur Transform-Daten, keine Diagnose
+        spy_filter.assert_called_once_with(transformed)
+
+        payload = mock_publish.call_args.args[0]
+        assert payload["power_active"] == 4500
+        assert payload["power_house"] == 4000.0  # abgeleitete Keys bleiben erhalten
+        assert payload["bridge_errors"] == 1
+        assert payload["bridge_batch_mode"] == "fallback"
+        assert payload["bridge_uptime"] >= 120
+        assert payload["bridge_cycle_duration"] >= 0
+
+    @pytest.mark.asyncio
+    async def test_diagnostics_not_published_when_read_returns_no_data(self, mock_client, mock_config):
+        with (
+            patch("bridge.main.read_registers", return_value={}),
+            patch("bridge.main.publish_data", new_callable=AsyncMock) as mock_publish,
+        ):
+            await main_once(mock_client, mock_config, 1)
+
+        mock_publish.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_empty_data_skips_publish(self, mock_client, mock_config):
         """Returns False without publishing or touching last_success when read returns empty data."""
         main_module._state.last_success = 0.0
@@ -905,6 +955,47 @@ class TestReadRegisters:
             result = await read_registers(mock_client, enable_batching=True, batch_max_gap=100)
         assert len(result) == 4
         assert mock_client.get_multiple.called
+
+    @pytest.mark.asyncio
+    async def test_batch_mode_is_batch_after_successful_batches(self, mock_client):
+        mock_client.get_multiple.return_value = [100, 200, 300]
+        with (
+            patch("bridge.main.ESSENTIAL_REGISTERS", ["reg1", "reg2", "reg3"]),
+            patch("bridge.batch_builder._get_huawei_registers", return_value=None),
+        ):
+            await read_registers(mock_client, enable_batching=True)
+        assert main_module._state.batch_mode == "batch"
+
+    @pytest.mark.asyncio
+    async def test_batch_mode_is_fallback_after_batch_failure(self, mock_client):
+        mock_client.get_multiple.side_effect = ReadException("boom")
+        mock_client.get = AsyncMock(side_effect=lambda name: {"reg1": 1, "reg2": 2, "reg3": 3}[name])
+        with (
+            patch("bridge.main.ESSENTIAL_REGISTERS", ["reg1", "reg2", "reg3"]),
+            patch("bridge.batch_builder._get_huawei_registers", return_value=None),
+        ):
+            await read_registers(mock_client)
+        assert main_module._state.batch_mode == "fallback"
+
+    @pytest.mark.asyncio
+    async def test_batch_mode_is_sequential_when_batching_disabled(self, mock_client):
+        main_module._state.batch_mode = "batch"  # alter Wert muss überschrieben werden
+        mock_client.get = AsyncMock(side_effect=lambda name: {"reg1": 1, "reg2": 2}[name])
+        with patch("bridge.main.ESSENTIAL_REGISTERS", ["reg1", "reg2"]):
+            await read_registers(mock_client, enable_batching=False)
+        assert main_module._state.batch_mode == "sequential"
+
+    @pytest.mark.asyncio
+    async def test_batch_mode_resets_to_batch_after_recovery(self, mock_client):
+        """Nach einem Fallback-Zyklus meldet der nächste erfolgreiche Zyklus wieder 'batch'."""
+        main_module._state.batch_mode = "fallback"
+        mock_client.get_multiple.return_value = [1, 2, 3]
+        with (
+            patch("bridge.main.ESSENTIAL_REGISTERS", ["reg1", "reg2", "reg3"]),
+            patch("bridge.batch_builder._get_huawei_registers", return_value=None),
+        ):
+            await read_registers(mock_client)
+        assert main_module._state.batch_mode == "batch"
 
 
 # ---------------------------------------------------------------------------

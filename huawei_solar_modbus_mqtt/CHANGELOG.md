@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-11-07
+
+### Added
+
+- **Derived values** (computed from existing registers, no extra Modbus reads): PV power per string (`power_PV1`–`power_PV4`, voltage × current), house consumption (`power_house`, AC output minus grid power), autarky (`ratio_autarky`), self-consumption (`ratio_self_consumption`), and battery power split into `battery_power_charge` and `battery_power_discharge`.
+- **Meter-dependent values are not published** when the meter value is missing or `meter_status` reports offline (0). Home Assistant then shows "unknown" instead of a false 100 % autarky.
+- **Bridge diagnostic entities** (`entity_category: diagnostic`): `bridge_errors` (cycle-level errors since add-on start, not reset on recovery), `bridge_cycle_duration`, `bridge_uptime`, `bridge_batch_mode`.
+
+### Fixed
+
+- Sign convention comments for grid and battery power corrected: grid > 0 = feed-in, < 0 = grid import; battery > 0 = charging, < 0 = discharging. No behavior change.
+
 ## [1.12.0] - 2026-10-30
 
 ### Fixed

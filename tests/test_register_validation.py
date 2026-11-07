@@ -2,6 +2,9 @@
 
 """Validation tests for register names, mappings, and sensor definitions."""
 
+from bridge.diagnostics import BRIDGE_KEYS
+from bridge.transform import DERIVED_KEYS
+
 
 class TestRegisterNamesValid:
     """Verify register names are recognized by the huawei_solar library."""
@@ -33,6 +36,11 @@ class TestRegisterMappingsConsistent:
         assert reg_set == map_set, f"Mismatch: {reg_set ^ map_set}"
 
 
+# Abgeleitete Werte (transform.py) und Bridge-Diagnose (diagnostics.py) haben
+# keine Modbus-Register und stehen deshalb nicht in REGISTER_MAPPING.
+NOT_REGISTER_KEYS = DERIVED_KEYS | BRIDGE_KEYS
+
+
 class TestSensorsConsistent:
     """Verify sensor definitions match REGISTER_MAPPING values."""
 
@@ -43,7 +51,7 @@ class TestSensorsConsistent:
         sensor_keys = {s["key"] for s in NUMERIC_SENSORS + TEXT_SENSORS if s.get("key")}
         mqtt_keys = set(REGISTER_MAPPING.values())
         unmatched = sensor_keys - mqtt_keys
-        assert unmatched.issubset({"status"}), f"Unmatched: {unmatched}"
+        assert unmatched.issubset({"status"} | NOT_REGISTER_KEYS), f"Unmatched: {unmatched}"
 
     def test_battery_unit3_sensor_removed(self):
         from huawei_solar_modbus_mqtt.bridge.config.sensors_mqtt import NUMERIC_SENSORS, TEXT_SENSORS

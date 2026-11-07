@@ -82,6 +82,8 @@ INFO - 📊 Published - PV: 4500W | AC Out: 4200W | ...
   - Keine Warmup-Phase - sofortiger Schutz
   - Automatischer Reset bei Verbindungsfehlern
 - **Error Tracking:** Intelligente Fehler-Aggregation mit Downtime-Tracking
+- **Abgeleitete Werte:** PV-Leistung je String, Hausverbrauch, Autarkie- und Eigenverbrauchsquote, Batterie-Laden und -Entladen getrennt (aus vorhandenen Registern berechnet, keine zusätzlichen Modbus-Reads)
+- **Bridge-Diagnose:** Fehleranzahl, Zyklusdauer, Uptime und Batch-Modus als Diagnose-Entitäten
 - **Umfassende Überwachung:**
   - PV-Leistungen (PV1-4 mit Spannung/Strom)
   - Netzleistung (Import/Export, 3-phasig)
@@ -148,6 +150,20 @@ Entitäten unter: **Einstellungen → Geräte & Dienste → MQTT → "Huawei Sol
 
 - `sensor.solar_power`, `sensor.input_power`, `sensor.grid_power`, `sensor.battery_power`, `sensor.pv1_power`
 
+**Abgeleitet (vom Bridge berechnet, keine zusätzlichen Modbus-Reads):**
+
+- `sensor.house_power` (AC-Ausgang minus Netzleistung), `sensor.autarky`, `sensor.self_consumption` (%)
+- `sensor.battery_charge_power`, `sensor.battery_discharge_power` (Batterieleistung getrennt, beide positiv)
+- PV-Leistung je String: `sensor.pv1_power` (PV2–4 standardmäßig deaktiviert)
+
+**Vorzeichen:** `grid_power` > 0 = Einspeisung, < 0 = Netzbezug. `battery_power` > 0 = Laden, < 0 = Entladen.
+
+**Grenzen:**
+
+- Hausverbrauch und Quoten beziehen sich nur auf diesen Wechselrichter und seinen Zähler. Ein zweiter Wechselrichter, eine Wallbox oder ein anderer Erzeuger hinter demselben Zähler ist nicht erfasst.
+- Fehlt der Zählerwert oder meldet `meter_status` offline (0), werden Hausverbrauch und Quoten nicht veröffentlicht und zeigen "unbekannt".
+- Für das Energie-Dashboard die kWh-Zähler verwenden (`sensor.battery_total_charge` usw.). Die Leistungs-Splits ersetzen sie nicht.
+
 **Energie (Filter-geschützt):**
 
 - `sensor.solar_daily_yield`, `sensor.solar_total_yield`\*
@@ -175,6 +191,15 @@ Entitäten unter: **Einstellungen → Geräte & Dienste → MQTT → "Huawei Sol
 
 - `binary_sensor.huawei_solar_status` (online/offline)
 - `sensor.inverter_status`, `sensor.battery_status`
+
+### Bridge-Diagnose-Entitäten (standardmäßig aktiviert)
+
+- `sensor.bridge_errors`: Fehler auf Zyklusebene (Modbus und MQTT) seit Add-on-Start. Wird bei Wiederherstellung nicht zurückgesetzt, ein Neustart setzt ihn zurück.
+- `sensor.bridge_cycle_duration`: Sekunden für Modbus-Lesen, Transform und Filter des letzten Zyklus, ohne MQTT-Veröffentlichung
+- `sensor.bridge_uptime`: Sekunden seit Add-on-Start
+- `sensor.bridge_batch_mode`: `batch`, `fallback` oder `sequential` (Lesemodus)
+
+Diese Werte werden nur nach einem erfolgreichen Zyklus veröffentlicht. Während einer Störung zeigen die Entitäten "nicht verfügbar", bis der erste erfolgreiche Zyklus nach der Wiederherstellung durchgelaufen ist.
 
 ### Diagnostik-Entitäten (standardmäßig deaktiviert)
 

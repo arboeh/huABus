@@ -25,6 +25,7 @@ Features:
     - Downtime-Tracking (Zeit zwischen erstem Fehler und Recovery)
     - Fehler-Statistiken (Anzahl Versuche, Fehlertypen)
     - Recovery-Logging mit Zusammenfassung
+    - Lebenszeit-Zähler lifetime_failures (überlebt Recovery, für Diagnose-Entity)
 
 Verwendung:
     >>> tracker = ConnectionErrorTracker(log_interval=60)
@@ -124,8 +125,18 @@ class ConnectionErrorTracker:
         # }
         self.errors: dict[str, dict] = {}
 
+        # Fehlversuche seit Erzeugung des Trackers (= Prozessstart). Wird
+        # anders als `errors` bei mark_success() NICHT geleert; nur track_error()
+        # erhöht ihn (siehe Property lifetime_failures).
+        self._lifetime_failures: int = 0
+
         # Timestamp des letzten erfolgreichen Cycles (für Downtime-Berechnung)
         self.last_success_time: float | None = None
+
+    @property
+    def lifetime_failures(self) -> int:
+        """Fehlversuche seit Erzeugung des Trackers. Quelle der Entity "Bridge Errors"."""
+        return self._lifetime_failures
 
     def track_error(self, error_type: ErrorType, details: str = "") -> bool:
         """
@@ -162,6 +173,7 @@ class ConnectionErrorTracker:
             True  # Log: "Still failing: timeout (3 attempts in 65s)"
         """
         now = time.time()
+        self._lifetime_failures += 1  # zählt jeden Aufruf, auch ohne Log
 
         if error_type not in self.errors:
             # Erster Auftritt dieses Fehlertyps

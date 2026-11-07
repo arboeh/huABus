@@ -100,6 +100,10 @@ Erweiterung:
            "enabled": True,
        }
 
+    Abgeleitete Werte (transform.py) und Bridge-Diagnose (diagnostics.py)
+    haben keinen Modbus-Register und brauchen daher keinen Eintrag in
+    registers.py oder mappings.py; nur den Sensor hier.
+
 Siehe auch:
     - mqtt_client.py: Verwendet diese Configs für Discovery
     - mappings.py: Definiert MQTT-Keys
@@ -134,7 +138,7 @@ NUMERIC_SENSORS: list[dict[str, Any]] = [
         "enabled": True,
     },
     {
-        "name": "Grid Power",  # Netzleistung vom Smart Meter (pos=Bezug, neg=Einspeisung)
+        "name": "Grid Power",  # Netzleistung vom Smart Meter (pos=Einspeisung, neg=Netzbezug)
         "key": "meter_power_active",
         "unit_of_measurement": "W",
         "device_class": "power",
@@ -333,6 +337,99 @@ NUMERIC_SENSORS: list[dict[str, Any]] = [
         "state_class": "measurement",
         "value_template": "{{ value_json.current_PV4 | default(0) }}",
         "enabled": False,
+    },
+    # === Derived Values (transform.py, keine Modbus-Reads) ===
+    # Berechnet aus bestehenden Werten, brauchen keinen Eintrag in mappings.py.
+    # Fehlt eine Eingangsgröße (z.B. Meter offline), fehlt der Key im Payload:
+    # default(None) → HA zeigt "unbekannt" statt eines Schein-Werts wie 100 %.
+    # Vorzeichen: Grid > 0 = Einspeisung, Batterie > 0 = Laden.
+    {
+        "name": "PV1 Power",  # U x I von String 1
+        "key": "power_PV1",
+        "unit_of_measurement": "W",
+        "device_class": "power",
+        "state_class": "measurement",
+        "icon": "mdi:solar-panel",
+        "value_template": "{{ value_json.power_PV1 | default(0) }}",  # Nachts = 0
+        "enabled": True,
+    },
+    {
+        "name": "PV2 Power",
+        "key": "power_PV2",
+        "unit_of_measurement": "W",
+        "device_class": "power",
+        "state_class": "measurement",
+        "icon": "mdi:solar-panel",
+        "value_template": "{{ value_json.power_PV2 | default(0) }}",
+        "enabled": False,  # wie PV2 Voltage/Current
+    },
+    {
+        "name": "PV3 Power",
+        "key": "power_PV3",
+        "unit_of_measurement": "W",
+        "device_class": "power",
+        "state_class": "measurement",
+        "icon": "mdi:solar-panel",
+        "value_template": "{{ value_json.power_PV3 | default(0) }}",
+        "enabled": False,  # Nur größere Inverter
+    },
+    {
+        "name": "PV4 Power",
+        "key": "power_PV4",
+        "unit_of_measurement": "W",
+        "device_class": "power",
+        "state_class": "measurement",
+        "icon": "mdi:solar-panel",
+        "value_template": "{{ value_json.power_PV4 | default(0) }}",
+        "enabled": False,  # Nur größere Inverter
+    },
+    {
+        "name": "House Power",  # Hausverbrauch = AC-Ausgang - Netzleistung
+        "key": "power_house",
+        "unit_of_measurement": "W",
+        "device_class": "power",
+        "state_class": "measurement",
+        "icon": "mdi:home-lightning-bolt",
+        "value_template": "{{ value_json.power_house | default(None) }}",
+        "enabled": True,
+    },
+    {
+        "name": "Autarky",  # Anteil des Verbrauchs ohne Netzbezug
+        "key": "ratio_autarky",
+        "unit_of_measurement": "%",
+        "state_class": "measurement",
+        "icon": "mdi:home-battery",
+        "value_template": "{{ value_json.ratio_autarky | default(None) }}",
+        "enabled": True,
+    },
+    {
+        "name": "Self-Consumption",  # Anteil der PV-Erzeugung ohne Einspeisung
+        "key": "ratio_self_consumption",
+        "unit_of_measurement": "%",
+        "state_class": "measurement",
+        "icon": "mdi:home-import-outline",
+        "value_template": "{{ value_json.ratio_self_consumption | default(None) }}",
+        "enabled": True,
+    },
+    {
+        "name": "Battery Charge Power",  # Nur Laden (battery_power > 0), sonst 0
+        "key": "battery_power_charge",
+        "unit_of_measurement": "W",
+        "device_class": "power",
+        "state_class": "measurement",
+        "icon": "mdi:battery-arrow-up",
+        "value_template": "{{ value_json.battery_power_charge | default(0) }}",
+        "enabled": True,
+    },
+    {
+        "name": "Battery Discharge Power",  # Nur Entladen (battery_power < 0), als positiver Wert
+        "key": "battery_power_discharge",
+        "unit_of_measurement": "W",
+        "device_class": "power",
+        "state_class": "measurement",
+        "icon": "mdi:battery-arrow-down",
+        "value_template": "{{ value_json.battery_power_discharge | default(0) }}",
+        "enabled": True,
     },
     # === Inverter Diagnostics ===
     # Diagnose-Werte, entity_category="diagnostic"
@@ -647,6 +744,40 @@ NUMERIC_SENSORS: list[dict[str, Any]] = [
         "enabled": False,
         "entity_category": "diagnostic",
     },
+    # === Bridge Diagnostics (diagnostics.py) ===
+    # Zustand der Bridge selbst. Werden nur in erfolgreichen Zyklen veröffentlicht;
+    # während einer Störung steht der Sensor auf "nicht verfügbar".
+    {
+        "name": "Bridge Errors",  # Fehlversuche seit Start des Add-ons
+        "key": "bridge_errors",
+        "state_class": "total_increasing",
+        "icon": "mdi:alert-circle-outline",
+        "value_template": "{{ value_json.bridge_errors | default(None) }}",
+        "enabled": True,
+        "entity_category": "diagnostic",
+    },
+    {
+        "name": "Bridge Cycle Duration",  # Modbus + Transform + Filter, ohne MQTT-Publish
+        "key": "bridge_cycle_duration",
+        "unit_of_measurement": "s",
+        "device_class": "duration",
+        "state_class": "measurement",
+        "icon": "mdi:timer-outline",
+        "value_template": "{{ value_json.bridge_cycle_duration | default(None) }}",
+        "enabled": True,
+        "entity_category": "diagnostic",
+    },
+    {
+        "name": "Bridge Uptime",  # Sekunden seit Start des Add-ons
+        "key": "bridge_uptime",
+        "unit_of_measurement": "s",
+        "device_class": "duration",
+        "state_class": "measurement",
+        "icon": "mdi:clock-start",
+        "value_template": "{{ value_json.bridge_uptime | default(None) }}",
+        "enabled": True,
+        "entity_category": "diagnostic",
+    },
 ]
 
 # Text-Sensoren ohne unit_of_measurement
@@ -673,6 +804,14 @@ TEXT_SENSORS: list[dict[str, Any]] = [
         "key": "meter_status",
         "icon": "mdi:meter-electric",
         "value_template": "{{ value_json.meter_status | default('unknown') }}",
+        "enabled": True,
+        "entity_category": "diagnostic",
+    },
+    {
+        "name": "Bridge Batch Mode",  # batch | fallback | sequential (siehe diagnostics.py)
+        "key": "bridge_batch_mode",
+        "icon": "mdi:view-sequential",
+        "value_template": "{{ value_json.bridge_batch_mode | default(None) }}",
         "enabled": True,
         "entity_category": "diagnostic",
     },
