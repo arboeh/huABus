@@ -10,7 +10,7 @@ serialx==1.15.1
     # via tmodbus
 tenacity==9.2.1
     # via tmodbus
-tmodbus==0.6.2
+tmodbus==1.1.0
     # via huawei-solar
 typing-extensions==4.16.0
     # via serialx
