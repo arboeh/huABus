@@ -77,6 +77,54 @@ class TestBasicErrorTracking:
 
 
 # ---------------------------------------------------------------------------
+# TestLifetimeFailures
+# ---------------------------------------------------------------------------
+
+
+class TestLifetimeFailures:
+    """Lebenszeit-Zähler für Diagnose-Entity (bleibt bei Recovery erhalten)."""
+
+    def test_starts_at_zero(self):
+        assert ConnectionErrorTracker().lifetime_failures == 0
+
+    def test_increments_on_every_track_error(self):
+        """Auch Aufrufe innerhalb log_interval (ohne Log) zählen."""
+        tracker = ConnectionErrorTracker(log_interval=60)
+
+        tracker.track_error("timeout", "x")
+        tracker.track_error("timeout", "x")
+        tracker.track_error("modbus_exception", "y")
+
+        assert tracker.lifetime_failures == 3
+
+    def test_survives_mark_success(self):
+        tracker = ConnectionErrorTracker(log_interval=60)
+        tracker.track_error("timeout", "x")
+        tracker.track_error("timeout", "x")
+
+        tracker.mark_success()
+
+        assert tracker.lifetime_failures == 2
+        assert tracker.get_status()["total_failures"] == 0
+
+    def test_accumulates_over_several_outages(self):
+        tracker = ConnectionErrorTracker(log_interval=60)
+        tracker.track_error("timeout", "x")
+        tracker.mark_success()
+        tracker.track_error("timeout", "x")
+        tracker.track_error("connection_refused", "z")
+        tracker.mark_success()
+
+        assert tracker.lifetime_failures == 3
+
+    def test_get_status_keys_unchanged(self):
+        tracker = ConnectionErrorTracker()
+        tracker.track_error("timeout", "x")
+
+        assert set(tracker.get_status()) == {"active_errors", "total_failures", "last_success"}
+
+
+# ---------------------------------------------------------------------------
 # TestRecoveryScenarios
 # ---------------------------------------------------------------------------
 

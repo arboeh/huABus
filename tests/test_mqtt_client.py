@@ -7,6 +7,7 @@ import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
+from bridge.diagnostics import BRIDGE_KEYS
 from bridge.mqtt_client import (
     MqttNotConnectedError,
     MqttPublishError,
@@ -22,6 +23,7 @@ from bridge.mqtt_client import (
     publish_discovery_configs,
     publish_status,
 )
+from bridge.transform import DERIVED_KEYS
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -545,3 +547,63 @@ class TestSensorLoaders:
 
     def test_load_text_sensors_returns_list(self):
         assert isinstance(_load_text_sensors(), list)
+
+
+# ---------------------------------------------------------------------------
+# TestDerivedAndDiagnosticSensors
+# ---------------------------------------------------------------------------
+
+# Ohne Eingangsmesswert kein Wert: HA soll "unbekannt" zeigen, nicht 0
+UNKNOWN_WHEN_MISSING = {"power_house", "ratio_autarky", "ratio_self_consumption"}
+
+
+class TestDerivedAndDiagnosticSensors:
+    """Sensor-Definitionen für abgeleitete Werte und Bridge-Diagnose."""
+
+    @staticmethod
+    def _by_key():
+        sensors = _load_numeric_sensors() + _load_text_sensors()
+        return {s["key"]: s for s in sensors}
+
+    def test_all_new_sensors_defined(self):
+        assert (DERIVED_KEYS | BRIDGE_KEYS) <= set(self._by_key())
+
+    def test_sensor_keys_are_unique(self):
+        sensors = _load_numeric_sensors() + _load_text_sensors()
+        keys = [s["key"] for s in sensors]
+        assert len(keys) == len(set(keys))
+
+    def test_sensor_names_are_unique(self):
+        sensors = _load_numeric_sensors() + _load_text_sensors()
+        names = [s["name"] for s in sensors]
+        assert len(names) == len(set(names))
+
+    @pytest.mark.parametrize("key", sorted(DERIVED_KEYS | BRIDGE_KEYS))
+    def test_required_fields_present(self, key):
+        sensor = self._by_key()[key]
+        assert sensor["name"]
+        assert "{{ value_json." + key in sensor["value_template"]
+        assert isinstance(sensor["enabled"], bool)
+
+    @pytest.mark.parametrize("key", sorted(BRIDGE_KEYS))
+    def test_bridge_sensors_are_diagnostic(self, key):
+        assert self._by_key()[key]["entity_category"] == "diagnostic"
+
+    @pytest.mark.parametrize("key", sorted(DERIVED_KEYS))
+    def test_derived_sensors_are_main_entities(self, key):
+        assert "entity_category" not in self._by_key()[key]
+
+    @pytest.mark.parametrize("key", sorted(UNKNOWN_WHEN_MISSING))
+    def test_meter_dependent_sensors_default_to_none(self, key):
+        """Kein default(0): fehlender Meter darf keinen Schein-Wert liefern."""
+        assert "default(None)" in self._by_key()[key]["value_template"]
+
+    def test_pv_string_power_only_first_string_enabled(self):
+        by_key = self._by_key()
+        assert by_key["power_PV1"]["enabled"] is True
+        assert all(by_key[f"power_PV{n}"]["enabled"] is False for n in (2, 3, 4))
+
+    def test_discovery_config_carries_diagnostic_category(self):
+        config = _build_sensor_config(self._by_key()["bridge_errors"], "test/topic", {"identifiers": ["d"]})
+        assert config["entity_category"] == "diagnostic"
+        assert config["unique_id"] == "huawei_solar_bridge_errors"

@@ -2,6 +2,8 @@
 
 <img src="images/heading.svg" alt="huABus" height="40"/>
 
+#
+
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Add--on-41BDF5?logo=home-assistant)](https://www.home-assistant.io/)
 [![release](https://img.shields.io/github/v/release/arboeh/huABus?display_name=tag)](https://github.com/arboeh/huABus/releases/latest)
 [![Tests](https://github.com/arboeh/huABus/workflows/Tests/badge.svg)](https://github.com/arboeh/huABus/actions)
@@ -17,7 +19,7 @@
 
 ### Huawei Solar Modbus to Home Assistant via MQTT + Auto-Discovery
 
-**66 Essential Registers * 67 Entities * Optional MQTT Heartbeat * 30s Polling**  
+**66 Essential Registers * 80 Entities * Optional MQTT Heartbeat * 30s Polling**  
 **Changelog:** [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md)
 
 > **⚠️ IMPORTANT: Single Modbus Connection Limit**
@@ -30,8 +32,10 @@
 ## Features
 
 - **Automatic Slave ID Detection:** Tries common values (1, 2, 100) automatically
-- **Modbus TCP → MQTT:** 67 entities with Auto-Discovery
+- **Modbus TCP → MQTT:** 80 entities with Auto-Discovery
 - **Complete Monitoring:** Battery, PV (1-4), Grid (3-phase), Energy counters
+- **Derived Values:** House consumption, autarky and self-consumption ratio, PV power per string, battery charge/discharge split
+- **Bridge Diagnostics:** Error count, cycle duration, uptime and batch mode as diagnostic entities
 - **Total Increasing Filter:** Prevents false counter resets in energy statistics
 - **Resilient startup and runtime:** retries broker and inverter connections with backoff, keeps running through broker outages
 - **Auto MQTT Configuration:** Automatically uses Home Assistant MQTT credentials
@@ -161,6 +165,7 @@ Both share the same limitation - only **ONE Modbus connection**. To use both sim
 ## Latest Updates
 See [CHANGELOG.md](huawei_solar_modbus_mqtt/CHANGELOG.md) for detailed release notes.
 
+- **v1.13.0:** Derived sensors (house power, autarky, self-consumption, PV power per string, battery charge/discharge split) and bridge diagnostic entities (errors, cycle duration, uptime, batch mode). No extra Modbus reads
 - **v1.12.0:** Start without broker or inverter no longer exits: MQTT, Modbus and Slave ID detection are retried with backoff (5 s, doubling, max 60 s). Broker outage during operation skips the cycle instead of exiting, status `online` only after confirmed publish, clean MQTT connect cleanup, `ModbusConnectionError` handled during setup, clean shutdown on SIGTERM during startup
 - ✅ **v1.11.0:** Library upgrade to huawei-solar 3.0.7 (tModbus transport), Python >=3.12, narrowed exception handling to READ_EXCEPTIONS, `get_error_tracker()` accessor, test coverage 93.23% → 93.33%, SECURITY.md updated (supported versions, 93% coverage), dependency changes (removed pymodbus/backoff/pytz, added tmodbus/serialx/tenacity)
 - ✅ **v1.10.4:** Modbus connection timeout on setup_modbus(), narrowed exception handlers in run_main_cycle to explicit RECOVERABLE_EXCEPTIONS, typed ErrorType in error tracker

@@ -35,6 +35,7 @@ with automatic Home Assistant discovery.
 - **Resilient startup and runtime** — retries broker and inverter connections with backoff, keeps running through broker outages
 - **MQTT Auto-Discovery** — all entities appear automatically under a single device
 - **Auto MQTT credentials** — uses Home Assistant MQTT Service by default
+- **Derived values and bridge diagnostics** — house consumption, autarky, self-consumption, PV power per string, battery charge/discharge split; diagnostic entities for errors, cycle time, uptime and batch mode
 - **Comprehensive test suite** — 93% coverage with unit, integration, and E2E tests
 - **Batch Reading Mode** (optional) — up to 75% faster Modbus cycles with automatic fallback to sequential mode
 - **Multi-architecture support** (aarch64, amd64, armhf, armv7, i386)

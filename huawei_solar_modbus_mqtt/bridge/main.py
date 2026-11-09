@@ -25,7 +25,7 @@ import signal
 import sys
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from huawei_solar import AsyncHuaweiSolarClient, RegisterName, create_tcp_client
@@ -35,6 +35,7 @@ from tmodbus.exceptions import ModbusConnectionError
 from .batch_builder import BatchBuilder
 from .config.registers import ESSENTIAL_REGISTERS
 from .config_manager import ConfigManager, ConfigurationError
+from .diagnostics import BatchMode, build_bridge_diagnostics
 from .error_tracker import ConnectionErrorTracker, ErrorType
 from .logging_utils import get_logger
 from .mqtt_client import (
@@ -127,6 +128,8 @@ class _BridgeState:
     last_success: float = 0.0
     config: "ConfigManager | None" = None
     cycle_count: int = 0
+    start_time: float = field(default_factory=time.monotonic)  # Monotonic-Startzeit, für bridge_uptime
+    batch_mode: BatchMode = "sequential"  # gesetzt in read_registers(), für bridge_batch_mode
 
     async def publish_status(self, status: str, topic: str) -> None:
         if self.config is not None:
@@ -351,11 +354,13 @@ async def read_registers(
 
     start = time.time()
     data = {}
+    _state.batch_mode = "sequential"  # Diagnose: wird unten auf batch/fallback angehoben
 
     # === SMART BATCHING MODE (v1.10.0+) ===
     # Sort registers by Modbus address and group by proximity to reduce TCP calls
     if enable_batching and len(ESSENTIAL_REGISTERS) > 1:
         try:
+            _state.batch_mode = "batch"
             builder = BatchBuilder(batch_max_gap=batch_max_gap, enable_batching=True)
             batches, unknown_registers = builder.build_batches(ESSENTIAL_REGISTERS)
 
@@ -413,6 +418,7 @@ async def read_registers(
                         batch_max_gap,
                     )
                     # Fall back to sequential for this batch
+                    _state.batch_mode = "fallback"
                     for name in batch:
                         if (result := await _read_single_register(client, name)) is not None:
                             data[result[0]] = result[1]
@@ -446,6 +452,7 @@ async def read_registers(
 
         except READ_EXCEPTIONS as e:
             logger.debug("⚠️ Smart batching failed (%s), falling back to sequential mode", e)
+            _state.batch_mode = "fallback"
             data = {}  # Reset data, will retry sequentially
 
     # === SEQUENTIAL MODE (v1.9.0 behavior) ===
@@ -540,21 +547,21 @@ async def main_once(client: AsyncHuaweiSolarClient, config: ConfigManager, cycle
     _state.cycle_count = cycle_num
     _state.config = config
 
-    start: float = time.time()
+    start: float = time.monotonic()  # Dauermessung per monotonic (Diagnose bridge_cycle_duration)
     logger.debug("Starting cycle")
 
     # === PHASE 1: Modbus Read ===
-    modbus_start: float = time.time()
+    modbus_start: float = time.monotonic()
     try:
         data = await read_registers(
             client,
             batch_max_gap=config.batch_max_gap,
             enable_batching=config.enable_batching,
         )
-        modbus_duration: float = time.time() - modbus_start
+        modbus_duration: float = time.monotonic() - modbus_start
     except Exception as e:
         if is_modbus_exception(e):
-            logger.warning("⚠️ Modbus read failed after %.1fs: %s", time.time() - start, e)
+            logger.warning("⚠️ Modbus read failed after %.1fs: %s", time.monotonic() - start, e)
         else:
             logger.error("❌ Read error: %s", e)
         raise
@@ -564,23 +571,36 @@ async def main_once(client: AsyncHuaweiSolarClient, config: ConfigManager, cycle
         return False
 
     # === PHASE 2: Transform ===
-    transform_start: float = time.time()
+    transform_start: float = time.monotonic()
     transformed = transform_data(data)
-    transform_duration: float = time.time() - transform_start
+    transform_duration: float = time.monotonic() - transform_start
 
     # === PHASE 3: Filter ===
-    filter_start: float = time.time()
+    filter_start: float = time.monotonic()
     filter_instance = get_filter()
     mqtt_data = filter_instance.filter(transformed)
-    filter_duration = time.time() - filter_start
+    filter_duration = time.monotonic() - filter_start
+
+    # === PHASE 3b: Bridge-Diagnose ===
+    # Nach dem Filter, damit Filterstatistik und Logs unberührt bleiben.
+    # Zyklusdauer = Modbus + Transform + Filter, ohne MQTT-Publish.
+    mqtt_data = {
+        **mqtt_data,
+        **build_bridge_diagnostics(
+            _error_tracker,
+            start_time=_state.start_time,
+            cycle_duration=time.monotonic() - start,
+            batch_mode=_state.batch_mode,
+        ),
+    }
 
     # === PHASE 4: MQTT Publish ===
-    mqtt_start: float = time.time()
+    mqtt_start: float = time.monotonic()
     await publish_data(mqtt_data, config.mqtt_topic)
     _state.last_success = time.time()
-    mqtt_duration = time.time() - mqtt_start
+    mqtt_duration = time.monotonic() - mqtt_start
 
-    cycle_duration: float = time.time() - start
+    cycle_duration: float = time.monotonic() - start
 
     # === PHASE 5: Logging ===
     timings = {

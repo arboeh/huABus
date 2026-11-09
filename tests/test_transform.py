@@ -7,7 +7,9 @@ from datetime import datetime
 from unittest.mock import Mock
 
 import pytest
-from bridge.transform import _cleanup_result, get_value, transform_data
+from bridge.transform import _cleanup_result, derive_battery_split, derive_values, get_value, transform_data
+from huawei_solar.register_definitions.base import Result
+from huawei_solar.register_values import MeterStatus
 
 # ---------------------------------------------------------------------------
 # TestGetValue
@@ -154,3 +156,219 @@ class TestTransformData:
 
         assert len(result) == 1
         assert "last_update" in result
+
+
+# ---------------------------------------------------------------------------
+# TestDeriveValues
+# ---------------------------------------------------------------------------
+# Vorzeichen-Konvention: Meter > 0 = Einspeisung, Batterie > 0 = Laden.
+
+
+def _inputs(ac, grid, pv=None, **extra):
+    """Baut Eingabewerte fuer derive_values()."""
+    values = {"power_active": ac, "meter_power_active": grid}
+    if pv is not None:
+        values["power_input"] = pv
+    values.update(extra)
+    return values
+
+
+class TestDerivePvStringPower:
+    """Leistung pro PV-String: U x I."""
+
+    def test_string_power_is_voltage_times_current(self):
+        result = derive_values({"voltage_PV1": 400.0, "current_PV1": 5.0})
+        assert result["power_PV1"] == 2000.0
+
+    @pytest.mark.parametrize(
+        "values",
+        [
+            {"voltage_PV3": None, "current_PV3": 1.0},
+            {"voltage_PV3": 300.0, "current_PV3": None},
+            {"voltage_PV3": 300.0},
+            {},
+        ],
+    )
+    def test_string_power_missing_without_both_inputs(self, values):
+        assert "power_PV3" not in derive_values(values)
+
+    def test_all_four_strings_derived(self):
+        values = {f"{kind}_PV{n}": 10.0 for n in range(1, 5) for kind in ("voltage", "current")}
+        result = derive_values(values)
+        assert [result[f"power_PV{n}"] for n in range(1, 5)] == [100.0] * 4
+
+    def test_bool_input_ignored(self):
+        assert "power_PV1" not in derive_values({"voltage_PV1": True, "current_PV1": 5.0})
+
+
+class TestDeriveHousePower:
+    """Hausverbrauch = AC-Ausgang - Netzleistung."""
+
+    @pytest.mark.parametrize(
+        ("ac", "grid", "house"),
+        [
+            (3000, 1000, 2000.0),  # Einspeisung
+            (0, -500, 500.0),  # Netzbezug
+            (-3000, -3500, 500.0),  # Netzladen der Batterie
+            (2000, -300, 2300.0),  # Batterieentladung
+            (100, 300, 0.0),  # Messversatz: Untergrenze 0
+        ],
+    )
+    def test_house_power(self, ac, grid, house):
+        assert derive_values(_inputs(ac, grid))["power_house"] == house
+
+    def test_missing_meter_gives_no_house_power(self):
+        result = derive_values(_inputs(3000, None))
+        assert "power_house" not in result
+
+    def test_missing_ac_gives_no_house_power(self):
+        assert "power_house" not in derive_values({"meter_power_active": 100})
+
+    @pytest.mark.parametrize("bad", [True, "x", None])
+    def test_non_numeric_meter_treated_as_missing(self, bad):
+        result = derive_values(_inputs(3000, bad))
+        assert not {"power_house", "ratio_autarky", "ratio_self_consumption"} & set(result)
+
+
+class TestDeriveRatios:
+    """Autarkie- und Eigenverbrauchsquote."""
+
+    def test_surplus(self):
+        result = derive_values(_inputs(3600, 1000, pv=4000))
+        assert result["power_house"] == 2600.0
+        assert result["ratio_autarky"] == 100.0
+        assert result["ratio_self_consumption"] == 75.0
+
+    def test_grid_import_only(self):
+        result = derive_values(_inputs(0, -500, pv=0))
+        assert result["ratio_autarky"] == 0.0
+
+    def test_battery_discharge_autarky(self):
+        assert derive_values(_inputs(2000, -300))["ratio_autarky"] == 87.0
+
+    def test_grid_charging_clamped_to_zero(self):
+        assert derive_values(_inputs(-3000, -3500))["ratio_autarky"] == 0.0
+
+    def test_self_consumption_clamped_to_range(self):
+        # Einspeisung groesser als Erzeugung (Messversatz) -> 0, nie negativ
+        assert derive_values(_inputs(100, 500, pv=100))["ratio_self_consumption"] == 0.0
+
+    def test_ratios_missing_below_threshold(self):
+        result = derive_values(_inputs(20, 10, pv=30))
+        assert "ratio_autarky" not in result
+        assert "ratio_self_consumption" not in result
+
+    def test_self_consumption_missing_without_pv_input(self):
+        result = derive_values(_inputs(2000, -300))
+        assert "ratio_self_consumption" not in result
+
+    def test_values_rounded_to_one_decimal(self):
+        """66,67 % wird auf 66,7 gerundet, nicht abgeschnitten."""
+        result = derive_values(_inputs(1000, -500))  # Haus 1500, Import 500: 1000/1500
+        assert result["ratio_autarky"] == 66.7
+        result = derive_values(_inputs(1000, 1000, pv=3000))  # Haus 0, Export 1000: 2000/3000
+        assert result["ratio_self_consumption"] == 66.7
+
+    def test_input_not_mutated(self):
+        values = _inputs(3600, 1000, pv=4000)
+        snapshot = dict(values)
+        derive_values(values)
+        assert values == snapshot
+
+
+class TestMeterStatusGate:
+    """meter_status OFFLINE (0) sperrt Hausverbrauch und Quoten."""
+
+    DERIVED = {"power_house", "ratio_autarky", "ratio_self_consumption"}
+
+    @pytest.mark.parametrize("status", [0, 0.0, "OFFLINE", "offline", MeterStatus.OFFLINE])
+    def test_offline_blocks_meter_dependent_values(self, status):
+        result = derive_values(_inputs(3000, 0, pv=4000, meter_status=status))
+        assert not self.DERIVED & set(result)
+
+    @pytest.mark.parametrize("status", [1, "NORMAL", MeterStatus.NORMAL])
+    def test_normal_allows_values(self, status):
+        result = derive_values(_inputs(3000, 1000, pv=4000, meter_status=status))
+        assert self.DERIVED <= set(result)
+
+    def test_missing_status_does_not_block(self):
+        assert self.DERIVED <= set(derive_values(_inputs(3000, 1000, pv=4000)))
+
+    def test_offline_keeps_pv_string_power(self):
+        values = _inputs(3000, 0, meter_status=0, voltage_PV1=400.0, current_PV1=5.0)
+        assert derive_values(values)["power_PV1"] == 2000.0
+
+
+class TestDeriveBatterySplit:
+    """Batterieleistung getrennt in Laden und Entladen."""
+
+    @pytest.mark.parametrize(
+        ("power", "charge", "discharge"),
+        [(1500, 1500, 0), (-800, 0, 800), (0, 0, 0)],
+    )
+    def test_split(self, power, charge, discharge):
+        result = derive_battery_split({"battery_power": power})
+        assert result == {"battery_power_charge": charge, "battery_power_discharge": discharge}
+
+    @pytest.mark.parametrize("bad", [None, True, "x"])
+    def test_non_numeric_gives_no_keys(self, bad):
+        assert derive_battery_split({"battery_power": bad}) == {}
+
+    def test_missing_key_gives_no_keys(self):
+        assert derive_battery_split({}) == {}
+
+
+class TestTransformDerived:
+    """Abgeleitete Werte in der kompletten Pipeline."""
+
+    @staticmethod
+    def _registers(**named):
+        """Echte `Result`-Objekte der huawei_solar-Bibliothek (wie von read_registers)."""
+        return {name: Result(value, None) for name, value in named.items()}
+
+    def test_round_trip_contains_derived_keys(self):
+        data = self._registers(
+            active_power=3600,
+            input_power=4000,
+            power_meter_active_power=1000,
+            storage_charge_discharge_power=-200,
+            meter_status=MeterStatus.NORMAL,
+            pv_01_voltage=400.0,
+            pv_01_current=5.0,
+        )
+        result = transform_data(data)
+
+        assert result["power_PV1"] == 2000.0
+        assert result["power_house"] == 2600.0
+        assert result["ratio_autarky"] == 100.0
+        assert result["ratio_self_consumption"] == 75.0
+        assert result["battery_power_charge"] == 0
+        assert result["battery_power_discharge"] == 200
+        assert "last_update" in result
+        assert None not in result.values()
+
+    def test_missing_meter_does_not_fake_full_autarky(self):
+        """Regression: Default meter=0 darf keine 100 % Autarkie vortaeuschen."""
+        data = self._registers(active_power=3000, input_power=3500)
+        result = transform_data(data)
+
+        assert result["meter_power_active"] == 0  # CRITICAL_DEFAULT bleibt
+        assert "power_house" not in result
+        assert "ratio_autarky" not in result
+        assert "ratio_self_consumption" not in result
+
+    def test_missing_battery_gives_zero_split(self):
+        result = transform_data(self._registers(active_power=3000))
+        assert result["battery_power_charge"] == 0
+        assert result["battery_power_discharge"] == 0
+
+    def test_offline_meter_blocks_house_values(self):
+        data = self._registers(
+            active_power=3000,
+            input_power=3500,
+            power_meter_active_power=0,
+            meter_status=0,
+        )
+        result = transform_data(data)
+        assert "power_house" not in result
+        assert "ratio_autarky" not in result

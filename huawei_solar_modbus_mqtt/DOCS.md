@@ -79,6 +79,8 @@ INFO - 📊 Published - PV: 4500W | AC Out: 4200W | ...
   - No warmup phase - immediate protection
   - Automatic reset on connection errors
 - **Error Tracking:** Intelligent error aggregation with downtime tracking
+- **Derived values:** PV power per string, house consumption, autarky and self-consumption ratio, battery charge/discharge split (computed from existing registers, no extra Modbus reads)
+- **Bridge diagnostics:** error count, cycle duration, uptime and batch mode as diagnostic entities
 - **Comprehensive Monitoring:**
   - PV power (PV1-4 with voltage/current)
   - Grid power (Import/Export, 3-phase)
@@ -133,6 +135,20 @@ Find entities at: **Settings → Devices & Services → MQTT → "Huawei Solar I
 
 - `sensor.solar_power`, `sensor.input_power`, `sensor.grid_power`, `sensor.battery_power`, `sensor.pv1_power`
 
+**Derived (computed by the bridge, no extra Modbus reads):**
+
+- `sensor.house_power` (AC output minus grid power), `sensor.autarky`, `sensor.self_consumption` (%)
+- `sensor.battery_charge_power`, `sensor.battery_discharge_power` (battery power split, both positive)
+- PV power per string: `sensor.pv1_power` (PV2–4 disabled by default)
+
+**Sign convention:** `grid_power` > 0 = feed-in, < 0 = grid import. `battery_power` > 0 = charging, < 0 = discharging.
+
+**Limits:**
+
+- House power and ratios describe this inverter and its meter only. A second inverter, a wallbox or another producer behind the same meter is not included.
+- If the meter value is missing or `meter_status` reports offline (0), house power and ratios are not published and show "unknown".
+- For the Energy dashboard use the kWh counters (`sensor.battery_total_charge` etc.). The split power sensors do not replace them.
+
 **Energy (filter-protected):**
 
 - `sensor.solar_daily_yield`, `sensor.solar_total_yield`\*
@@ -160,6 +176,15 @@ Find entities at: **Settings → Devices & Services → MQTT → "Huawei Solar I
 
 - `binary_sensor.huawei_solar_status` (online/offline)
 - `sensor.inverter_status`, `sensor.battery_status`
+
+### Bridge Diagnostic Entities (enabled by default)
+
+- `sensor.bridge_errors`: cycle-level errors (Modbus and MQTT) since add-on start. Not reset on recovery; a restart resets it.
+- `sensor.bridge_cycle_duration`: seconds for Modbus read, transform and filter of the last cycle, without MQTT publish
+- `sensor.bridge_uptime`: seconds since add-on start
+- `sensor.bridge_batch_mode`: `batch`, `fallback` or `sequential` (read mode)
+
+These values are published only after a successful cycle. During an outage the entities show "unavailable" until the first successful cycle after recovery.
 
 ### Diagnostic Entities (disabled by default)
 

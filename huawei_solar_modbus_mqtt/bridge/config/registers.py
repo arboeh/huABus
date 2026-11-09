@@ -30,7 +30,7 @@ ESSENTIAL_REGISTERS = [
     # Power (W) - Current instantaneous values
     "active_power",  # AC output power (to grid/house)
     "input_power",  # DC input power (solar generation)
-    "power_meter_active_power",  # Smart meter power (+import/-export)
+    "power_meter_active_power",  # Smart meter power (+export/-import)
     "storage_charge_discharge_power",  # Battery power (+charge/-discharge)
     #
     # Battery status
