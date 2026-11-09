@@ -277,9 +277,7 @@ git checkout main && git pull --ff-only
 git fetch origin
 c=$(git commit-tree origin/dev^{tree} -p origin/main -p origin/dev -m "Release v1.X.Y: Titel")
 git merge --ff-only $c
-git checkout origin/main -- .github/workflows/release.yaml   # NUR im Prod-Repo vorhanden, fehlt im dev-Tree!
-git commit -m "ci: keep release workflow"   # nur falls die Datei sonst fehlen würde
-git diff --stat origin/dev HEAD   # darf nur release.yaml zeigen
+git diff --stat origin/dev HEAD   # muss leer sein
 git push origin main
 ```
 
@@ -291,7 +289,7 @@ git merge dev --no-ff -m "Release v1.X.Y: Titel"
 git push origin main
 ```
 
-**Achtung:** `.github/workflows/release.yaml` existiert nur im Prod-Repo (`main`), nicht im Dev-Repo und nicht in `prod/dev`. Ein Merge mit dem dev-Tree löscht sie, also immer wiederherstellen (Release wird sonst nicht erstellt).
+**Hinweis:** `.github/workflows/release.yaml` liegt in beiden Repos und wird mit gepusht. Die Bedingung `github.repository == 'arboeh/huABus'` verhindert, dass sie im Dev-Repo (`huABus-dev`) einen Release erstellt. Diese Bedingung nicht entfernen.
 
 **Commit-Message-Format:**
 
