@@ -205,7 +205,7 @@ jobs:
         test-bash-advanced,
         test-docker,
       ]
-    if: always()
+    if: ${{ !cancelled() }}
     steps:
       - name: Check all jobs
         run: |
