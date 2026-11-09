@@ -34,6 +34,7 @@ $DevOnlyFiles = @(
     ".pre-commit-config.yaml",
     "pyrightconfig.json",
     ".vscode",
+    ".mcp.json",
 
     # Development Config Files
     ".env.example",
