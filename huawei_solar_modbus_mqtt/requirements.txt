@@ -2,7 +2,7 @@
 #    uv export --no-dev --no-hashes --no-emit-project
 huawei-solar==3.0.7
     # via huabus
-paho-mqtt==2.1.0
+paho-mqtt==2.2.0
     # via huabus
 pywin32==312 ; sys_platform == 'win32'
     # via serialx
