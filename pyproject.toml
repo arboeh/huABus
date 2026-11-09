@@ -24,7 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "huawei-solar>=3.0,<3.1",
-    "paho-mqtt>=2.1,<2.2",
+    "paho-mqtt>=2.1,<2.3",
 ]
 
 
