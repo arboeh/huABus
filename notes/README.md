@@ -247,73 +247,73 @@ What stayed in Dev-only:
 
 ### 9. CI Testing & Final Checks
 
-```bash
-cd I:\Development\huABus
+Der Push aus Schritt 8 löst die CI im Prod-Repo auf `dev` aus.
 
-# Dev branch zu GitHub pushen (CI läuft)
-git checkout dev
-git pull
-git push origin dev
+```bash
+gh run list -R arboeh/huABus --branch dev -L 3
 ```
 
-**Warte auf CI:**
-
 - [GitHub Actions](https://github.com/arboeh/huABus/actions)
-- Alle Tests müssen grün sein ✅
+- Alle Jobs müssen grün sein ✅
 
 ---
 
-### 10. Release erstellen (Production)
+### 10. Merge dev → main (Production)
+
+**Kein manueller Tag!** Tag und GitHub-Release erstellt der Workflow
+`release.yaml` automatisch (siehe Schritt 11).
+
+Der gefilterte Push erzeugt in `prod/dev` neue Commit-Hashes. Ein normaler
+Merge `dev` → `main` kann deshalb Konflikte in `config.yaml`, `version.py`,
+`CHANGELOG.md`, READMEs und Tests liefern. Inhaltlich ist `prod/dev` ein
+Superset von `main`, der Tree von `dev` ist maßgeblich.
+
+Falls `gh pr create --base main --head dev` Konflikte meldet
+(`mergeable: CONFLICTING`), Merge-Commit mit dem Tree von `dev` bauen:
 
 ```bash
 cd I:\Development\huABus
+git checkout main && git pull --ff-only
+git fetch origin
+c=$(git commit-tree origin/dev^{tree} -p origin/main -p origin/dev -m "Release v1.X.Y: Titel")
+git merge --ff-only $c
+git diff --stat origin/dev HEAD   # muss leer sein
+git push origin main
+```
 
-# Merge dev → main
+Ohne Konflikte reicht der normale Merge:
+
+```bash
 git checkout main
-git merge dev --no-ff -m "Release v1.8.0: Auto Slave ID Detection"
-
-# Git Tag erstellen
-git tag -a v1.8.0 -m "Release v1.8.0
-
-### Added
-- Automatic Slave ID detection
-- MQTT auto-authentication
-- Dynamic register count
-
-### Changed
-- Improved error handling
-
-### Fixed
-- Connection timeout issues"
-
-# Push zu GitHub (löst Release-Build aus)
-git push origin main --tags
-git push origin dev
+git merge dev --no-ff -m "Release v1.X.Y: Titel"
+git push origin main
 ```
 
 **Commit-Message-Format:**
 
 - Release: `Release v1.8.0: Feature-Name`
 - Hotfix: `Hotfix v1.8.0.1`
-- Pre-Release: `Pre-release v1.9.0-beta.1`
 
 ---
 
 ### 11. GitHub Release (Automatisch)
 
-Nach dem Push mit Tag:
+Nach dem Push auf `main`:
 
-1. **GitHub Actions** startet automatisch
-2. **Build** für alle Architekturen (amd64, armhf, armv7, aarch64, i386)
-3. **Docker Images** werden zu GitHub Container Registry gepusht
-4. **Release-Notes** aus `CHANGELOG.md` werden extrahiert
+1. Workflow **CI** läuft auf `main`
+2. Bei Erfolg startet **Release** (`.github/workflows/release.yaml`, `workflow_run`)
+3. Version wird aus `huawei_solar_modbus_mqtt/config.yaml` gelesen
+4. Existiert `vX.Y.Z` schon, passiert nichts (normale Merges sind unkritisch)
+5. Release-Notes werden aus dem Abschnitt `## [X.Y.Z]` in `CHANGELOG.md` extrahiert
+   (fehlt der Abschnitt, schlägt der Workflow fehl)
+6. Tag + GitHub-Release werden erstellt
 
 **Fortschritt prüfen:**
 
-- [GitHub Actions](https://github.com/arboeh/huABus/actions)
-- Workflow: "Build and Publish"
-
-**Erwartete Dauer:** 15-25 Minuten (alle Architekturen)
+```bash
+gh run list -R arboeh/huABus --branch main -L 4
+gh release list -R arboeh/huABus -L 3
+```
 
 ---
 
@@ -468,11 +468,11 @@ Kopiere diese Liste in GitHub Issue oder PR:
 
 ### Release (huABus/main)
 
-- [ ] Merge dev → main: `git merge dev --no-ff`
-- [ ] Git Tag erstellt: `v1.8.0`
-- [ ] Push zu GitHub: `git push origin main --tags`
-- [ ] GitHub Actions Build erfolgreich (alle Architekturen)
-- [ ] Release-Notes verifiziert
+- [ ] CI auf `prod/dev` grün
+- [ ] Merge dev → main (bei Konflikten: Merge-Commit mit dev-Tree, Schritt 10)
+- [ ] Push auf `main` (**kein manueller Tag**)
+- [ ] CI auf `main` grün, Workflow "Release" erfolgreich
+- [ ] Tag `v1.8.0` + GitHub-Release automatisch erstellt, Notes aus CHANGELOG
 
 ### Post-Release
 
@@ -534,8 +534,7 @@ cd I:\Development\huABus-dev
 cd I:\Development\huABus
 git checkout main
 git merge dev --no-ff -m "Release v1.X.Y"
-git tag v1.X.Y
-git push origin main --tags
+git push origin main   # Tag + Release macht release.yaml automatisch
 ```
 
 ### Back to Development
@@ -633,4 +632,5 @@ python scripts/update_version.py
 5. **Automatisierung** - Scripts für wiederkehrende Tasks nutzen
 6. **Version Sync** - Immer via `update_version.py` synchronisieren (sync + requirements.txt)
 7. **CI-Trigger** - Nur bei Push zu GitHub, nicht lokal
+   **Release automatisch** - Push auf `main` + grüne CI → `release.yaml` erstellt Tag und Release (nie manuell taggen)
 8. **Pre-commit nur in Dev** - Prod-Repo braucht keine Hooks
