@@ -4,7 +4,7 @@ name: Release
 permissions:
   contents: read
 
-# Runs after CI succeeded on main. Creates tag + GitHub release from the
+# Runs after CI succeeded on main (production repo arboeh/huABus only). Creates tag + GitHub release from the
 # version in config.yaml, with notes taken from CHANGELOG.md. Skips if the
 # release already exists, so ordinary merges to main do nothing.
 on:
@@ -19,7 +19,8 @@ concurrency:
 
 jobs:
   release:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    # Only in the production repo; the dev repo carries this file but must not release.
+    if: github.repository == 'arboeh/huABus' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
