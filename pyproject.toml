@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Home Automation",
 ]
 dependencies = [
-    "huawei-solar>=3.0,<3.1",
+    "huawei-solar>=3.0,<3.2",
     "paho-mqtt>=2.1,<2.3",
 ]
 
